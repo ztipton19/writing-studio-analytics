@@ -261,6 +261,15 @@ def create_calculated_fields(df):
     if 'Is_First_Appointment' in df_calc.columns:
         df_calc['Is_First_Timer'] = df_calc['Is_First_Appointment'].str.lower().isin(['yes', 'y', 'true'])
     
+    # Academic calendar fields (semester, academic year)
+    if 'Appointment_DateTime' in df_calc.columns:
+        # Import here to avoid circular imports
+        from src.utils.academic_calendar import detect_semester, get_academic_year, get_semester_label
+        
+        df_calc['Semester'] = df_calc['Appointment_DateTime'].apply(detect_semester)
+        df_calc['Academic_Year'] = df_calc['Appointment_DateTime'].apply(get_academic_year)
+        df_calc['Semester_Label'] = df_calc['Appointment_DateTime'].apply(get_semester_label)
+    
     return df_calc
 
 
@@ -491,9 +500,19 @@ def analyze_missing_values(df):
     # Cancellation context
     if 'Status' in df.columns:
         total_sessions = len(df)
+        
+        # Count cancelled sessions
         cancelled = df['Status'].str.lower().str.contains('cancel', na=False).sum()
-        no_show = df['Status'].str.lower().str.contains('no.?show', na=False, regex=True).sum()
-        completed = df['Status'].str.lower().str.contains('complete|attended', na=False, regex=True).sum()
+        
+        # No-shows are marked as "Absent" in Attendance_Status (different from cancelled)
+        if 'Attendance_Status' in df.columns:
+            no_show = df['Attendance_Status'].str.lower().str.contains('absent', na=False).sum()
+            # Completed = marked as Present in Attendance_Status
+            completed = df['Attendance_Status'].str.lower().str.contains('present', na=False).sum()
+        else:
+            # Fallback to Status column if Attendance_Status doesn't exist
+            no_show = df['Status'].str.lower().str.contains('no.?show', na=False, regex=True).sum()
+            completed = df['Status'].str.lower().str.contains('complete|attended', na=False, regex=True).sum()
         
         context['cancellations'] = {
             'total_sessions': total_sessions,
