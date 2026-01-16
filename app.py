@@ -34,8 +34,7 @@ st.sidebar.title("📊 Writing Studio Analytics")
 st.sidebar.markdown("---")
 st.sidebar.info(
     "**Privacy-First Analytics Tool**\n\n"
-    "Generate comprehensive reports from Penji tutoring data while "
-    "protecting student and tutor privacy."
+    "Generate comprehensive reports from Penji."
 )
 
 st.sidebar.markdown("---")
@@ -44,7 +43,7 @@ st.sidebar.markdown(
     "Built for University of Arkansas Writing Studio. "
     "Generates FERPA-compliant analytics reports with optional "
     "encrypted reverse-lookup capability.\n\n"
-    "Created by Zachary (Graduate Assistant)"
+    "Created by Zachary Tipton (Graduate Assistant)"
 )
 
 
@@ -133,8 +132,50 @@ with tab1:
                 st.stop()
             
             # Show preview
-            with st.expander("📋 Data Preview (first 5 rows)"):
-                st.dataframe(df.head(), use_container_width=True)
+            with st.expander("📋 Data Summary"):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("**📅 Date Information:**")
+                    if 'Requested At Date' in df.columns:
+                        dates = pd.to_datetime(df['Requested At Date'], errors='coerce')
+                        st.write(f"- First session: {dates.min().strftime('%B %d, %Y')}")
+                        st.write(f"- Last session: {dates.max().strftime('%B %d, %Y')}")
+                        st.write(f"- Span: {(dates.max() - dates.min()).days} days")
+                    
+                    st.markdown("**📊 Session Statistics:**")
+                    if 'Status' in df.columns:
+                        status_counts = df['Status'].value_counts()
+                        for status, count in status_counts.head(3).items():
+                            pct = (count / len(df)) * 100
+                            st.write(f"- {status}: {count:,} ({pct:.1f}%)")
+                
+                with col2:
+                    st.markdown("**👥 Participation:**")
+                    # Count unique emails (safe - just counts)
+                    tutor_col = 'Tutor - Email the session receipt to'
+                    if tutor_col in df.columns:
+                        unique_tutors = df[tutor_col].nunique()
+                        st.write(f"- Unique tutors: {unique_tutors}")
+                    
+                    # Estimate unique students (by session UUID)
+                    if 'Unique ID' in df.columns:
+                        unique_sessions = df['Unique ID'].nunique()
+                        st.write(f"- Unique sessions: {unique_sessions:,}")
+                    
+                    st.markdown("**📝 Data Completeness:**")
+                    # Show % of required fields filled
+                    if 'Scheduled Length' in df.columns:
+                        filled = df['Scheduled Length'].notna().sum()
+                        pct = (filled / len(df)) * 100
+                        st.write(f"- Scheduled length: {pct:.1f}% filled")
+                    
+                    if expected_mode == 'scheduled':
+                        if 'Agenda - How confident do you feel about your writing assignment right now? (1=\"Not at all\"; 5=\"Very\")' in df.columns:
+                            conf_col = 'Agenda - How confident do you feel about your writing assignment right now? (1=\"Not at all\"; 5=\"Very\")'
+                            filled = df[conf_col].notna().sum()
+                            pct = (filled / len(df)) * 100
+                            st.write(f"- Pre-survey: {pct:.1f}% complete")
             
             st.markdown("---")
             
