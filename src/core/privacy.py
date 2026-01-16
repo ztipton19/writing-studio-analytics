@@ -1,307 +1,400 @@
 # src/core/privacy.py
 
 import pandas as pd
+import hashlib
 import re
+from datetime import datetime
+import json
+import base64
+import os
+
+
+# ============================================================================
+# PII DETECTION
+# ============================================================================
 
 def detect_pii_columns(df):
     """
-    Detect columns containing PII using both exact matches and patterns.
-    Returns list of column names to remove.
+    Two-layer PII detection system:
+    1. Exact column name matching
+    2. Pattern-based detection for variations
     """
-    pii_columns = []
+    pii_columns = set()
     
-    # Layer 1: Known exact column names
+    # Layer 1: Known PII column names (exact match)
     known_pii = [
-        'Student Email',
-        'Student SSO ID',
-        'Student ID',
-        'Student Name',
-        'Source User Email',
-        'Tutor Email',
-        'Tutor SSO ID',
-        'Tutor Name',
-        'Agenda - Please enter your UARK email here.',
+        'Student Email', 'Student SSO ID', 'Student - Student ID', 
+        'Student Name', 'Tutor Name', 'Tutor Email',
         'Tutor - Email the session receipt to'
     ]
     
-    for col in known_pii:
-        if col in df.columns:
-            pii_columns.append(col)
+    for col in df.columns:
+        if col in known_pii:
+            pii_columns.add(col)
     
     # Layer 2: Pattern-based detection
     for col in df.columns:
         col_lower = col.lower()
         
-        # Skip if already caught
-        if col in pii_columns:
-            continue
-        
-        # Check column name patterns
-        pii_keywords = [
-            'email', 'sso', 'student id', 'tutor id',
-            'name', 'first name', 'last name',
-            'phone', 'address', 'ssn'
-        ]
-        
+        # Check for PII keywords
+        pii_keywords = ['email', 'sso', 'student id', 'name']
         if any(keyword in col_lower for keyword in pii_keywords):
-            # Additional check: look at actual data
-            if is_pii_data(df[col]):
-                pii_columns.append(col)
+            # Validate with data pattern
+            if _is_pii_data(df[col]):
+                pii_columns.add(col)
     
-    return list(set(pii_columns))  # Remove duplicates
+    return list(pii_columns)
 
 
-def is_pii_data(series):
+def _is_pii_data(series):
     """
-    Check if a column's data looks like PII.
-    Returns True if it appears to contain sensitive info.
+    Check if column contains PII based on data patterns
     """
-    # Skip if mostly empty
-    if series.isna().sum() / len(series) > 0.9:
+    sample = series.dropna().head(10)
+    
+    if len(sample) == 0:
         return False
     
-    sample = series.dropna().head(100).astype(str)
-    
-    # Email pattern
+    # Check for email patterns
     email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-    if sample.str.match(email_pattern).any():
+    if any(re.search(email_pattern, str(val)) for val in sample):
         return True
     
-    # SSO ID pattern (usually alphanumeric, 6-12 chars)
-    sso_pattern = r'^[a-zA-Z0-9]{6,12}$'
-    if sample.str.match(sso_pattern).sum() > len(sample) * 0.5:
+    # Check for SSO ID patterns (typically alphanumeric)
+    sso_pattern = r'^[a-zA-Z0-9]{6,10}$'
+    if any(re.match(sso_pattern, str(val)) for val in sample):
         return True
     
-    # Student ID pattern (usually numeric, 7-10 digits)
-    id_pattern = r'^\d{7,10}$'
-    if sample.str.match(id_pattern).sum() > len(sample) * 0.5:
-        return True
-    
-    # Name pattern (2+ words, capitalized)
-    name_pattern = r'^[A-Z][a-z]+ [A-Z][a-z]+'
-    if sample.str.match(name_pattern).sum() > len(sample) * 0.3:
+    # Check for name patterns (contains spaces, starts with capital)
+    name_pattern = r'^[A-Z][a-z]+ [A-Z][a-z]+.*$'
+    if any(re.match(name_pattern, str(val)) for val in sample):
         return True
     
     return False
 
 
-def get_essential_columns():
-    """
-    Define which columns we actually need for analytics.
-    This is the WHITELIST - only keep these (plus anonymized IDs).
-    """
-    essential = [
-        # Session Identifiers
-        'Unique ID',
-        
-        # Session Metadata
-        'Status',
-        'Source Kind',
-        'Booking Flow',
-        'Appointment Type',
-        'Kind',
-        'Course',
-        'Location',
-        
-        # Booking Times
-        'Requested At Date',
-        'Requested At Time',
-        
-        # Appointment Times (we'll rename these during cleaning)
-        'Requested Start At Date',
-        'Requested Start At Time',
-        'Requested End At Time',
-        'Requested Length',
-        
-        # Actual Session Times
-        'Started At Date',
-        'Started At Time',
-        'Ended At Date',
-        'Ended At Time',
-        'Tutor Submitted Length',
-        
-        # Attendance & Outcomes
-        'Student Attendance',
-        'Student Attendance Reason',
-        'Cancel Reason',
-        'Session Feedback From Student',
-        
-        # Agenda Questions (Pre-session)
-        'Agenda - For which course are you writing this document? (If not applicable, write "N/A")',
-        'Agenda - How confident do you feel about your writing assignment right now? (1="Not at all"; 5="Very")',
-        'Agenda - Is this your first appointment?',
-        'Agenda - Please check one of the following boxes to help us determine the context of your visit.',
-        'Agenda - Roughly speaking, what stage of the writing process are you in right now?',
-        'Agenda - What would you like to focus on during this appointment?',
-        'Agenda - When is your paper due?',
-        
-        # Student Feedback (Post-session)
-        'Student - How confident do you feel about your writing assignment now that your meeting is over? (1="Not at all"; 5="Very")',
-        'Student - On a scale of 1-5 (1="not at all," 5="extremely well"), how well did you get along with your tutor?',
-        'Student - On a scale of 1-5 (1="not easy at all", 5="extremely easy"), how easy was it to use our website and scheduling software to schedule and attend your appointment?',
-        'Student - On a scale of 1-5 (1="very poorly", 5="very well"), how well would you say your your appointment went?',
-        'Student - On a scale of 1-7 (1="extremely dissatisfied," 7="extremely satisfied"), how satisfied are you with the help you received at the Writing Studio?',
-        'Student - Please share any comments that you would like us to share with your tutor.',
-        'Student - Please share any comments that you\'d like your tutor to see.',
-        'Student - Please share any obstacles, disappointments, or problems that you encountered during your consultation at the Writing Studio.',
-        'Student - Were you offered any of the following incentives for today\'s visit? Please select any that apply.',
-        
-        # Tutor Feedback
-        'Tutor - Overall, how well would you say that the consultation went?',
-        'Tutor - Please provide a brief overview of the topics discussed or issues addressed during your consultation.'
-    ]
-    
-    return essential
+# ============================================================================
+# ANONYMIZATION WITH CODEBOOK
+# ============================================================================
 
-
-def create_anonymous_ids(df):
+def anonymize_with_codebook(df, create_codebook=True, password=None, confirm_password=None):
     """
-    Create anonymized student and tutor IDs before removing PII.
+    Anonymize PII while optionally creating encrypted reverse-lookup codebook.
+    
+    Parameters:
+    - df: DataFrame with PII
+    - create_codebook: Whether to generate codebook
+    - password: Password to encrypt codebook
+    - confirm_password: Password confirmation
+    
+    Returns:
+    - df_anon: Anonymized dataframe
+    - codebook_path: Path to codebook (or None)
+    - anonymization_log: Summary of what was anonymized
     """
-    df_copy = df.copy()
     
-    # Student anonymization - try multiple possible ID columns
-    student_id_cols = ['Student SSO ID', 'Student ID', 'Student Email']
-    for col in student_id_cols:
-        if col in df_copy.columns:
-            df_copy['Student_Anon_ID'] = df_copy[col].apply(
-                lambda x: f"STU_{abs(hash(str(x))) % 100000:05d}" if pd.notna(x) else None
-            )
-            break
-    
-    # Tutor anonymization - try multiple possible ID columns
-    tutor_id_cols = ['Tutor SSO ID', 'Tutor Email', 'Tutor Name']
-    for col in tutor_id_cols:
-        if col in df_copy.columns:
-            df_copy['Tutor_Anon_ID'] = df_copy[col].apply(
-                lambda x: f"TUT_{abs(hash(str(x))) % 10000:04d}" if pd.notna(x) else None
-            )
-            break
-    
-    return df_copy
-
-
-def anonymize_and_clean(df, log_actions=True):
-    """
-    Main privacy function:
-    1. Create anonymous IDs (before removing PII)
-    2. Remove PII columns
-    3. Keep only essential columns
-    4. Return cleaned dataframe + logs
-    """
-    original_cols = len(df.columns)
-    
-    if log_actions:
-        print("="*80)
-        print("🔒 PRIVACY & DATA CLEANING")
-        print("="*80)
-        print(f"\nOriginal dataset: {len(df)} rows × {original_cols} columns")
-    
-    # Step 1: Create anonymized IDs BEFORE removing PII
-    df_anon = create_anonymous_ids(df)
-    
-    if log_actions:
-        if 'Student_Anon_ID' in df_anon.columns:
-            unique_students = df_anon['Student_Anon_ID'].nunique()
-            print(f"✓ Created {unique_students} anonymized student IDs")
-        if 'Tutor_Anon_ID' in df_anon.columns:
-            unique_tutors = df_anon['Tutor_Anon_ID'].nunique()
-            print(f"✓ Created {unique_tutors} anonymized tutor IDs")
-    
-    # Step 2: Detect and remove PII columns
-    pii_columns = detect_pii_columns(df_anon)
-    
-    if log_actions and pii_columns:
-        print(f"\n🔒 Removing {len(pii_columns)} PII columns:")
-        for col in sorted(pii_columns):
-            print(f"   - {col}")
-    
-    # Step 3: Get essential columns + our anonymized IDs
-    essential = get_essential_columns()
-    essential_in_df = [c for c in essential if c in df_anon.columns]
-    
-    # Add anonymized IDs to keep list
-    anon_cols = [c for c in df_anon.columns if c.startswith('Student_Anon') or c.startswith('Tutor_Anon')]
-    keep_columns = essential_in_df + anon_cols
-    
-    # Step 4: Keep only essential columns
-    df_clean = df_anon[keep_columns].copy()
-    
-    # Calculate what was removed
-    removed_pii = set(pii_columns)
-    removed_excess = set(df_anon.columns) - set(keep_columns) - removed_pii
-    
-    if log_actions:
-        print(f"\n🧹 Removing {len(removed_excess)} excess/duplicate columns:")
-        for col in sorted(list(removed_excess)[:10]):  # Show first 10
-            print(f"   - {col}")
-        if len(removed_excess) > 10:
-            print(f"   ... and {len(removed_excess) - 10} more")
+    # Validate password if codebook requested
+    if create_codebook:
+        if not password:
+            raise ValueError("Password required to create codebook")
         
-        print(f"\n✅ Clean dataset: {len(df_clean)} rows × {len(df_clean.columns)} columns")
-        print(f"   Removed: {original_cols - len(df_clean.columns)} columns total")
-        print(f"   - {len(removed_pii)} PII columns")
-        print(f"   - {len(removed_excess)} excess columns")
+        if password != confirm_password:
+            raise ValueError("Passwords do not match! Please re-enter matching passwords.")
+        
+        if len(password) < 12:
+            raise ValueError("Password must be at least 12 characters for security")
     
-    # Step 5: Final validation
-    validation_passed = validate_no_pii(df_clean, log_actions)
-    
-    # Create detailed log
-    cleanup_log = {
-        'original_rows': len(df),
-        'original_cols': original_cols,
-        'final_rows': len(df_clean),
-        'final_cols': len(df_clean.columns),
-        'pii_removed': list(removed_pii),
-        'excess_removed': list(removed_excess),
-        'anonymous_students': df_clean['Student_Anon_ID'].nunique() if 'Student_Anon_ID' in df_clean.columns else 0,
-        'anonymous_tutors': df_clean['Tutor_Anon_ID'].nunique() if 'Tutor_Anon_ID' in df_clean.columns else 0,
-        'validation_passed': validation_passed
+    # Initialize codebook and log
+    codebook = {
+        'students': {},
+        'tutors': {},
+        'metadata': {
+            'created': datetime.now().isoformat(),
+            'total_students': 0,
+            'total_tutors': 0,
+            'dataset_date_range': None
+        }
     }
     
-    return df_clean, cleanup_log
-
-
-def validate_no_pii(df, log_actions=True):
-    """
-    Final sanity check - scan for any remaining PII.
-    Returns True if clean, False if PII detected.
-    """
-    issues = []
+    anonymization_log = {
+        'pii_columns_removed': [],
+        'students_anonymized': 0,
+        'tutors_anonymized': 0,
+        'codebook_created': create_codebook
+    }
     
-    for col in df.columns:
-        # Skip our anonymous IDs
-        if col.startswith('Student_Anon') or col.startswith('Tutor_Anon'):
-            continue
-        
-        sample = df[col].dropna().head(100).astype(str)
-        
-        # Check for email addresses
-        if sample.str.contains('@', na=False).any():
-            issues.append(f"Possible email found in column '{col}'")
-        
-        # Check for column names that suggest PII
-        col_lower = col.lower()
-        if any(keyword in col_lower for keyword in ['email', 'sso', 'phone', 'address']):
-            issues.append(f"Column name suggests PII: '{col}'")
+    df_anon = df.copy()
     
-    if issues:
-        if log_actions:
-            print("\n⚠️ PRIVACY VALIDATION WARNINGS:")
-            for issue in issues:
-                print(f"   - {issue}")
-        return False
-    else:
-        if log_actions:
-            print("\n✅ Privacy validation passed - no PII detected")
-        return True
+    # Store date range for codebook metadata
+    if 'Requested At Date' in df.columns:
+        min_date = pd.to_datetime(df['Requested At Date']).min()
+        max_date = pd.to_datetime(df['Requested At Date']).max()
+        codebook['metadata']['dataset_date_range'] = f"{min_date.date()} to {max_date.date()}"
+    
+    # ========================================================================
+    # ANONYMIZE STUDENTS
+    # ========================================================================
+    
+    # NOTE: Penji exports don't include student emails for privacy!
+    # Student identity is in the Unique ID (session UUID)
+    # We'll use that to create anonymous IDs
+    
+    if 'Unique ID' in df.columns:
+        session_map = {}
+        
+        # Each session has a unique student (implicitly)
+        # Create student IDs based on session patterns
+        for session_id in df['Unique ID'].dropna().unique():
+            # Use session UUID to generate student ID
+            anon_id = f"STU_{abs(hash(session_id)) % 100000:05d}"
+            session_map[session_id] = anon_id
+        
+        df_anon['Student_Anon_ID'] = df['Unique ID'].map(session_map)
+        anonymization_log['students_anonymized'] = len(session_map)
+        codebook['metadata']['total_students'] = len(session_map)
+        
+        # Note: Without actual student emails, we map session UUIDs
+        if create_codebook:
+            codebook['students_note'] = "Session UUIDs used (no student emails in export)"
+            for session_uuid, anon_id in session_map.items():
+                codebook['students'][anon_id] = f"Session: {session_uuid}"
+    
+    # ========================================================================
+    # ANONYMIZE TUTORS
+    # ========================================================================
+    
+    # Tutor email column in Penji exports
+    tutor_email_col = 'Tutor - Email the session receipt to'
+    
+    if tutor_email_col in df.columns:
+        tutor_map = {}
+        
+        for email in df[tutor_email_col].dropna().unique():
+            # Create consistent hash-based anonymous ID
+            anon_id = f"TUT_{abs(hash(email)) % 10000:04d}"
+            tutor_map[email] = anon_id
+            
+            if create_codebook:
+                codebook['tutors'][anon_id] = email
+        
+        df_anon['Tutor_Anon_ID'] = df[tutor_email_col].map(tutor_map)
+        anonymization_log['tutors_anonymized'] = len(tutor_map)
+        codebook['metadata']['total_tutors'] = len(tutor_map)
+    
+    # Remove tutor PII columns
+    tutor_pii_cols = ['Tutor Name', 'Tutor Email', 'Tutor - Email the session receipt to']
+    for col in tutor_pii_cols:
+        if col in df_anon.columns:
+            df_anon = df_anon.drop(columns=[col])
+            anonymization_log['pii_columns_removed'].append(col)
+    
+    # ========================================================================
+    # SAVE CODEBOOK
+    # ========================================================================
+    
+    codebook_path = None
+    if create_codebook:
+        timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+        codebook_path = f"codebook_{timestamp}.enc"
+        
+        try:
+            save_encrypted_codebook(codebook, codebook_path, password)
+        except Exception as e:
+            raise ValueError(f"Failed to save codebook: {e}")
+    
+    return df_anon, codebook_path, anonymization_log
 
 
-# Convenience function for simple use
-def clean_data(csv_path, log_actions=True):
+# ============================================================================
+# CODEBOOK ENCRYPTION
+# ============================================================================
+
+def save_encrypted_codebook(codebook, filepath, password):
     """
-    One-step function: Load CSV → Clean → Return anonymized data
+    Encrypt and save codebook using password-based encryption.
+    
+    Uses PBKDF2 key derivation + Fernet symmetric encryption.
     """
-    df = pd.read_csv(csv_path)
-    df_clean, log = anonymize_and_clean(df, log_actions)
-    return df_clean, log
+    try:
+        from cryptography.fernet import Fernet
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+    except ImportError:
+        raise ImportError(
+            "cryptography package required for codebook encryption.\n"
+            "Install with: pip install cryptography"
+        )
+    
+    # Derive encryption key from password
+    salt = b'writing_studio_analytics_2025'  # Fixed salt for consistency
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000  # High iteration count for security
+    )
+    key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
+    
+    # Encrypt codebook
+    fernet = Fernet(key)
+    codebook_json = json.dumps(codebook, indent=2).encode()
+    encrypted = fernet.encrypt(codebook_json)
+    
+    # Save to file
+    with open(filepath, 'wb') as f:
+        f.write(encrypted)
+    
+    print(f"\n✅ Codebook encrypted and saved: {filepath}")
+    print(f"   Students: {codebook['metadata']['total_students']}")
+    print(f"   Tutors: {codebook['metadata']['total_tutors']}")
+    print(f"   Date range: {codebook['metadata'].get('dataset_date_range', 'Unknown')}")
+    print(f"\n⚠️  IMPORTANT: Give codebook + password to supervisor ONLY!")
+    print(f"   Do NOT commit to GitHub or share insecurely.")
+
+
+def decrypt_codebook(filepath, password):
+    """
+    Decrypt and load codebook using password.
+    
+    Returns:
+    - codebook dict on success
+    - Raises exception with descriptive error on failure
+    """
+    try:
+        from cryptography.fernet import Fernet
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+    except ImportError:
+        raise ImportError(
+            "cryptography package required for codebook decryption.\n"
+            "Install with: pip install cryptography"
+        )
+    
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"Codebook file not found: {filepath}")
+    
+    # Derive decryption key from password
+    salt = b'writing_studio_analytics_2025'
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000
+    )
+    
+    try:
+        key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
+        fernet = Fernet(key)
+        
+        # Read and decrypt
+        with open(filepath, 'rb') as f:
+            encrypted = f.read()
+        
+        decrypted = fernet.decrypt(encrypted)
+        codebook = json.loads(decrypted)
+        
+        return codebook
+        
+    except Exception as e:
+        # More specific error messages
+        if 'Invalid' in str(e) or 'token' in str(e):
+            raise ValueError(
+                "❌ INCORRECT PASSWORD\n"
+                "The password you entered does not match the codebook encryption.\n"
+                "Please try again with the correct password."
+            )
+        elif 'JSON' in str(e):
+            raise ValueError(
+                "❌ CORRUPTED CODEBOOK\n"
+                "The codebook file appears to be corrupted or invalid.\n"
+                "You may need to regenerate the report."
+            )
+        else:
+            raise ValueError(f"❌ ERROR: {e}")
+
+
+# ============================================================================
+# CODEBOOK LOOKUP
+# ============================================================================
+
+def lookup_in_codebook(anon_id, codebook_path, password):
+    """
+    Reverse-lookup: Anonymous ID → Email/Name
+    
+    Parameters:
+    - anon_id: Anonymous ID (e.g., "STU_04521" or "TUT_0842")
+    - codebook_path: Path to encrypted codebook file
+    - password: Decryption password
+    
+    Returns:
+    - Email/name string on success
+    - Error message string on failure
+    """
+    try:
+        # Decrypt codebook
+        codebook = decrypt_codebook(codebook_path, password)
+        
+        # Validate ID format
+        if not (anon_id.startswith('STU_') or anon_id.startswith('TUT_')):
+            return "❌ Invalid ID format. Must start with 'STU_' or 'TUT_'"
+        
+        # Lookup in appropriate section
+        if anon_id.startswith('STU_'):
+            result = codebook['students'].get(anon_id)
+            if result:
+                return result
+            else:
+                return f"❌ Student ID '{anon_id}' not found in codebook"
+        
+        elif anon_id.startswith('TUT_'):
+            result = codebook['tutors'].get(anon_id)
+            if result:
+                return result
+            else:
+                return f"❌ Tutor ID '{anon_id}' not found in codebook"
+    
+    except ValueError as e:
+        # Password error or corrupted file (already has nice error message)
+        return str(e)
+    
+    except FileNotFoundError as e:
+        return f"❌ Codebook file not found: {codebook_path}"
+    
+    except Exception as e:
+        return f"❌ Unexpected error: {e}"
+
+
+def get_codebook_info(codebook_path, password):
+    """
+    Get metadata about codebook without looking up specific IDs.
+    
+    Useful for displaying codebook stats to user.
+    """
+    try:
+        codebook = decrypt_codebook(codebook_path, password)
+        
+        info = {
+            'total_students': codebook['metadata']['total_students'],
+            'total_tutors': codebook['metadata']['total_tutors'],
+            'created': codebook['metadata']['created'],
+            'date_range': codebook['metadata'].get('dataset_date_range', 'Unknown')
+        }
+        
+        return info
+    
+    except Exception as e:
+        return {'error': str(e)}
+
+
+# ============================================================================
+# LEGACY FUNCTION (for backward compatibility)
+# ============================================================================
+
+def anonymize_data(df):
+    """
+    Simple anonymization without codebook (legacy function).
+    
+    For new code, use anonymize_with_codebook() instead.
+    """
+    df_anon, _, log = anonymize_with_codebook(df, create_codebook=False)
+    return df_anon

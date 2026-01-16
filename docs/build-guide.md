@@ -87,47 +87,47 @@ writing-studio-analytics/
 ## **PHASE 2: CORE DATA PROCESSING (No AI - Option B)**
 
 ### **2.1 Data Privacy Module** (`src/core/privacy.py`)
-- [ ] Build PII detection function
+- [X] Build PII detection function
   - Detect columns: email, first_name, last_name, student_id, tutor_id
   - Pattern matching for email addresses
   - Name field detection
-- [ ] Create anonymization logic
+- [X] Create anonymization logic
   - Hash-based anonymization for IDs
   - Remove PII columns entirely
   - Generate anonymized student/tutor identifiers
-- [ ] Add data sanitization tests
-- [ ] Document privacy guarantees (no data leaves machine)
-- [ ] Create privacy audit log
+- [X] Add data sanitization tests
+- [X] Document privacy guarantees (no data leaves machine)
+- [X] Create privacy audit log
 
 ### **2.2 Data Cleaning Module** (`src/core/data_cleaner.py`)
-- [ ] Duplicate column detection algorithm
+- [X] Duplicate column detection algorithm
   - Compare column values for exact matches
   - Identify >95% similarity
   - Flag common duplicate patterns (Requested vs Scheduled)
-- [ ] Column consolidation logic
+- [X] Column consolidation logic
   - Keep first occurrence, drop duplicates
   - Rename for clarity ("Requested Start At Date" → "Appointment Date")
   - Log what was removed
-- [ ] Data type standardization
+- [X] Data type standardization
   - Parse dates correctly
   - Parse times correctly
   - Convert session length to float (hours)
-- [ ] Handle missing values strategy
+- [X] Handle missing values strategy
   - Identify critical vs non-critical columns
   - Imputation vs dropping logic
   - Document missing data patterns
 
 ### **2.3 Academic Calendar Parser** (`src/utils/academic_calendar.py`)
-- [ ] Semester detection function
+- [X] Semester detection function
   - Spring: January - May
   - Summer: May - August
   - Fall: August - December
-- [ ] Academic year grouping (e.g., "2023-2024")
-- [ ] Week-of-semester calculator (Week 1-16)
-- [ ] Peak period identifier
+- [X] Academic year grouping (e.g., "2023-2024")
+- [X] Week-of-semester calculator (Week 1-16)
+- [X] Peak period identifier
   - Midterms: Weeks 5-7
   - Finals: Weeks 12-14
-- [ ] Intercession detection (Winter, Summer, Fall)
+- [X] Intercession detection (Winter, Summer, Fall)
 
 ### **2.4 Metrics Engine** (`src/core/metrics.py`)
 - [ ] Booking lead time calculator
