@@ -1,0 +1,7 @@
+# requirements.txt (minimal for end users)
+pandas>=2.2.0
+streamlit>=1.45.0
+seaborn>=0.13.0
+matplotlib>=3.8.0
+numpy>=2.0.0
+reportlab>=4.0.0
