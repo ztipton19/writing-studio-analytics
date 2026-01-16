@@ -23,7 +23,7 @@ def detect_pii_columns(df):
     
     # Layer 1: Known PII column names (exact match)
     known_pii = [
-        'Student Email', 'Student SSO ID', 'Student - Student ID', 
+        'Student Email', 'Student SSO ID', 'Student - Student ID', 'Student ID',
         'Student Name', 'Tutor Name', 'Tutor Email',
         'Tutor - Email the session receipt to'
     ]
@@ -134,60 +134,68 @@ def anonymize_with_codebook(df, create_codebook=True, password=None, confirm_pas
     # ========================================================================
     # ANONYMIZE STUDENTS
     # ========================================================================
-    
-    # NOTE: Penji exports don't include student emails for privacy!
-    # Student identity is in the Unique ID (session UUID)
-    # We'll use that to create anonymous IDs
-    
-    if 'Unique ID' in df.columns:
-        session_map = {}
-        
-        # Each session has a unique student (implicitly)
-        # Create student IDs based on session patterns
-        for session_id in df['Unique ID'].dropna().unique():
-            # Use session UUID to generate student ID
-            anon_id = f"STU_{abs(hash(session_id)) % 100000:05d}"
-            session_map[session_id] = anon_id
-        
-        df_anon['Student_Anon_ID'] = df['Unique ID'].map(session_map)
-        anonymization_log['students_anonymized'] = len(session_map)
-        codebook['metadata']['total_students'] = len(session_map)
-        
-        # Note: Without actual student emails, we map session UUIDs
-        if create_codebook:
-            codebook['students_note'] = "Session UUIDs used (no student emails in export)"
-            for session_uuid, anon_id in session_map.items():
-                codebook['students'][anon_id] = f"Session: {session_uuid}"
+
+    # Student email column in Penji exports - check both possible column names
+    student_email_col = None
+    if 'Student Email' in df.columns:
+        student_email_col = 'Student Email'
+    elif 'Student - Email' in df.columns:
+        student_email_col = 'Student - Email'
+
+    if student_email_col:
+        student_map = {}
+
+        for email in df[student_email_col].unique():
+            # Create consistent hash-based anonymous ID
+            anon_id = f"STU_{abs(hash(email)) % 100000:05d}"
+            student_map[email] = anon_id
+
+            if create_codebook:
+                codebook['students'][anon_id] = email
+
+        df_anon['Student_Anon_ID'] = df[student_email_col].map(student_map)
+        anonymization_log['students_anonymized'] = len(student_map)
+        codebook['metadata']['total_students'] = len(student_map)
     
     # ========================================================================
     # ANONYMIZE TUTORS
     # ========================================================================
-    
-    # Tutor email column in Penji exports
-    tutor_email_col = 'Tutor - Email the session receipt to'
-    
-    if tutor_email_col in df.columns:
+
+    # Tutor email column in Penji exports - check both possible column names
+    tutor_email_col = None
+    if 'Tutor Email' in df.columns:
+        tutor_email_col = 'Tutor Email'
+    elif 'Tutor - Email the session receipt to' in df.columns:
+        tutor_email_col = 'Tutor - Email the session receipt to'
+
+    if tutor_email_col:
         tutor_map = {}
-        
-        for email in df[tutor_email_col].dropna().unique():
+
+        for email in df[tutor_email_col].unique():
             # Create consistent hash-based anonymous ID
             anon_id = f"TUT_{abs(hash(email)) % 10000:04d}"
             tutor_map[email] = anon_id
-            
+
             if create_codebook:
                 codebook['tutors'][anon_id] = email
-        
+
         df_anon['Tutor_Anon_ID'] = df[tutor_email_col].map(tutor_map)
         anonymization_log['tutors_anonymized'] = len(tutor_map)
         codebook['metadata']['total_tutors'] = len(tutor_map)
     
-    # Remove tutor PII columns
-    tutor_pii_cols = ['Tutor Name', 'Tutor Email', 'Tutor - Email the session receipt to']
-    for col in tutor_pii_cols:
+    # ========================================================================
+    # REMOVE ALL PII COLUMNS
+    # ========================================================================
+
+    # Detect all PII columns using our two-layer detection system
+    pii_columns = detect_pii_columns(df_anon)
+
+    # Remove all detected PII columns
+    for col in pii_columns:
         if col in df_anon.columns:
             df_anon = df_anon.drop(columns=[col])
             anonymization_log['pii_columns_removed'].append(col)
-    
+
     # ========================================================================
     # SAVE CODEBOOK
     # ========================================================================

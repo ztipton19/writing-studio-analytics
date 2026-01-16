@@ -45,6 +45,20 @@ def detect_session_type(df):
 
 
 # ============================================================================
+# COLUMN CLEANUP
+# ============================================================================
+
+def clean_column_names(df):
+    """
+    Clean column names by stripping whitespace.
+    Penji exports often have trailing spaces that break column matching.
+    """
+    df_clean = df.copy()
+    df_clean.columns = df_clean.columns.str.strip()
+    return df_clean
+
+
+# ============================================================================
 # DATETIME MERGING
 # ============================================================================
 
@@ -60,7 +74,8 @@ def merge_datetime_columns(df):
         ('Requested At Date', 'Requested At Time', 'Booking_DateTime'),
         ('Requested Start At Date', 'Requested Start At Time', 'Appointment_DateTime'),
         ('Started At Date', 'Started At Time', 'Actual_Start_DateTime'),
-        ('Ended At Date', 'Ended At Time', 'Actual_End_DateTime')
+        ('Ended At Date', 'Ended At Time', 'Actual_End_DateTime'),
+        ('Cancelled At Date', 'Cancelled At Time', 'Cancelled_DateTime')
     ]
     
     for date_col, time_col, new_col in datetime_pairs:
@@ -86,18 +101,13 @@ def rename_columns(df):
     rename_map = {
         # Core Session Info
         'Unique ID': 'Session_ID',
-        'Status': 'Status',
-        'Course': 'Course',
-        'Location': 'Location',
         
         # Session Length
         'Tutor Submitted Length': 'Actual_Session_Length',
         
         # Attendance
         'Student Attendance': 'Attendance_Status',
-        'Cancel Reason': 'Cancellation_Reason',
-        'Session Feedback From Student': 'Session_Feedback',
-        
+
         # Pre-Session (Agenda)
         'Agenda - For which course are you writing this document? (If not applicable, write "N/A")': 'Course_Subject',
         'Agenda - How confident do you feel about your writing assignment right now? (1="Not at all"; 5="Very")': 'Pre_Confidence',
@@ -106,28 +116,69 @@ def rename_columns(df):
         'Agenda - Roughly speaking, what stage of the writing process are you in right now?': 'Writing_Stage',
         'Agenda - What would you like to focus on during this appointment?': 'Focus_Area',
         'Agenda - When is your paper due?': 'Paper_Due_Date',
-        
-        # Post-Session (Student Feedback)
+
+        # Post-Session (Student Feedback) - keeping only useful fields
         'Student - How confident do you feel about your writing assignment now that your meeting is over? (1="Not at all"; 5="Very")': 'Post_Confidence',
         'Student - On a scale of 1-5 (1="not at all," 5="extremely well"), how well did you get along with your tutor?': 'Tutor_Rapport',
         'Student - On a scale of 1-5 (1="not easy at all", 5="extremely easy"), how easy was it to use our website and scheduling software to schedule and attend your appointment?': 'Platform_Ease',
         'Student - On a scale of 1-5 (1="very poorly", 5="very well"), how well would you say your your appointment went?': 'Session_Quality',
         'Student - On a scale of 1-7 (1="extremely dissatisfied," 7="extremely satisfied"), how satisfied are you with the help you received at the Writing Studio?': 'Overall_Satisfaction',
-        'Student - Please share any comments that you would like us to share with your tutor.': 'Student_Comments_For_Tutor',
-        'Student - Please share any comments that you\'d like your tutor to see.': 'Student_Comments_Public',
-        'Student - Please share any obstacles, disappointments, or problems that you encountered during your consultation at the Writing Studio.': 'Student_Issues',
-        'Student - Were you offered any of the following incentives for today\'s visit? Please select any that apply.': 'Incentives_Offered',
+        'Session Feedback From Student': 'Student_Feedback',
         
         # Tutor Feedback
         'Tutor - Overall, how well would you say that the consultation went?': 'Tutor_Session_Rating',
-        'Tutor - Please provide a brief overview of the topics discussed or issues addressed during your consultation.': 'Session_Summary'
+        'Tutor - Please provide a brief overview of the topics discussed or issues addressed during your consultation.': 'Session_Feedback_From_Tutor'
     }
     
     # Only rename columns that exist
     existing_renames = {old: new for old, new in rename_map.items() if old in df.columns}
     df_renamed = df.rename(columns=existing_renames)
-    
+
     return df_renamed, len(existing_renames)
+
+
+# ============================================================================
+# TEXT TO NUMERIC CONVERSION
+# ============================================================================
+
+def convert_text_ratings_to_numeric(df):
+    """
+    Convert text-based rating responses to numeric values.
+
+    Handles fields that come from Penji with text formats like:
+    - Tutor_Session_Rating: "It went very well" -> numeric
+    - Tutor_Rapport: '5- "Extremely well"' -> extract the number
+    """
+    df_converted = df.copy()
+
+    # Tutor Session Rating conversion map
+    # Based on: "Overall, how well would you say that the consultation went?"
+    # Format: "It went extremely well", "It went very well", etc.
+    tutor_rating_map = {
+        'It went extremely well': 5,
+        'It went very well': 4,
+        'It went moderately well': 3,
+        'It went somewhat well': 2,
+        "It didn't go well at all": 1,
+        # Case-insensitive variants
+        'it went extremely well': 5,
+        'it went very well': 4,
+        'it went moderately well': 3,
+        'it went somewhat well': 2,
+        "it didn't go well at all": 1
+    }
+
+    if 'Tutor_Session_Rating' in df_converted.columns:
+        df_converted['Tutor_Session_Rating'] = df_converted['Tutor_Session_Rating'].map(tutor_rating_map)
+
+    # Extract numeric ratings from formatted responses
+    # Format: '5- "Extremely well"', '4 - "Very well"', etc. -> extract the leading number
+    fields_to_extract = ['Tutor_Rapport', 'Platform_Ease', 'Session_Quality', 'Overall_Satisfaction']
+    for field in fields_to_extract:
+        if field in df_converted.columns:
+            df_converted[field] = df_converted[field].astype(str).str.extract(r'^(\d+)', expand=False).astype(float)
+
+    return df_converted
 
 
 # ============================================================================
@@ -143,7 +194,7 @@ def remove_useless_columns(df):
         'Appointment Type',  # Always "40min 1-on-1"
         'Kind',              # Always "1-on-1"
         'Session_Kind',      # Duplicate of above
-        
+
         # Redundant after datetime merge
         'Requested At Date',
         'Requested At Time',
@@ -151,23 +202,46 @@ def remove_useless_columns(df):
         'Requested Start At Time',
         'Requested End At Date',
         'Requested End At Time',
+        'Scheduled Start At Date',
+        'Scheduled Start At Time',
+        'Scheduled End At Date',
+        'Scheduled End At Time',
         'Started At Date',
         'Started At Time',
         'Ended At Date',
         'Ended At Time',
-        
+        'Cancelled At Date',
+        'Cancelled At Time',
+
         # Always 0.67 (40 minutes)
         'Requested Length',
-        
+
         # Don't matter for analysis
         'Source Kind',
         'Booking Flow',
         'Booking_Source',
         'Booking_Method',
-        
+
         # Not useful
         'Student Attendance Reason',
-        'Attendance_Reason'
+        'Attendance_Reason',
+
+        # Useless columns
+        'Recurrence',
+        'Section',
+        'Session Feedback From Tutor',  # Generated/blank column, duplicate of Session_Feedback_From_Tutor
+        'Agenda - If you are meeting a Writing Consultant in-person, would you like to meet in a sensory-friendly, Low Distraction Room (LDR) if it is available?',
+        'Agenda - If you have access to any rubrics or assignment sheets, please attach them here.',
+        'Agenda - Please attach any assignment sheets, written directions, or rubrics for your paper.',
+        'Agenda - Please upload your paper here.',
+        'Agenda - Is there anything else you\'d like to share?',  # 52% filled but not useful
+        'Tutor - Was this a mock or test consultation?',
+
+        # Low fill rate text fields (<10%)
+        'Cancel Reason',  # 12.9% - not useful
+        'Student - Please share any comments that you\'d like your tutor to see.',  # 3.6% - Student_Comments_Public
+        'Student - Please share any obstacles, disappointments, or problems that you encountered during your consultation at the Writing Studio.',  # Student_Issues - low fill
+        'Student - Were you offered any of the following incentives for today\'s visit? Please select any that apply.',  # 90.6% null
     ]
     
     # Only remove columns that exist
@@ -192,7 +266,7 @@ def standardize_data_types(df):
     numeric_columns = [
         'Actual_Session_Length',
         'Pre_Confidence', 'Post_Confidence',
-        'Tutor_Rapport', 'Platform_Ease', 
+        'Tutor_Rapport', 'Platform_Ease',
         'Session_Quality', 'Overall_Satisfaction',
         'Tutor_Session_Rating'
     ]
@@ -215,7 +289,7 @@ def standardize_data_types(df):
     text_columns = [
         'Course', 'Course_Subject', 'Focus_Area',
         'Student_Comments_For_Tutor', 'Student_Comments_Public',
-        'Student_Issues', 'Session_Summary', 'Session_Feedback',
+        'Student_Issues', 'Session_Feedback_From_Tutor', 'Session_Feedback',
         'Cancellation_Reason', 'Incentives_Offered'
     ]
     
@@ -577,18 +651,28 @@ def clean_scheduled_sessions(df, remove_outliers_flag=True, log_actions=True):
         'original_rows': len(df),
         'original_cols': len(df.columns)
     }
-    
-    # Step 1: Merge date/time columns
-    df_clean = merge_datetime_columns(df)
+
+    # Step 0: Clean column names (strip whitespace)
+    df_clean = clean_column_names(df)
     if log_actions:
-        print("\n✓ Step 1: Merged date/time columns into datetime objects")
+        print("\n✓ Step 0: Cleaned column names (stripped whitespace)")
+
+    # Step 1: Merge date/time columns
+    df_clean = merge_datetime_columns(df_clean)
+    if log_actions:
+        print("✓ Step 1: Merged date/time columns into datetime objects")
     
     # Step 2: Rename columns
     df_clean, rename_count = rename_columns(df_clean)
     cleaning_log['renamed_columns'] = rename_count
     if log_actions:
         print(f"✓ Step 2: Renamed {rename_count} columns for clarity")
-    
+
+    # Step 2.5: Convert text ratings to numeric
+    df_clean = convert_text_ratings_to_numeric(df_clean)
+    if log_actions:
+        print("✓ Step 2.5: Converted text ratings to numeric values")
+
     # Step 3: Remove useless columns
     df_clean, removed_cols = remove_useless_columns(df_clean)
     cleaning_log['removed_columns'] = removed_cols

@@ -134,7 +134,7 @@ with tab1:
             # Show preview
             with st.expander("📋 Data Summary"):
                 col1, col2 = st.columns(2)
-                
+
                 with col1:
                     st.markdown("**📅 Date Information:**")
                     if 'Requested At Date' in df.columns:
@@ -142,40 +142,51 @@ with tab1:
                         st.write(f"- First session: {dates.min().strftime('%B %d, %Y')}")
                         st.write(f"- Last session: {dates.max().strftime('%B %d, %Y')}")
                         st.write(f"- Span: {(dates.max() - dates.min()).days} days")
-                    
+
                     st.markdown("**📊 Session Statistics:**")
+                    # Check for Attendance_Status column for more accurate counting
+                    if 'Student Attendance' in df.columns:
+                        attendance_col = 'Student Attendance'
+                    elif 'Attendance_Status' in df.columns:
+                        attendance_col = 'Attendance_Status'
+                    else:
+                        attendance_col = None
+
+                    if attendance_col:
+                        # Count Present (Completed), Absent (No-shows)
+                        completed = df[attendance_col].str.lower().str.contains('present', na=False).sum()
+                        no_show = df[attendance_col].str.lower().str.contains('absent', na=False).sum()
+
+                        completed_pct = (completed / len(df)) * 100
+                        no_show_pct = (no_show / len(df)) * 100
+
+                        st.write(f"- Completed: {completed:,} ({completed_pct:.1f}%)")
+                        st.write(f"- Absent (no-show): {no_show:,} ({no_show_pct:.1f}%)")
+
+                    # Count cancellations from Status column
                     if 'Status' in df.columns:
-                        status_counts = df['Status'].value_counts()
-                        for status, count in status_counts.head(3).items():
-                            pct = (count / len(df)) * 100
-                            st.write(f"- {status}: {count:,} ({pct:.1f}%)")
-                
+                        cancelled = df['Status'].str.lower().str.contains('cancel', na=False).sum()
+                        cancelled_pct = (cancelled / len(df)) * 100
+                        st.write(f"- Cancelled: {cancelled:,} ({cancelled_pct:.1f}%)")
+
                 with col2:
                     st.markdown("**👥 Participation:**")
-                    # Count unique emails (safe - just counts)
-                    tutor_col = 'Tutor - Email the session receipt to'
-                    if tutor_col in df.columns:
-                        unique_tutors = df[tutor_col].nunique()
+                    # Count unique tutors by email
+                    if 'Tutor Email' in df.columns:
+                        unique_tutors = df['Tutor Email'].nunique()
                         st.write(f"- Unique tutors: {unique_tutors}")
-                    
-                    # Estimate unique students (by session UUID)
+
+                    # Count unique students by email
+                    if 'Student Email' in df.columns:
+                        unique_students = df['Student Email'].nunique()
+                        st.write(f"- Unique students: {unique_students}")
+
+                    # Count total sessions
                     if 'Unique ID' in df.columns:
                         unique_sessions = df['Unique ID'].nunique()
-                        st.write(f"- Unique sessions: {unique_sessions:,}")
-                    
-                    st.markdown("**📝 Data Completeness:**")
-                    # Show % of required fields filled
-                    if 'Scheduled Length' in df.columns:
-                        filled = df['Scheduled Length'].notna().sum()
-                        pct = (filled / len(df)) * 100
-                        st.write(f"- Scheduled length: {pct:.1f}% filled")
-                    
-                    if expected_mode == 'scheduled':
-                        if 'Agenda - How confident do you feel about your writing assignment right now? (1=\"Not at all\"; 5=\"Very\")' in df.columns:
-                            conf_col = 'Agenda - How confident do you feel about your writing assignment right now? (1=\"Not at all\"; 5=\"Very\")'
-                            filled = df[conf_col].notna().sum()
-                            pct = (filled / len(df)) * 100
-                            st.write(f"- Pre-survey: {pct:.1f}% complete")
+                        st.write(f"- Total sessions: {unique_sessions:,}")
+                    else:
+                        st.write(f"- Total sessions: {len(df):,}")
             
             st.markdown("---")
             
@@ -214,35 +225,41 @@ with tab1:
             # ================================================================
             # STEP 4: CODEBOOK PASSWORD (if enabled)
             # ================================================================
-            
+
             password = None
             confirm_password = None
             password_valid = False
-            
+
+            # Initialize password key counter in session state
+            if 'password_key_counter' not in st.session_state:
+                st.session_state['password_key_counter'] = 0
+
             if create_codebook:
                 st.markdown("---")
                 st.subheader("Step 4: Set Codebook Password")
-                
+
                 st.info(
                     "🔐 Set a strong password to encrypt the codebook. "
                     "You'll need this password later to look up anonymous IDs."
                 )
-                
+
                 col1, col2 = st.columns(2)
-                
+
                 with col1:
                     password = st.text_input(
                         "Password (12+ characters)",
                         type="password",
-                        help="Choose a strong password - you'll need this for lookups!"
+                        help="Choose a strong password - you'll need this for lookups!",
+                        key=f"password_{st.session_state['password_key_counter']}"
                     )
-                
+
                 with col2:
                     confirm_password = st.text_input(
                         "Confirm Password",
-                        type="password"
+                        type="password",
+                        key=f"confirm_password_{st.session_state['password_key_counter']}"
                     )
-                
+
                 # Password validation
                 if password or confirm_password:
                     if not password or not confirm_password:
@@ -285,152 +302,79 @@ with tab1:
                 st.warning("⚠️ Please set a valid password before generating")
             
             if st.button(
-                "🚀 Generate Report", 
-                type="primary", 
+                "🚀 Generate Report",
+                type="primary",
                 use_container_width=True,
                 disabled=not can_generate
             ):
                 # Progress tracking
                 progress_bar = st.progress(0)
                 status_text = st.empty()
-                
+
                 try:
                     # Step 1: Anonymize
                     status_text.text("🔒 Step 1/4: Anonymizing data...")
                     progress_bar.progress(25)
-                    
+
                     df_anon, codebook_path, anon_log = anonymize_with_codebook(
                         df,
                         create_codebook=create_codebook,
                         password=password if create_codebook else None,
                         confirm_password=confirm_password if create_codebook else None
                     )
-                    
+
                     # Step 2: Clean
                     status_text.text("🧹 Step 2/4: Cleaning and processing...")
                     progress_bar.progress(50)
-                    
+
                     df_clean, cleaning_log = clean_data(
                         df_anon,
                         mode=expected_mode,
                         remove_outliers=remove_outliers,
                         log_actions=False
                     )
-                    
+
                     # Step 3: Generate report
                     status_text.text("📊 Step 3/4: Creating visualizations...")
                     progress_bar.progress(75)
-                    
+
                     timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
                     report_filename = f"writing_studio_report_{timestamp}.pdf"
-                    
+
                     report_path = generate_full_report(df_clean, cleaning_log, report_filename)
-                    
+
                     # Step 4: Save CSV
                     status_text.text("💾 Step 4/4: Finalizing outputs...")
                     progress_bar.progress(90)
-                    
+
                     csv_filename = f"cleaned_data_{timestamp}.csv"
                     df_clean.to_csv(csv_filename, index=False)
-                    
-                    progress_bar.progress(100)
-                    status_text.empty()
-                    
-                    # Success!
-                    st.success("🎉 Report generated successfully!")
-                    
-                    st.markdown("---")
-                    
-                    # ========================================================
-                    # DOWNLOAD SECTION
-                    # ========================================================
-                    
-                    st.subheader("📥 Download Your Files")
-                    
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        with open(report_path, 'rb') as f:
-                            st.download_button(
-                                label="📄 Download Report (PDF)",
-                                data=f,
-                                file_name=report_filename,
-                                mime="application/pdf",
-                                use_container_width=True
-                            )
-                        st.caption("✅ Safe to share publicly")
-                    
-                    with col2:
-                        with open(csv_filename, 'rb') as f:
-                            st.download_button(
-                                label="📊 Download Cleaned Data (CSV)",
-                                data=f,
-                                file_name=csv_filename,
-                                mime="text/csv",
-                                use_container_width=True
-                            )
-                        st.caption("✅ Anonymized dataset")
-                    
-                    with col3:
-                        if create_codebook and codebook_path:
-                            with open(codebook_path, 'rb') as f:
-                                st.download_button(
-                                    label="🔐 Download Codebook",
-                                    data=f,
-                                    file_name=os.path.basename(codebook_path),
-                                    mime="application/octet-stream",
-                                    use_container_width=True
-                                )
-                            st.caption("⚠️ Supervisor only!")
-                        else:
-                            st.button(
-                                "ℹ️ No Codebook",
-                                use_container_width=True,
-                                disabled=True
-                            )
-                            st.caption("Not generated")
-                    
-                    # ========================================================
-                    # SUMMARY STATS
-                    # ========================================================
-                    
-                    st.markdown("---")
-                    st.subheader("📊 Report Summary")
-                    
-                    col1, col2, col3, col4 = st.columns(4)
-                    
-                    with col1:
-                        st.metric("Total Sessions", f"{cleaning_log['final_rows']:,}")
-                    
-                    with col2:
-                        if 'context' in cleaning_log and 'cancellations' in cleaning_log['context']:
-                            rate = cleaning_log['context']['cancellations']['completion_rate']
-                            st.metric("Completion Rate", f"{rate:.1f}%")
-                        else:
-                            st.metric("Completion Rate", "N/A")
-                    
-                    with col3:
-                        if create_codebook:
-                            st.metric("Tutors", f"{anon_log['tutors_anonymized']}")
-                        else:
-                            st.metric("Columns", f"{cleaning_log['final_cols']}")
-                    
-                    with col4:
-                        if 'outliers_removed' in cleaning_log:
-                            removed = cleaning_log['outliers_removed']['removed_count']
-                            st.metric("Outliers Removed", f"{removed}")
-                        else:
-                            st.metric("Outliers Removed", "0")
-                    
-                    # Important reminder
-                    if create_codebook:
-                        st.warning(
-                            "⚠️ **IMPORTANT**: The codebook file contains sensitive mappings. "
-                            "Give this file + password to your supervisor ONLY. "
-                            "Do NOT commit to GitHub or share via insecure channels."
-                        )
-                    
-                    # Cleanup temp files after download
+
+                    # Load files into memory for persistent downloads
+                    with open(report_path, 'rb') as f:
+                        pdf_data = f.read()
+                    with open(csv_filename, 'rb') as f:
+                        csv_data = f.read()
+                    codebook_data = None
+                    if create_codebook and codebook_path:
+                        with open(codebook_path, 'rb') as f:
+                            codebook_data = f.read()
+
+                    # Store in session state to persist across reruns
+                    st.session_state['pdf_data'] = pdf_data
+                    st.session_state['pdf_filename'] = report_filename
+                    st.session_state['csv_data'] = csv_data
+                    st.session_state['csv_filename'] = csv_filename
+                    st.session_state['codebook_data'] = codebook_data
+                    st.session_state['codebook_filename'] = os.path.basename(codebook_path) if codebook_path else None
+                    st.session_state['cleaning_log'] = cleaning_log
+                    st.session_state['anon_log'] = anon_log
+                    st.session_state['create_codebook'] = create_codebook
+
+                    # Increment password key counter to clear password fields on next rerun
+                    st.session_state['password_key_counter'] += 1
+
+                    # Cleanup temp files immediately after reading into memory
                     try:
                         if os.path.exists(report_path):
                             os.remove(report_path)
@@ -439,17 +383,115 @@ with tab1:
                         if codebook_path and os.path.exists(codebook_path):
                             os.remove(codebook_path)
                     except:
-                        pass  # Files may already be downloaded/deleted
-                
+                        pass
+
+                    progress_bar.progress(100)
+                    status_text.empty()
+
+                    # Success!
+                    st.success("🎉 Report generated successfully!")
+
                 except Exception as e:
                     st.error(f"❌ Error generating report: {str(e)}")
                     progress_bar.empty()
                     status_text.empty()
-                    
+
                     # Show detailed error in expander
                     with st.expander("🔍 Error Details"):
                         import traceback
                         st.code(traceback.format_exc())
+
+            # ========================================================
+            # DOWNLOAD SECTION (persists across reruns)
+            # ========================================================
+
+            if 'pdf_data' in st.session_state:
+                st.markdown("---")
+                st.subheader("📥 Download Your Files")
+
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    st.download_button(
+                        label="📄 Download Report (PDF)",
+                        data=st.session_state['pdf_data'],
+                        file_name=st.session_state['pdf_filename'],
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+                    st.caption("✅ Safe to share publicly")
+
+                with col2:
+                    st.download_button(
+                        label="📊 Download Cleaned Data (CSV)",
+                        data=st.session_state['csv_data'],
+                        file_name=st.session_state['csv_filename'],
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+                    st.caption("✅ Anonymized dataset")
+
+                with col3:
+                    if st.session_state['codebook_data']:
+                        st.download_button(
+                            label="🔐 Download Codebook",
+                            data=st.session_state['codebook_data'],
+                            file_name=st.session_state['codebook_filename'],
+                            mime="application/octet-stream",
+                            use_container_width=True
+                        )
+                        st.caption("⚠️ Supervisor only!")
+                    else:
+                        st.button(
+                            "ℹ️ No Codebook",
+                            use_container_width=True,
+                            disabled=True
+                        )
+                        st.caption("Not generated")
+
+                # ========================================================
+                # SUMMARY STATS
+                # ========================================================
+
+                st.markdown("---")
+                st.subheader("📊 Report Summary")
+
+                cleaning_log = st.session_state['cleaning_log']
+                anon_log = st.session_state['anon_log']
+                create_codebook = st.session_state['create_codebook']
+
+                col1, col2, col3, col4 = st.columns(4)
+
+                with col1:
+                    st.metric("Total Sessions", f"{cleaning_log['final_rows']:,}")
+
+                with col2:
+                    if 'context' in cleaning_log and 'cancellations' in cleaning_log['context']:
+                        rate = cleaning_log['context']['cancellations']['completion_rate']
+                        st.metric("Completion Rate", f"{rate:.1f}%")
+                    else:
+                        st.metric("Completion Rate", "N/A")
+
+                with col3:
+                    if create_codebook:
+                        st.metric("Tutors", f"{anon_log['tutors_anonymized']}")
+                    else:
+                        st.metric("Columns", f"{cleaning_log['final_cols']}")
+
+                with col4:
+                    if 'outliers_removed' in cleaning_log:
+                        removed = cleaning_log['outliers_removed']['removed_count']
+                        st.metric("Outliers Removed", f"{removed}")
+                    else:
+                        st.metric("Outliers Removed", "0")
+
+                # Important reminder
+                if create_codebook:
+                    st.warning(
+                        "⚠️ **IMPORTANT**: The codebook file contains sensitive mappings. "
+                        "Give this file + password to your supervisor ONLY. "
+                        "Do NOT commit to GitHub or share via insecure channels."
+                    )
         
         except Exception as e:
             st.error(f"❌ Error loading file: {str(e)}")
