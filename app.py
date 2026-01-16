@@ -1,0 +1,521 @@
+# app.py - Writing Studio Analytics Streamlit App
+
+import streamlit as st
+import pandas as pd
+import sys
+import os
+from datetime import datetime
+
+# Add src to path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from src.core.data_cleaner import clean_data, detect_session_type
+from src.core.privacy import anonymize_with_codebook, lookup_in_codebook, get_codebook_info
+from src.visualizations.report_generator import generate_full_report
+
+
+# ============================================================================
+# PAGE CONFIG
+# ============================================================================
+
+st.set_page_config(
+    page_title="Writing Studio Analytics",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+
+# ============================================================================
+# SIDEBAR
+# ============================================================================
+
+st.sidebar.title("📊 Writing Studio Analytics")
+st.sidebar.markdown("---")
+st.sidebar.info(
+    "**Privacy-First Analytics Tool**\n\n"
+    "Generate comprehensive reports from Penji tutoring data while "
+    "protecting student and tutor privacy."
+)
+
+st.sidebar.markdown("---")
+st.sidebar.markdown(
+    "**About This Tool**\n\n"
+    "Built for University of Arkansas Writing Studio. "
+    "Generates FERPA-compliant analytics reports with optional "
+    "encrypted reverse-lookup capability.\n\n"
+    "Created by Zachary (Graduate Assistant)"
+)
+
+
+# ============================================================================
+# MAIN APP - TABS
+# ============================================================================
+
+tab1, tab2 = st.tabs(["📊 Generate Report", "🔍 Codebook Lookup"])
+
+
+# ============================================================================
+# TAB 1: GENERATE REPORT
+# ============================================================================
+
+with tab1:
+    st.header("📊 Generate Analytics Report")
+    
+    st.markdown("""
+    Upload your Penji export file to generate a comprehensive analytics report with:
+    - Session volume trends and patterns
+    - Booking behavior analysis  
+    - Student satisfaction metrics
+    - Tutor workload distribution
+    - And much more!
+    """)
+    
+    st.markdown("---")
+    
+    # ========================================================================
+    # STEP 1: SESSION TYPE SELECTION
+    # ========================================================================
+    
+    st.subheader("Step 1: Select Session Type")
+    
+    session_mode = st.radio(
+        "What type of sessions are you analyzing?",
+        options=["40-Minute Sessions (Scheduled)", "Walk-In Sessions"],
+        index=0,
+        help="Select the type of data you're uploading. The tool will adjust its analysis accordingly."
+    )
+    
+    # Convert to internal format
+    if session_mode == "40-Minute Sessions (Scheduled)":
+        expected_mode = 'scheduled'
+        st.info("📅 **Scheduled Sessions**: Pre-booked 40-minute appointments with full survey data")
+    else:
+        expected_mode = 'walkin'
+        st.warning("🚶 **Walk-In Sessions**: Drop-in visits with variable duration, minimal survey data")
+    
+    st.markdown("---")
+    
+    # ========================================================================
+    # STEP 2: FILE UPLOAD
+    # ========================================================================
+    
+    st.subheader("Step 2: Upload Data File")
+    
+    uploaded_file = st.file_uploader(
+        "Choose your Penji export file",
+        type=['xlsx', 'xls', 'csv'],
+        help="Upload CSV or Excel file exported from Penji"
+    )
+    
+    if uploaded_file is not None:
+        # Load data
+        try:
+            if uploaded_file.name.endswith('.csv'):
+                df = pd.read_csv(uploaded_file)
+            else:
+                df = pd.read_excel(uploaded_file)
+            
+            # Auto-detect session type
+            detected_type = detect_session_type(df)
+            
+            # Show file info
+            st.success(f"✅ File loaded: {len(df):,} rows × {len(df.columns)} columns")
+            
+            # Warn if mismatch
+            if detected_type != expected_mode and detected_type != 'unknown':
+                st.warning(
+                    f"⚠️ **Type Mismatch Detected!**\n\n"
+                    f"You selected **{session_mode}** but the file appears to contain "
+                    f"**{'scheduled' if detected_type == 'scheduled' else 'walk-in'}** sessions.\n\n"
+                    f"Please switch the radio button above or upload the correct file."
+                )
+                st.stop()
+            
+            # Show preview
+            with st.expander("📋 Data Preview (first 5 rows)"):
+                st.dataframe(df.head(), use_container_width=True)
+            
+            st.markdown("---")
+            
+            # ================================================================
+            # STEP 3: OPTIONS
+            # ================================================================
+            
+            st.subheader("Step 3: Configure Options")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                remove_outliers = st.checkbox(
+                    "Remove statistical outliers",
+                    value=True,
+                    help="Remove extreme session lengths using IQR method (e.g., 23-hour sessions from forgot-to-close)"
+                )
+                
+                if remove_outliers:
+                    st.caption("✓ Will use IQR method to filter outliers")
+                else:
+                    st.caption("⚠️ Raw data will be used (may skew statistics)")
+            
+            with col2:
+                create_codebook = st.checkbox(
+                    "Generate codebook (supervisor access)",
+                    value=True,
+                    help="Creates encrypted lookup table for reversing anonymous IDs back to emails"
+                )
+                
+                if create_codebook:
+                    st.caption("✓ Enables investigation of specific students/tutors")
+                else:
+                    st.caption("ℹ️ Anonymous IDs cannot be reversed")
+            
+            # ================================================================
+            # STEP 4: CODEBOOK PASSWORD (if enabled)
+            # ================================================================
+            
+            password = None
+            confirm_password = None
+            password_valid = False
+            
+            if create_codebook:
+                st.markdown("---")
+                st.subheader("Step 4: Set Codebook Password")
+                
+                st.info(
+                    "🔐 Set a strong password to encrypt the codebook. "
+                    "You'll need this password later to look up anonymous IDs."
+                )
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    password = st.text_input(
+                        "Password (12+ characters)",
+                        type="password",
+                        help="Choose a strong password - you'll need this for lookups!"
+                    )
+                
+                with col2:
+                    confirm_password = st.text_input(
+                        "Confirm Password",
+                        type="password"
+                    )
+                
+                # Password validation
+                if password or confirm_password:
+                    if not password or not confirm_password:
+                        st.warning("⚠️ Please enter password in both fields")
+                    elif password != confirm_password:
+                        st.error("❌ Passwords do not match!")
+                    elif len(password) < 12:
+                        st.warning(f"⚠️ Password too short ({len(password)}/12 characters)")
+                    else:
+                        st.success("✅ Password validated")
+                        password_valid = True
+            else:
+                password_valid = True  # No password needed if no codebook
+            
+            st.markdown("---")
+            
+            # ================================================================
+            # STEP 5: GENERATE REPORT
+            # ================================================================
+            
+            st.subheader("Step 5: Generate Report")
+            
+            # Show what will be generated
+            st.markdown("**Your report will include:**")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.markdown("📄 **PDF Report**\n- Anonymized charts\n- Safe to share publicly")
+            with col2:
+                st.markdown("📊 **Cleaned CSV**\n- Anonymized dataset\n- Ready for analysis")
+            with col3:
+                if create_codebook:
+                    st.markdown("🔐 **Codebook**\n- Encrypted mapping\n- Supervisor only!")
+                else:
+                    st.markdown("ℹ️ **No Codebook**\n- IDs cannot be\n- reversed")
+            
+            # Generate button
+            can_generate = password_valid
+            
+            if not can_generate and create_codebook:
+                st.warning("⚠️ Please set a valid password before generating")
+            
+            if st.button(
+                "🚀 Generate Report", 
+                type="primary", 
+                use_container_width=True,
+                disabled=not can_generate
+            ):
+                # Progress tracking
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                try:
+                    # Step 1: Anonymize
+                    status_text.text("🔒 Step 1/4: Anonymizing data...")
+                    progress_bar.progress(25)
+                    
+                    df_anon, codebook_path, anon_log = anonymize_with_codebook(
+                        df,
+                        create_codebook=create_codebook,
+                        password=password if create_codebook else None,
+                        confirm_password=confirm_password if create_codebook else None
+                    )
+                    
+                    # Step 2: Clean
+                    status_text.text("🧹 Step 2/4: Cleaning and processing...")
+                    progress_bar.progress(50)
+                    
+                    df_clean, cleaning_log = clean_data(
+                        df_anon,
+                        mode=expected_mode,
+                        remove_outliers=remove_outliers,
+                        log_actions=False
+                    )
+                    
+                    # Step 3: Generate report
+                    status_text.text("📊 Step 3/4: Creating visualizations...")
+                    progress_bar.progress(75)
+                    
+                    timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+                    report_filename = f"writing_studio_report_{timestamp}.pdf"
+                    
+                    report_path = generate_full_report(df_clean, cleaning_log, report_filename)
+                    
+                    # Step 4: Save CSV
+                    status_text.text("💾 Step 4/4: Finalizing outputs...")
+                    progress_bar.progress(90)
+                    
+                    csv_filename = f"cleaned_data_{timestamp}.csv"
+                    df_clean.to_csv(csv_filename, index=False)
+                    
+                    progress_bar.progress(100)
+                    status_text.empty()
+                    
+                    # Success!
+                    st.success("🎉 Report generated successfully!")
+                    
+                    st.markdown("---")
+                    
+                    # ========================================================
+                    # DOWNLOAD SECTION
+                    # ========================================================
+                    
+                    st.subheader("📥 Download Your Files")
+                    
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        with open(report_path, 'rb') as f:
+                            st.download_button(
+                                label="📄 Download Report (PDF)",
+                                data=f,
+                                file_name=report_filename,
+                                mime="application/pdf",
+                                use_container_width=True
+                            )
+                        st.caption("✅ Safe to share publicly")
+                    
+                    with col2:
+                        with open(csv_filename, 'rb') as f:
+                            st.download_button(
+                                label="📊 Download Cleaned Data (CSV)",
+                                data=f,
+                                file_name=csv_filename,
+                                mime="text/csv",
+                                use_container_width=True
+                            )
+                        st.caption("✅ Anonymized dataset")
+                    
+                    with col3:
+                        if create_codebook and codebook_path:
+                            with open(codebook_path, 'rb') as f:
+                                st.download_button(
+                                    label="🔐 Download Codebook",
+                                    data=f,
+                                    file_name=os.path.basename(codebook_path),
+                                    mime="application/octet-stream",
+                                    use_container_width=True
+                                )
+                            st.caption("⚠️ Supervisor only!")
+                        else:
+                            st.button(
+                                "ℹ️ No Codebook",
+                                use_container_width=True,
+                                disabled=True
+                            )
+                            st.caption("Not generated")
+                    
+                    # ========================================================
+                    # SUMMARY STATS
+                    # ========================================================
+                    
+                    st.markdown("---")
+                    st.subheader("📊 Report Summary")
+                    
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.metric("Total Sessions", f"{cleaning_log['final_rows']:,}")
+                    
+                    with col2:
+                        if 'context' in cleaning_log and 'cancellations' in cleaning_log['context']:
+                            rate = cleaning_log['context']['cancellations']['completion_rate']
+                            st.metric("Completion Rate", f"{rate:.1f}%")
+                        else:
+                            st.metric("Completion Rate", "N/A")
+                    
+                    with col3:
+                        if create_codebook:
+                            st.metric("Tutors", f"{anon_log['tutors_anonymized']}")
+                        else:
+                            st.metric("Columns", f"{cleaning_log['final_cols']}")
+                    
+                    with col4:
+                        if 'outliers_removed' in cleaning_log:
+                            removed = cleaning_log['outliers_removed']['removed_count']
+                            st.metric("Outliers Removed", f"{removed}")
+                        else:
+                            st.metric("Outliers Removed", "0")
+                    
+                    # Important reminder
+                    if create_codebook:
+                        st.warning(
+                            "⚠️ **IMPORTANT**: The codebook file contains sensitive mappings. "
+                            "Give this file + password to your supervisor ONLY. "
+                            "Do NOT commit to GitHub or share via insecure channels."
+                        )
+                    
+                    # Cleanup temp files after download
+                    try:
+                        if os.path.exists(report_path):
+                            os.remove(report_path)
+                        if os.path.exists(csv_filename):
+                            os.remove(csv_filename)
+                        if codebook_path and os.path.exists(codebook_path):
+                            os.remove(codebook_path)
+                    except:
+                        pass  # Files may already be downloaded/deleted
+                
+                except Exception as e:
+                    st.error(f"❌ Error generating report: {str(e)}")
+                    progress_bar.empty()
+                    status_text.empty()
+                    
+                    # Show detailed error in expander
+                    with st.expander("🔍 Error Details"):
+                        import traceback
+                        st.code(traceback.format_exc())
+        
+        except Exception as e:
+            st.error(f"❌ Error loading file: {str(e)}")
+            with st.expander("🔍 Error Details"):
+                import traceback
+                st.code(traceback.format_exc())
+
+
+# ============================================================================
+# TAB 2: CODEBOOK LOOKUP
+# ============================================================================
+
+with tab2:
+    st.header("🔍 Codebook Lookup")
+    
+    st.markdown("""
+    Use this tool to reverse-lookup anonymized IDs from reports back to email addresses.
+    
+    **When to use this:**
+    - Investigating a specific student or tutor flagged in the report
+    - Following up on concerning trends (e.g., declining confidence, high no-shows)
+    - Verifying data accuracy for specific cases
+    """)
+    
+    st.markdown("---")
+    
+    # Upload codebook
+    codebook_file = st.file_uploader(
+        "Upload Codebook File (.enc)",
+        type=['enc'],
+        help="Upload the encrypted codebook file generated with your report",
+        key="lookup_codebook"
+    )
+    
+    if codebook_file is not None:
+        # Save temporarily
+        temp_codebook_path = "temp_codebook_lookup.enc"
+        with open(temp_codebook_path, 'wb') as f:
+            f.write(codebook_file.read())
+        
+        # Password input
+        lookup_password = st.text_input(
+            "Codebook Password",
+            type="password",
+            help="Enter the password you set when generating the report",
+            key="lookup_password"
+        )
+        
+        if lookup_password:
+            # Test password and show info
+            info = get_codebook_info(temp_codebook_path, lookup_password)
+            
+            if 'error' in info:
+                st.error(info['error'])
+            else:
+                st.success("✅ Codebook unlocked!")
+                
+                # Show codebook info
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.metric("Total Students", f"{info['total_students']:,}")
+                    st.metric("Created", info['created'].split('T')[0])
+                
+                with col2:
+                    st.metric("Total Tutors", f"{info['total_tutors']}")
+                    st.metric("Date Range", info['date_range'])
+                
+                st.markdown("---")
+                
+                # Lookup interface
+                st.subheader("Lookup Anonymous ID")
+                
+                col1, col2 = st.columns([3, 1])
+                
+                with col1:
+                    anon_id = st.text_input(
+                        "Anonymous ID",
+                        placeholder="STU_04521 or TUT_0842",
+                        help="Enter the anonymous ID from your report",
+                        key="anon_id_input"
+                    )
+                
+                with col2:
+                    st.markdown("<br>", unsafe_allow_html=True)  # Spacer
+                    lookup_button = st.button("🔍 Lookup", use_container_width=True)
+                
+                if lookup_button:
+                    if not anon_id:
+                        st.warning("⚠️ Please enter an anonymous ID")
+                    else:
+                        with st.spinner("Looking up..."):
+                            result = lookup_in_codebook(anon_id, temp_codebook_path, lookup_password)
+                        
+                        if result.startswith('❌'):
+                            st.error(result)
+                        else:
+                            st.success(f"**{anon_id}** → **{result}**")
+                            
+                            st.info(
+                                f"💡 **Next Step**: Search Penji for `{result}` to see "
+                                "full session history and contact information."
+                            )
+        
+        # Cleanup
+        try:
+            if os.path.exists(temp_codebook_path):
+                os.remove(temp_codebook_path)
+        except:
+            pass
