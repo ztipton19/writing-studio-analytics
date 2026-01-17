@@ -3,6 +3,7 @@
 
 # Streamlit temp files
 src/core/*.py.tmp*
+src/visualizations/*.py.tmp*
 
 # Claude stuff?
 nul
@@ -217,3 +218,4 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+src/visualizations/report_generator.py.tmp.24940.1768623176615

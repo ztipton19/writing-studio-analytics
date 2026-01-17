@@ -144,10 +144,24 @@ def anonymize_with_codebook(df, create_codebook=True, password=None, confirm_pas
 
     if student_email_col:
         student_map = {}
+        used_student_ids = set()
+        student_collisions = 0
 
         for email in df[student_email_col].unique():
-            # Create consistent hash-based anonymous ID
-            anon_id = f"STU_{abs(hash(email)) % 100000:05d}"
+            # Create consistent hash-based anonymous ID using SHA256 (deterministic)
+            hash_hex = hashlib.sha256(str(email).encode()).hexdigest()
+            hash_int = int(hash_hex[:8], 16)  # Use first 8 hex chars
+            anon_id = f"STU_{hash_int % 100000:05d}"
+
+            # Check for collision and handle with suffix
+            if anon_id in used_student_ids:
+                student_collisions += 1
+                suffix = 'A'
+                while f"{anon_id}_{suffix}" in used_student_ids:
+                    suffix = chr(ord(suffix) + 1)  # A -> B -> C...
+                anon_id = f"{anon_id}_{suffix}"
+
+            used_student_ids.add(anon_id)
             student_map[email] = anon_id
 
             if create_codebook:
@@ -155,6 +169,7 @@ def anonymize_with_codebook(df, create_codebook=True, password=None, confirm_pas
 
         df_anon['Student_Anon_ID'] = df[student_email_col].map(student_map)
         anonymization_log['students_anonymized'] = len(student_map)
+        anonymization_log['student_collisions'] = student_collisions
         codebook['metadata']['total_students'] = len(student_map)
     
     # ========================================================================
@@ -170,10 +185,24 @@ def anonymize_with_codebook(df, create_codebook=True, password=None, confirm_pas
 
     if tutor_email_col:
         tutor_map = {}
+        used_tutor_ids = set()
+        tutor_collisions = 0
 
         for email in df[tutor_email_col].unique():
-            # Create consistent hash-based anonymous ID
-            anon_id = f"TUT_{abs(hash(email)) % 10000:04d}"
+            # Create consistent hash-based anonymous ID using SHA256 (deterministic)
+            hash_hex = hashlib.sha256(str(email).encode()).hexdigest()
+            hash_int = int(hash_hex[:8], 16)  # Use first 8 hex chars
+            anon_id = f"TUT_{hash_int % 10000:04d}"
+
+            # Check for collision and handle with suffix
+            if anon_id in used_tutor_ids:
+                tutor_collisions += 1
+                suffix = 'A'
+                while f"{anon_id}_{suffix}" in used_tutor_ids:
+                    suffix = chr(ord(suffix) + 1)  # A -> B -> C...
+                anon_id = f"{anon_id}_{suffix}"
+
+            used_tutor_ids.add(anon_id)
             tutor_map[email] = anon_id
 
             if create_codebook:
@@ -181,6 +210,7 @@ def anonymize_with_codebook(df, create_codebook=True, password=None, confirm_pas
 
         df_anon['Tutor_Anon_ID'] = df[tutor_email_col].map(tutor_map)
         anonymization_log['tutors_anonymized'] = len(tutor_map)
+        anonymization_log['tutor_collisions'] = tutor_collisions
         codebook['metadata']['total_tutors'] = len(tutor_map)
     
     # ========================================================================

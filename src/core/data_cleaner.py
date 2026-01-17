@@ -101,13 +101,17 @@ def rename_columns(df):
     rename_map = {
         # Core Session Info
         'Unique ID': 'Session_ID',
-        
+        'Status': 'Status',
+        'Course': 'Document_Type',
+        'Location': 'Location',
+
         # Session Length
         'Tutor Submitted Length': 'Actual_Session_Length',
         
         # Attendance
         'Student Attendance': 'Attendance_Status',
-
+        'Session Feedback From Student': 'Student_Feedback',
+        
         # Pre-Session (Agenda)
         'Agenda - For which course are you writing this document? (If not applicable, write "N/A")': 'Course_Subject',
         'Agenda - How confident do you feel about your writing assignment right now? (1="Not at all"; 5="Very")': 'Pre_Confidence',
@@ -116,18 +120,16 @@ def rename_columns(df):
         'Agenda - Roughly speaking, what stage of the writing process are you in right now?': 'Writing_Stage',
         'Agenda - What would you like to focus on during this appointment?': 'Focus_Area',
         'Agenda - When is your paper due?': 'Paper_Due_Date',
-
-        # Post-Session (Student Feedback) - keeping only useful fields
+        
+        # Post-Session (Student Feedback)
         'Student - How confident do you feel about your writing assignment now that your meeting is over? (1="Not at all"; 5="Very")': 'Post_Confidence',
         'Student - On a scale of 1-5 (1="not at all," 5="extremely well"), how well did you get along with your tutor?': 'Tutor_Rapport',
         'Student - On a scale of 1-5 (1="not easy at all", 5="extremely easy"), how easy was it to use our website and scheduling software to schedule and attend your appointment?': 'Platform_Ease',
         'Student - On a scale of 1-5 (1="very poorly", 5="very well"), how well would you say your your appointment went?': 'Session_Quality',
         'Student - On a scale of 1-7 (1="extremely dissatisfied," 7="extremely satisfied"), how satisfied are you with the help you received at the Writing Studio?': 'Overall_Satisfaction',
-        'Session Feedback From Student': 'Student_Feedback',
         
         # Tutor Feedback
-        'Tutor - Overall, how well would you say that the consultation went?': 'Tutor_Session_Rating',
-        'Tutor - Please provide a brief overview of the topics discussed or issues addressed during your consultation.': 'Session_Feedback_From_Tutor'
+        'Tutor - Overall, how well would you say that the consultation went?': 'Tutor_Session_Rating'
     }
     
     # Only rename columns that exist
@@ -145,22 +147,22 @@ def convert_text_ratings_to_numeric(df):
     """
     Convert text-based rating responses to numeric values.
 
-    Handles fields that come from Penji with text formats like:
-    - Tutor_Session_Rating: "It went very well" -> numeric
-    - Tutor_Rapport: '5- "Extremely well"' -> extract the number
+    Handles two patterns:
+    1. Tutor_Session_Rating: Full text responses like "It went very well"
+    2. Student feedback fields: Numeric prefix format like "5 - Very well"
     """
     df_converted = df.copy()
 
     # Tutor Session Rating conversion map
-    # Based on: "Overall, how well would you say that the consultation went?"
-    # Format: "It went extremely well", "It went very well", etc.
+    # Based on the question: "Overall, how well would you say that the consultation went?"
+    # Actual values from Penji: "It went extremely well", "It went very well", etc.
     tutor_rating_map = {
         'It went extremely well': 5,
         'It went very well': 4,
         'It went moderately well': 3,
         'It went somewhat well': 2,
         "It didn't go well at all": 1,
-        # Case-insensitive variants
+        # Case-insensitive variants (lowercase)
         'it went extremely well': 5,
         'it went very well': 4,
         'it went moderately well': 3,
@@ -169,14 +171,22 @@ def convert_text_ratings_to_numeric(df):
     }
 
     if 'Tutor_Session_Rating' in df_converted.columns:
+        # Convert text to numeric using the mapping
         df_converted['Tutor_Session_Rating'] = df_converted['Tutor_Session_Rating'].map(tutor_rating_map)
+        # Any unmapped values will become NaN (which is fine for data quality)
 
-    # Extract numeric ratings from formatted responses
-    # Format: '5- "Extremely well"', '4 - "Very well"', etc. -> extract the leading number
+    # Extract numeric values from student feedback fields
+    # These come in format: "5 - Very well" or "7 - Extremely satisfied"
+    # We need to extract just the number at the beginning
     fields_to_extract = ['Tutor_Rapport', 'Platform_Ease', 'Session_Quality', 'Overall_Satisfaction']
+
     for field in fields_to_extract:
         if field in df_converted.columns:
-            df_converted[field] = df_converted[field].astype(str).str.extract(r'^(\d+)', expand=False).astype(float)
+            # Extract number from beginning of string (before the " - " separator)
+            # Use regex to extract digits at the start, handling various formats
+            df_converted[field] = df_converted[field].astype(str).str.extract(r'^(\d+)', expand=False)
+            # Convert to numeric, any non-numeric becomes NaN
+            df_converted[field] = pd.to_numeric(df_converted[field], errors='coerce')
 
     return df_converted
 
@@ -234,14 +244,15 @@ def remove_useless_columns(df):
         'Agenda - If you have access to any rubrics or assignment sheets, please attach them here.',
         'Agenda - Please attach any assignment sheets, written directions, or rubrics for your paper.',
         'Agenda - Please upload your paper here.',
-        'Agenda - Is there anything else you\'d like to share?',  # 52% filled but not useful
         'Tutor - Was this a mock or test consultation?',
 
-        # Low fill rate text fields (<10%)
+        # Text feedback fields - can't run metrics on text data
+        'Tutor - Please provide a brief overview of the topics discussed or issues addressed during your consultation.',  # Session_Feedback_From_Tutor
+        'Agenda - Is there anything else you\'d like to share?',  # 52% filled but not useful
         'Cancel Reason',  # 12.9% - not useful
         'Student - Please share any comments that you\'d like your tutor to see.',  # 3.6% - Student_Comments_Public
         'Student - Please share any obstacles, disappointments, or problems that you encountered during your consultation at the Writing Studio.',  # Student_Issues - low fill
-        'Student - Were you offered any of the following incentives for today\'s visit? Please select any that apply.',  # 90.6% null
+        'Student - Were you offered any of the following incentives for today\'s visit? Please select any that apply.'  # 90.6% null
     ]
     
     # Only remove columns that exist
@@ -287,9 +298,9 @@ def standardize_data_types(df):
     
     # Text columns (ensure string type, replace NaN with empty string for text processing)
     text_columns = [
-        'Course', 'Course_Subject', 'Focus_Area',
+        'Document_Type', 'Course_Subject', 'Focus_Area',
         'Student_Comments_For_Tutor', 'Student_Comments_Public',
-        'Student_Issues', 'Session_Feedback_From_Tutor', 'Session_Feedback',
+        'Student_Issues', 'Tutor_Feedback', 'Student_Feedback',
         'Cancellation_Reason', 'Incentives_Offered'
     ]
     
@@ -481,7 +492,7 @@ def validate_data_quality(df):
             warnings_list.append(f"ℹ️ Found {len(future_appts)} future appointments (likely scheduled sessions)")
     
     # Report on missing critical data (informational, not errors)
-    critical_cols = ['Attendance_Status', 'Course', 'Actual_Session_Length']
+    critical_cols = ['Attendance_Status', 'Document_Type', 'Actual_Session_Length']
     for col in critical_cols:
         if col in df.columns:
             missing_count = df[col].isna().sum()
