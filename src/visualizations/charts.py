@@ -29,6 +29,7 @@ COLORS = {
     'warning': '#F18F01',      # Orange
     'danger': '#C73E1D',       # Red
     'neutral': '#6C757D',      # Gray
+    'accent': '#06A77D',       # Green (same as success)
 }
 
 PALETTE = [COLORS['primary'], COLORS['secondary'], COLORS['success'], 
@@ -981,6 +982,156 @@ def plot_missing_data_concern(missing_report):
 
     # Ensure the x-axis has some breathing room for the labels
     ax.set_xlim(0, max(percentages) + 10)
+
+    plt.tight_layout(rect=MARGIN_RECT)
+
+    return fig
+
+
+def plot_incentives_vs_tutor_rating(incentive_metrics):
+    """
+    Chart 9: Tutor Session Ratings by Incentive Type
+    Shows average tutor ratings for incentivized vs non-incentivized students.
+
+    Research question: Do incentivized students have lower-quality sessions
+    as perceived by tutors?
+    """
+    if not incentive_metrics or 'tutor_rating_by_incentive' not in incentive_metrics:
+        return None
+
+    tutor_ratings = incentive_metrics['tutor_rating_by_incentive']
+
+    # Prepare data for plotting
+    categories = []
+    means = []
+    counts = []
+    stds = []
+    sems = []  # Standard error of the mean
+
+    # Define order and labels for better readability
+    rating_order = [
+        ('not_incentivized', 'No Incentive'),
+        ('incentivized', 'Any Incentive'),
+        ('class_required', 'Class Required'),
+        ('extra_credit', 'Extra Credit')
+    ]
+
+    for key, label in rating_order:
+        if key in tutor_ratings:
+            categories.append(label)
+            means.append(tutor_ratings[key]['mean'])
+            counts.append(tutor_ratings[key]['count'])
+            stds.append(tutor_ratings[key]['std'])
+            # Calculate standard error of the mean (SEM = std / sqrt(n))
+            sem = tutor_ratings[key]['std'] / np.sqrt(tutor_ratings[key]['count'])
+            sems.append(sem)
+
+    if not categories:
+        return None
+
+    # Create figure
+    fig, ax = plt.subplots(figsize=PAGE_LANDSCAPE)
+
+    # Create bar chart with error bars (using SEM)
+    x_pos = range(len(categories))
+    bars = ax.bar(x_pos, means,
+                   yerr=sems,  # Error bars showing standard error
+                   capsize=5,  # Width of error bar caps
+                   color=[COLORS['accent'] if 'No' in cat else COLORS['primary'] for cat in categories],
+                   alpha=0.8,
+                   error_kw={'elinewidth': 2, 'ecolor': 'black', 'alpha': 0.6})
+
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(categories, fontsize=12)
+    ax.set_ylabel('Average Tutor Rating', fontsize=12)
+    ax.set_ylim(0, 5.5)
+    ax.set_title('Tutor Session Ratings by Incentive Type\n(1=Didn\'t go well, 5=Went extremely well; error bars show ±1 SEM)',
+                 fontsize=14, pad=15)
+    ax.axhline(y=4.0, color='gray', linestyle='--', alpha=0.3, label='Reference: 4.0')
+    ax.grid(axis='y', alpha=0.2)
+    ax.grid(False)
+
+    # Add value labels on bars (with extra spacing to avoid error bar overlap)
+    for i, (bar, mean, count, sem) in enumerate(zip(bars, means, counts, sems)):
+        height = bar.get_height()
+        # Position text above the error bar (height + SEM + small buffer)
+        text_y = height + sem + 0.15
+        ax.text(bar.get_x() + bar.get_width()/2., text_y,
+                f'{mean:.2f}\n(n={count})',
+                ha='center', va='bottom', fontsize=11, fontweight='bold')
+
+    # Add statistical significance indicator if available
+    if 'statistical_tests' in incentive_metrics:
+        tests = incentive_metrics['statistical_tests']
+        y_note = 0.3
+
+        if 'incentivized_vs_not' in tests and tests['incentivized_vs_not']['significant_at_05']:
+            sig_level = '**' if tests['incentivized_vs_not']['significant_at_01'] else '*'
+            p_val = tests['incentivized_vs_not']['p_value']
+            ax.text(0.02, 0.98, f'Incentivized vs No Incentive: p={p_val:.4f} {sig_level}',
+                   transform=ax.transAxes, fontsize=9, va='top',
+                   bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.3))
+
+    plt.tight_layout(rect=MARGIN_RECT)
+
+    return fig
+
+
+def plot_incentive_breakdown(incentive_metrics):
+    """
+    Chart 9.1: Incentive Type Distribution
+    Shows the breakdown of different incentive types as a horizontal bar chart.
+    """
+    if not incentive_metrics or 'incentive_breakdown' not in incentive_metrics:
+        return None
+
+    breakdown = incentive_metrics['incentive_breakdown']
+
+    # Prepare data
+    labels = []
+    counts = []
+    percentages = []
+    colors_list = []
+
+    # Define categories to show
+    categories = [
+        ('no_incentive', 'No Incentive', COLORS['accent']),
+        ('class_required', 'Class Required', COLORS['primary']),
+        ('extra_credit', 'Extra Credit', COLORS['secondary'])
+    ]
+
+    for key, label, color in categories:
+        if key in breakdown and breakdown[key]['count'] > 0:
+            labels.append(label)
+            counts.append(breakdown[key]['count'])
+            percentages.append(breakdown[key]['percentage'])
+            colors_list.append(color)
+
+    if not counts:
+        return None
+
+    # Create figure
+    fig, ax = plt.subplots(figsize=PAGE_LANDSCAPE)
+
+    # Create horizontal bar chart
+    y_pos = range(len(labels))
+    bars = ax.barh(y_pos, counts, color=colors_list, alpha=0.8)
+
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(labels, fontsize=12)
+    ax.set_xlabel('Number of Sessions', fontsize=12)
+    ax.set_title('Distribution of Student Incentive Types', fontsize=14, pad=15)
+    ax.grid(False)  # No grid for cleaner appearance
+
+    # Add value labels at the end of each bar with counts and percentages
+    for i, (bar, count, pct) in enumerate(zip(bars, counts, percentages)):
+        width = bar.get_width()
+        ax.text(width + max(counts) * 0.01, i,
+                f'{count} sessions ({pct:.1f}%)',
+                va='center', fontsize=11, fontweight='bold')
+
+    # Add some space on the right for labels
+    ax.set_xlim(0, max(counts) * 1.25)
 
     plt.tight_layout(rect=MARGIN_RECT)
 

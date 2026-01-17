@@ -456,6 +456,187 @@ def calculate_semester_metrics(df):
 
 
 # ============================================================================
+# INCENTIVE ANALYSIS METRICS
+# ============================================================================
+
+def calculate_incentive_metrics(df):
+    """
+    Calculate metrics related to student incentives and their correlation
+    with tutor ratings of session quality.
+
+    Research question: Do incentivized students (extra credit or required visits)
+    have lower-quality sessions as perceived by tutors?
+
+    Returns dict with:
+    - incentive_breakdown: counts and percentages for each incentive type
+    - tutor_rating_by_incentive: average tutor ratings by incentive type
+    - statistical_tests: correlation analysis results
+    """
+    metrics = {}
+
+    # Check if required columns exist
+    required_cols = ['Extra_Credit', 'Class_Required', 'Incentivized', 'Tutor_Session_Rating']
+    if not all(col in df.columns for col in required_cols):
+        return metrics
+
+    # Filter to completed sessions only (where tutor rating exists)
+    df_completed = df[df['Tutor_Session_Rating'].notna()].copy()
+
+    if len(df_completed) == 0:
+        return metrics
+
+    # Incentive breakdown
+    total = len(df_completed)
+    extra_credit_count = df_completed['Extra_Credit'].sum()
+    class_required_count = df_completed['Class_Required'].sum()
+    incentivized_count = df_completed['Incentivized'].sum()
+    no_incentive_count = total - incentivized_count
+
+    metrics['incentive_breakdown'] = {
+        'total_sessions_with_rating': total,
+        'extra_credit': {
+            'count': int(extra_credit_count),
+            'percentage': round((extra_credit_count / total) * 100, 1)
+        },
+        'class_required': {
+            'count': int(class_required_count),
+            'percentage': round((class_required_count / total) * 100, 1)
+        },
+        'any_incentive': {
+            'count': int(incentivized_count),
+            'percentage': round((incentivized_count / total) * 100, 1)
+        },
+        'no_incentive': {
+            'count': int(no_incentive_count),
+            'percentage': round((no_incentive_count / total) * 100, 1)
+        }
+    }
+
+    # Tutor ratings by incentive type
+    tutor_ratings = {}
+
+    # Extra credit vs no extra credit
+    extra_credit_ratings = df_completed[df_completed['Extra_Credit']]['Tutor_Session_Rating']
+    no_extra_credit_ratings = df_completed[~df_completed['Extra_Credit']]['Tutor_Session_Rating']
+
+    if len(extra_credit_ratings) > 0:
+        tutor_ratings['extra_credit'] = {
+            'mean': round(extra_credit_ratings.mean(), 2),
+            'median': round(extra_credit_ratings.median(), 2),
+            'std': round(extra_credit_ratings.std(), 2),
+            'count': len(extra_credit_ratings)
+        }
+
+    if len(no_extra_credit_ratings) > 0:
+        tutor_ratings['no_extra_credit'] = {
+            'mean': round(no_extra_credit_ratings.mean(), 2),
+            'median': round(no_extra_credit_ratings.median(), 2),
+            'std': round(no_extra_credit_ratings.std(), 2),
+            'count': len(no_extra_credit_ratings)
+        }
+
+    # Class required vs not required
+    class_required_ratings = df_completed[df_completed['Class_Required']]['Tutor_Session_Rating']
+    not_required_ratings = df_completed[~df_completed['Class_Required']]['Tutor_Session_Rating']
+
+    if len(class_required_ratings) > 0:
+        tutor_ratings['class_required'] = {
+            'mean': round(class_required_ratings.mean(), 2),
+            'median': round(class_required_ratings.median(), 2),
+            'std': round(class_required_ratings.std(), 2),
+            'count': len(class_required_ratings)
+        }
+
+    if len(not_required_ratings) > 0:
+        tutor_ratings['not_required'] = {
+            'mean': round(not_required_ratings.mean(), 2),
+            'median': round(not_required_ratings.median(), 2),
+            'std': round(not_required_ratings.std(), 2),
+            'count': len(not_required_ratings)
+        }
+
+    # Any incentive vs no incentive
+    incentivized_ratings = df_completed[df_completed['Incentivized']]['Tutor_Session_Rating']
+    not_incentivized_ratings = df_completed[~df_completed['Incentivized']]['Tutor_Session_Rating']
+
+    if len(incentivized_ratings) > 0:
+        tutor_ratings['incentivized'] = {
+            'mean': round(incentivized_ratings.mean(), 2),
+            'median': round(incentivized_ratings.median(), 2),
+            'std': round(incentivized_ratings.std(), 2),
+            'count': len(incentivized_ratings)
+        }
+
+    if len(not_incentivized_ratings) > 0:
+        tutor_ratings['not_incentivized'] = {
+            'mean': round(not_incentivized_ratings.mean(), 2),
+            'median': round(not_incentivized_ratings.median(), 2),
+            'std': round(not_incentivized_ratings.std(), 2),
+            'count': len(not_incentivized_ratings)
+        }
+
+    metrics['tutor_rating_by_incentive'] = tutor_ratings
+
+    # Calculate difference in means
+    if 'incentivized' in tutor_ratings and 'not_incentivized' in tutor_ratings:
+        diff = tutor_ratings['incentivized']['mean'] - tutor_ratings['not_incentivized']['mean']
+        metrics['mean_difference'] = {
+            'incentivized_minus_not_incentivized': round(diff, 2),
+            'interpretation': 'Incentivized students have higher ratings' if diff > 0 else 'Incentivized students have lower ratings' if diff < 0 else 'No difference'
+        }
+
+    # Statistical testing (t-test for comparison)
+    from scipy import stats
+
+    statistical_tests = {}
+
+    # T-test: Incentivized vs Not Incentivized
+    if len(incentivized_ratings) >= 2 and len(not_incentivized_ratings) >= 2:
+        t_stat, p_value = stats.ttest_ind(incentivized_ratings, not_incentivized_ratings, equal_var=False)
+        statistical_tests['incentivized_vs_not'] = {
+            't_statistic': round(t_stat, 3),
+            'p_value': round(p_value, 4),
+            'significant_at_05': p_value < 0.05,
+            'significant_at_01': p_value < 0.01
+        }
+
+    # T-test: Class Required vs Not Required
+    if len(class_required_ratings) >= 2 and len(not_required_ratings) >= 2:
+        t_stat, p_value = stats.ttest_ind(class_required_ratings, not_required_ratings, equal_var=False)
+        statistical_tests['class_required_vs_not'] = {
+            't_statistic': round(t_stat, 3),
+            'p_value': round(p_value, 4),
+            'significant_at_05': p_value < 0.05,
+            'significant_at_01': p_value < 0.01
+        }
+
+    # T-test: Extra Credit vs No Extra Credit
+    if len(extra_credit_ratings) >= 2 and len(no_extra_credit_ratings) >= 2:
+        t_stat, p_value = stats.ttest_ind(extra_credit_ratings, no_extra_credit_ratings, equal_var=False)
+        statistical_tests['extra_credit_vs_not'] = {
+            't_statistic': round(t_stat, 3),
+            'p_value': round(p_value, 4),
+            'significant_at_05': p_value < 0.05,
+            'significant_at_01': p_value < 0.01
+        }
+
+    metrics['statistical_tests'] = statistical_tests
+
+    # Rating distribution by incentive status
+    rating_dist = {}
+
+    if len(incentivized_ratings) > 0:
+        rating_dist['incentivized'] = incentivized_ratings.value_counts().sort_index().to_dict()
+
+    if len(not_incentivized_ratings) > 0:
+        rating_dist['not_incentivized'] = not_incentivized_ratings.value_counts().sort_index().to_dict()
+
+    metrics['rating_distribution'] = rating_dist
+
+    return metrics
+
+
+# ============================================================================
 # MASTER FUNCTION: CALCULATE ALL METRICS
 # ============================================================================
 
@@ -478,7 +659,8 @@ def calculate_all_metrics(df):
         'satisfaction': calculate_satisfaction_metrics(df),
         'tutors': calculate_tutor_metrics(df),
         'students': calculate_student_metrics(df),
-        'semesters': calculate_semester_metrics(df)
+        'semesters': calculate_semester_metrics(df),
+        'incentives': calculate_incentive_metrics(df)
     }
 
 

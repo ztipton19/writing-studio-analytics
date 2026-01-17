@@ -248,6 +248,32 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
             plt.close(fig)
             print("   ✓ Student retention trends")
 
+        # ====================================================================
+        # SECTION 7: INCENTIVE ANALYSIS
+        # ====================================================================
+        print("\n🎯 Section 7: Incentive Analysis")
+
+        # Check if we have incentive data
+        if 'Incentivized' in df.columns and df['Incentivized'].notna().sum() > 0:
+            # Recalculate metrics to get incentive data
+            from src.core.metrics import calculate_all_metrics
+            metrics_full = calculate_all_metrics(df)
+
+            # Incentive breakdown bar chart (show distribution first)
+            fig = plot_incentive_breakdown(metrics_full.get('incentives', {}))
+            if fig:
+                pdf.savefig(fig)
+                plt.close(fig)
+                print("   ✓ Incentive type distribution")
+
+            # Tutor ratings by incentive type (then show the analysis)
+            fig = plot_incentives_vs_tutor_rating(metrics_full.get('incentives', {}))
+            if fig:
+                pdf.savefig(fig)
+                plt.close(fig)
+                print("   ✓ Tutor ratings by incentive type")
+        else:
+            print("   ⏭️  Skipped (no incentive data available)")
 
         # ====================================================================
         # SECTION 8: DATA QUALITY

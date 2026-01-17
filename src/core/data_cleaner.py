@@ -129,7 +129,10 @@ def rename_columns(df):
         'Student - On a scale of 1-7 (1="extremely dissatisfied," 7="extremely satisfied"), how satisfied are you with the help you received at the Writing Studio?': 'Overall_Satisfaction',
         
         # Tutor Feedback
-        'Tutor - Overall, how well would you say that the consultation went?': 'Tutor_Session_Rating'
+        'Tutor - Overall, how well would you say that the consultation went?': 'Tutor_Session_Rating',
+
+        # Incentives
+        'Student - Were you offered any of the following incentives for today\'s visit? Please select any that apply.': 'Incentives_Offered'
     }
     
     # Only rename columns that exist
@@ -252,7 +255,6 @@ def remove_useless_columns(df):
         'Cancel Reason',  # 12.9% - not useful
         'Student - Please share any comments that you\'d like your tutor to see.',  # 3.6% - Student_Comments_Public
         'Student - Please share any obstacles, disappointments, or problems that you encountered during your consultation at the Writing Studio.',  # Student_Issues - low fill
-        'Student - Were you offered any of the following incentives for today\'s visit? Please select any that apply.'  # 90.6% null
     ]
     
     # Only remove columns that exist
@@ -350,11 +352,23 @@ def create_calculated_fields(df):
     if 'Appointment_DateTime' in df_calc.columns:
         # Import here to avoid circular imports
         from src.utils.academic_calendar import detect_semester, get_academic_year, get_semester_label
-        
+
         df_calc['Semester'] = df_calc['Appointment_DateTime'].apply(detect_semester)
         df_calc['Academic_Year'] = df_calc['Appointment_DateTime'].apply(get_academic_year)
         df_calc['Semester_Label'] = df_calc['Appointment_DateTime'].apply(get_semester_label)
-    
+
+    # Incentive boolean flags for research analysis
+    if 'Incentives_Offered' in df_calc.columns:
+        # Create boolean columns for different incentive types
+        df_calc['Extra_Credit'] = df_calc['Incentives_Offered'].fillna('').str.contains(
+            'extra credit', case=False, na=False
+        )
+        df_calc['Class_Required'] = df_calc['Incentives_Offered'].fillna('').str.contains(
+            'entire class was required', case=False, na=False
+        )
+        # Incentivized = either extra credit OR class required
+        df_calc['Incentivized'] = df_calc['Extra_Credit'] | df_calc['Class_Required']
+
     return df_calc
 
 
