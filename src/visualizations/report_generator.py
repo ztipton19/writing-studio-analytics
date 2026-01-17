@@ -44,7 +44,7 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         print("\n📄 Creating cover page...")
         fig = create_cover_page(df, context)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
         
         # ====================================================================
@@ -56,21 +56,21 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         metrics = create_key_metrics_summary(df, context)
         fig = create_metrics_display_page(metrics)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Key metrics summary")
         
         # Sessions over time
         fig = plot_sessions_over_time(df)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Sessions over time")
 
          # Small multiples comparison
         fig = plot_semester_metrics_comparison(df, context)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Metrics comparison")
         else:
@@ -84,21 +84,21 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         # Booking lead time donut
         fig = plot_booking_lead_time_donut(df)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Booking lead time breakdown")
         
         # Sessions by day of week
         fig = plot_sessions_by_day_of_week(df)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Sessions by day of week")
         
         # Heatmap
         fig = plot_sessions_heatmap_day_time(df)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Day/time heatmap")
         
@@ -110,21 +110,21 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         # Session outcomes pie
         fig = plot_session_outcomes_pie(context)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Session outcomes")
         
         # No-show by day
         fig = plot_no_show_by_day(df)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ No-show rate by day")
         
         # Trends over time
         fig = plot_outcomes_over_time(df)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Outcome trends")
 
@@ -139,7 +139,7 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
             # Semester growth
             fig = plot_semester_growth(df)
             if fig:
-                pdf.savefig(fig, bbox_inches='tight')
+                pdf.savefig(fig)
                 plt.close(fig)
                 print("   ✓ Semester growth")
 
@@ -152,7 +152,7 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         # Top 10 most active students
         fig = plot_top_active_students(df, top_n=10)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Top 10 most active students")
 
@@ -164,28 +164,28 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         # Confidence comparison
         fig = plot_confidence_comparison(df)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Pre vs post confidence")
         
         # Confidence change distribution
         fig = plot_confidence_change_distribution(df)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Confidence change distribution")
         
         # Satisfaction distribution
         fig = plot_satisfaction_distribution(df)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Satisfaction distribution")
         
         # Satisfaction trends
         fig = plot_satisfaction_trends(df)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Satisfaction trends")
         
@@ -197,21 +197,21 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         # Sessions per tutor
         fig = plot_sessions_per_tutor(df)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Sessions per tutor")
         
         # Workload balance
         fig = plot_tutor_workload_balance(df)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Workload balance")
         
         # Session length by tutor
         fig = plot_session_length_by_tutor(df)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Session length by tutor")
         
@@ -223,25 +223,32 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         # Writing stages
         fig = plot_writing_stages(df)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Writing stages")
         
         # Focus areas
         fig = plot_focus_areas(df)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Focus areas")
         
         # First-time vs returning
         fig = plot_first_time_vs_returning(df)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ First-time vs returning")
-        
-       
+
+        # Student retention trends over time
+        fig = plot_student_retention_trends(df)
+        if fig:
+            pdf.savefig(fig)
+            plt.close(fig)
+            print("   ✓ Student retention trends")
+
+
         # ====================================================================
         # SECTION 8: DATA QUALITY
         # ====================================================================
@@ -250,14 +257,14 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         # Survey response rates
         fig = plot_survey_response_rates(context)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Survey response rates")
         
         # Missing data concerns
         fig = plot_missing_data_concern(missing_report)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Missing data analysis")
         
@@ -267,7 +274,7 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         print("\n📄 Adding metadata page...")
         fig = create_metadata_page(df, cleaning_log)
         if fig:
-            pdf.savefig(fig, bbox_inches='tight')
+            pdf.savefig(fig)
             plt.close(fig)
         
         # Set PDF metadata
@@ -291,7 +298,8 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
 
 def create_cover_page(df, context):
     """Create cover page for report"""
-    fig, ax = plt.subplots(figsize=(8.5, 11))
+    from src.visualizations.charts import PAGE_PORTRAIT, MARGIN_RECT
+    fig, ax = plt.subplots(figsize=PAGE_PORTRAIT)
     ax.axis('off')
 
     # Title
@@ -333,18 +341,20 @@ def create_cover_page(df, context):
             ha='center', fontsize=10, style='italic', transform=ax.transAxes,
             color='gray')
 
+    plt.tight_layout(rect=MARGIN_RECT)
     return fig
 
 
 def create_metrics_display_page(metrics):
     """Create a visual display of key metrics"""
-    fig, ax = plt.subplots(figsize=(11, 8.5))
+    from src.visualizations.charts import PAGE_PORTRAIT, MARGIN_RECT
+    fig, ax = plt.subplots(figsize=PAGE_PORTRAIT)
     ax.axis('off')
-    
+
     # Title
     ax.text(0.5, 0.95, 'Key Performance Metrics', ha='center', fontsize=20, fontweight='bold',
             transform=ax.transAxes)
-    
+
     # Metrics grid
     y_start = 0.85
     y_step = 0.12
@@ -369,12 +379,14 @@ def create_metrics_display_page(metrics):
         ax.text(0.75, y, str(value), ha='right', fontsize=16, transform=ax.transAxes,
                 color=COLORS['primary'], fontweight='bold')
 
+    plt.tight_layout(rect=MARGIN_RECT)
     return fig
 
 
 def create_metadata_page(df, cleaning_log):
     """Create metadata/technical details page"""
-    fig, ax = plt.subplots(figsize=(8.5, 11))
+    from src.visualizations.charts import PAGE_PORTRAIT, MARGIN_RECT
+    fig, ax = plt.subplots(figsize=PAGE_PORTRAIT)
     ax.axis('off')
 
     # Title
@@ -470,6 +482,7 @@ def create_metadata_page(df, cleaning_log):
             ha='center', fontsize=9, style='italic', transform=ax.transAxes,
             color='gray')
 
+    plt.tight_layout(rect=MARGIN_RECT)
     return fig
 
 
