@@ -585,6 +585,75 @@ def calculate_incentive_metrics(df):
             'interpretation': 'Incentivized students have higher ratings' if diff > 0 else 'Incentivized students have lower ratings' if diff < 0 else 'No difference'
         }
 
+    # Student satisfaction ratings by incentive type
+    satisfaction_ratings = {}
+
+    # Filter to sessions with satisfaction data
+    df_with_satisfaction = df_completed[df_completed['Overall_Satisfaction'].notna()].copy()
+
+    if len(df_with_satisfaction) > 0:
+        # Extra credit vs no extra credit
+        extra_credit_satisfaction = df_with_satisfaction[df_with_satisfaction['Extra_Credit']]['Overall_Satisfaction']
+        no_extra_credit_satisfaction = df_with_satisfaction[~df_with_satisfaction['Extra_Credit']]['Overall_Satisfaction']
+
+        if len(extra_credit_satisfaction) > 0:
+            satisfaction_ratings['extra_credit'] = {
+                'mean': round(extra_credit_satisfaction.mean(), 2),
+                'median': round(extra_credit_satisfaction.median(), 2),
+                'std': round(extra_credit_satisfaction.std(), 2),
+                'count': len(extra_credit_satisfaction)
+            }
+
+        if len(no_extra_credit_satisfaction) > 0:
+            satisfaction_ratings['no_extra_credit'] = {
+                'mean': round(no_extra_credit_satisfaction.mean(), 2),
+                'median': round(no_extra_credit_satisfaction.median(), 2),
+                'std': round(no_extra_credit_satisfaction.std(), 2),
+                'count': len(no_extra_credit_satisfaction)
+            }
+
+        # Class required vs not required
+        class_required_satisfaction = df_with_satisfaction[df_with_satisfaction['Class_Required']]['Overall_Satisfaction']
+        not_required_satisfaction = df_with_satisfaction[~df_with_satisfaction['Class_Required']]['Overall_Satisfaction']
+
+        if len(class_required_satisfaction) > 0:
+            satisfaction_ratings['class_required'] = {
+                'mean': round(class_required_satisfaction.mean(), 2),
+                'median': round(class_required_satisfaction.median(), 2),
+                'std': round(class_required_satisfaction.std(), 2),
+                'count': len(class_required_satisfaction)
+            }
+
+        if len(not_required_satisfaction) > 0:
+            satisfaction_ratings['not_required'] = {
+                'mean': round(not_required_satisfaction.mean(), 2),
+                'median': round(not_required_satisfaction.median(), 2),
+                'std': round(not_required_satisfaction.std(), 2),
+                'count': len(not_required_satisfaction)
+            }
+
+        # Any incentive vs no incentive
+        incentivized_satisfaction = df_with_satisfaction[df_with_satisfaction['Incentivized']]['Overall_Satisfaction']
+        not_incentivized_satisfaction = df_with_satisfaction[~df_with_satisfaction['Incentivized']]['Overall_Satisfaction']
+
+        if len(incentivized_satisfaction) > 0:
+            satisfaction_ratings['incentivized'] = {
+                'mean': round(incentivized_satisfaction.mean(), 2),
+                'median': round(incentivized_satisfaction.median(), 2),
+                'std': round(incentivized_satisfaction.std(), 2),
+                'count': len(incentivized_satisfaction)
+            }
+
+        if len(not_incentivized_satisfaction) > 0:
+            satisfaction_ratings['not_incentivized'] = {
+                'mean': round(not_incentivized_satisfaction.mean(), 2),
+                'median': round(not_incentivized_satisfaction.median(), 2),
+                'std': round(not_incentivized_satisfaction.std(), 2),
+                'count': len(not_incentivized_satisfaction)
+            }
+
+    metrics['satisfaction_rating_by_incentive'] = satisfaction_ratings
+
     # Statistical testing (t-test for comparison)
     from scipy import stats
 
@@ -621,6 +690,42 @@ def calculate_incentive_metrics(df):
         }
 
     metrics['statistical_tests'] = statistical_tests
+
+    # Statistical tests for satisfaction ratings
+    satisfaction_tests = {}
+
+    if len(df_with_satisfaction) > 0:
+        # T-test: Incentivized vs Not Incentivized (satisfaction)
+        if len(incentivized_satisfaction) >= 2 and len(not_incentivized_satisfaction) >= 2:
+            t_stat, p_value = stats.ttest_ind(incentivized_satisfaction, not_incentivized_satisfaction, equal_var=False)
+            satisfaction_tests['incentivized_vs_not'] = {
+                't_statistic': round(t_stat, 3),
+                'p_value': round(p_value, 4),
+                'significant_at_05': p_value < 0.05,
+                'significant_at_01': p_value < 0.01
+            }
+
+        # T-test: Class Required vs Not Required (satisfaction)
+        if len(class_required_satisfaction) >= 2 and len(not_required_satisfaction) >= 2:
+            t_stat, p_value = stats.ttest_ind(class_required_satisfaction, not_required_satisfaction, equal_var=False)
+            satisfaction_tests['class_required_vs_not'] = {
+                't_statistic': round(t_stat, 3),
+                'p_value': round(p_value, 4),
+                'significant_at_05': p_value < 0.05,
+                'significant_at_01': p_value < 0.01
+            }
+
+        # T-test: Extra Credit vs No Extra Credit (satisfaction)
+        if len(extra_credit_satisfaction) >= 2 and len(no_extra_credit_satisfaction) >= 2:
+            t_stat, p_value = stats.ttest_ind(extra_credit_satisfaction, no_extra_credit_satisfaction, equal_var=False)
+            satisfaction_tests['extra_credit_vs_not'] = {
+                't_statistic': round(t_stat, 3),
+                'p_value': round(p_value, 4),
+                'significant_at_05': p_value < 0.05,
+                'significant_at_01': p_value < 0.01
+            }
+
+    metrics['satisfaction_statistical_tests'] = satisfaction_tests
 
     # Rating distribution by incentive status
     rating_dist = {}

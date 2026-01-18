@@ -1077,6 +1077,94 @@ def plot_incentives_vs_tutor_rating(incentive_metrics):
     return fig
 
 
+def plot_incentives_vs_satisfaction(incentive_metrics):
+    """
+    Chart 9.2: Student Satisfaction Ratings by Incentive Type
+    Shows average student self-reported satisfaction for incentivized vs non-incentivized students.
+
+    Research question: Do incentivized students report different satisfaction levels
+    than non-incentivized students?
+    """
+    if not incentive_metrics or 'satisfaction_rating_by_incentive' not in incentive_metrics:
+        return None
+
+    satisfaction_ratings = incentive_metrics['satisfaction_rating_by_incentive']
+
+    # Prepare data for plotting
+    categories = []
+    means = []
+    counts = []
+    stds = []
+    sems = []  # Standard error of the mean
+
+    # Define order and labels for better readability
+    rating_order = [
+        ('not_incentivized', 'No Incentive'),
+        ('incentivized', 'Any Incentive'),
+        ('class_required', 'Class Required'),
+        ('extra_credit', 'Extra Credit')
+    ]
+
+    for key, label in rating_order:
+        if key in satisfaction_ratings:
+            categories.append(label)
+            means.append(satisfaction_ratings[key]['mean'])
+            counts.append(satisfaction_ratings[key]['count'])
+            stds.append(satisfaction_ratings[key]['std'])
+            # Calculate standard error of the mean (SEM = std / sqrt(n))
+            sem = satisfaction_ratings[key]['std'] / np.sqrt(satisfaction_ratings[key]['count'])
+            sems.append(sem)
+
+    if not categories:
+        return None
+
+    # Create figure
+    fig, ax = plt.subplots(figsize=PAGE_LANDSCAPE)
+
+    # Create bar chart with error bars (using SEM)
+    x_pos = range(len(categories))
+    bars = ax.bar(x_pos, means,
+                   yerr=sems,  # Error bars showing standard error
+                   capsize=5,  # Width of error bar caps
+                   color=[COLORS['accent'] if 'No' in cat else COLORS['primary'] for cat in categories],
+                   alpha=0.8,
+                   error_kw={'elinewidth': 2, 'ecolor': 'black', 'alpha': 0.6})
+
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(categories, fontsize=12)
+    ax.set_ylabel('Average Student Satisfaction', fontsize=12)
+    ax.set_ylim(0, 7.5)
+    ax.set_title('Student Satisfaction Ratings by Incentive Type\n(1=Extremely dissatisfied, 7=Extremely satisfied; error bars show ±1 SEM)',
+                 fontsize=14, pad=15)
+    ax.axhline(y=6.0, color='gray', linestyle='--', alpha=0.3, label='Reference: 6.0')
+    ax.grid(False)
+
+    # Add value labels on bars (with extra spacing to avoid error bar overlap)
+    for i, (bar, mean, count, sem) in enumerate(zip(bars, means, counts, sems)):
+        height = bar.get_height()
+        # Position text above the error bar (height + SEM + small buffer)
+        text_y = height + sem + 0.2
+        ax.text(bar.get_x() + bar.get_width()/2., text_y,
+                f'{mean:.2f}\n(n={count})',
+                ha='center', va='bottom', fontsize=11, fontweight='bold')
+
+    # Add statistical significance indicator if available
+    if 'satisfaction_statistical_tests' in incentive_metrics:
+        tests = incentive_metrics['satisfaction_statistical_tests']
+        y_note = 0.3
+
+        if 'incentivized_vs_not' in tests and tests['incentivized_vs_not']['significant_at_05']:
+            sig_level = '**' if tests['incentivized_vs_not']['significant_at_01'] else '*'
+            p_val = tests['incentivized_vs_not']['p_value']
+            ax.text(0.02, 0.98, f'Incentivized vs No Incentive: p={p_val:.4f} {sig_level}',
+                   transform=ax.transAxes, fontsize=9, va='top',
+                   bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.3))
+
+    plt.tight_layout(rect=MARGIN_RECT)
+
+    return fig
+
+
 def plot_incentive_breakdown(incentive_metrics):
     """
     Chart 9.1: Incentive Type Distribution

@@ -26,7 +26,6 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
     
     # Extract context from cleaning log
     context = cleaning_log.get('context', {})
-    missing_report = cleaning_log.get('missing_values', {})
     
     # Calculate all metrics once
     print("\n📊 Calculating metrics...")
@@ -272,6 +271,13 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
                 pdf.savefig(fig)
                 plt.close(fig)
                 print("   ✓ Tutor ratings by incentive type")
+
+            # Student satisfaction ratings by incentive type
+            fig = plot_incentives_vs_satisfaction(metrics_full.get('incentives', {}))
+            if fig:
+                pdf.savefig(fig)
+                plt.close(fig)
+                print("   ✓ Student satisfaction by incentive type")
         else:
             print("   ⏭️  Skipped (no incentive data available)")
 
@@ -286,13 +292,6 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
             pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Survey response rates")
-        
-        # Missing data concerns
-        fig = plot_missing_data_concern(missing_report)
-        if fig:
-            pdf.savefig(fig)
-            plt.close(fig)
-            print("   ✓ Missing data analysis")
         
         # ====================================================================
         # METADATA PAGE
