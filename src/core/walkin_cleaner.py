@@ -12,16 +12,16 @@ Date: 2026-01-19
 
 import pandas as pd
 from datetime import datetime
-import sys
-import os
 
 # Import academic calendar utilities
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
-    from utils.academic_calendar import add_semester_columns
+    from src.utils.academic_calendar import add_semester_columns
 except ImportError:
-    print("Warning: academic_calendar.py not found. Semester columns will not be added.")
-    add_semester_columns = None
+    try:
+        from src.utils.academic_calendar import add_semester_columns
+    except ImportError:
+        print("Warning: academic_calendar.py not found. Semester columns will not be added.")
+        add_semester_columns = None
 
 
 # ============================================================================

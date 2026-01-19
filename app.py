@@ -2,25 +2,25 @@
 
 import streamlit as st
 import pandas as pd
-import sys
 import os
 from datetime import datetime
-
-# Add src to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from src.core.data_cleaner import clean_data, detect_session_type
 from src.core.privacy import anonymize_with_codebook, lookup_in_codebook, get_codebook_info
 from src.visualizations.report_generator import generate_full_report
 
 # Walk-in specific imports
+WALKIN_AVAILABLE = False
 try:
     from src.core.walkin_cleaner import clean_walkin_data
     from src.visualizations.walkin_report_generator import generate_walkin_report
     WALKIN_AVAILABLE = True
-except ImportError:
+    # We use st.write/st.sidebar for Streamlit visibility, or print for terminal
+    print("✅ Walk-in modules successfully loaded from src/")
+except ImportError as e:
+    # This only triggers if BOTH fail
     WALKIN_AVAILABLE = False
-    print("⚠️ Walk-in modules not found - walk-in analysis disabled")
+    print(f"⚠️ Walk-in analysis disabled: {e}")
 
 
 # ============================================================================
