@@ -9,7 +9,7 @@ import os
 # Import walk-in specific functions
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
-    from core.walkin_metrics import calculate_all_metrics, generate_executive_summary
+    from src.core.walkin_metrics import calculate_all_metrics, generate_executive_summary
     from walkin_charts import create_all_walkin_charts
 except ImportError:
     print("Warning: Could not import walkin modules from current directory")
