@@ -18,14 +18,30 @@ def detect_pii_columns(df):
     Two-layer PII detection system:
     1. Exact column name matching
     2. Pattern-based detection for variations
+    
+    NOW SUPPORTS: Both scheduled sessions AND walk-in data
     """
     pii_columns = set()
     
     # Layer 1: Known PII column names (exact match)
+    # UPDATED: Added walk-in specific columns
     known_pii = [
-        'Student Email', 'Student SSO ID', 'Student - Student ID', 'Student ID',
-        'Student Name', 'Tutor Name', 'Tutor Email',
-        'Tutor - Email the session receipt to'
+        # Student identifiers (both session types)
+        'Student Email', 
+        'Student SSO ID', 
+        'Student - Student ID', 
+        'Student ID',
+        'Student Name',  # NEW: Walk-in specific
+        
+        # Tutor identifiers (both session types)
+        'Tutor Name',  # NEW: Walk-in specific
+        'Tutor Email',
+        'Tutor SSO ID',  # NEW: Walk-in specific
+        'Tutor - Email the session receipt to',
+        
+        # Walk-in specific
+        'Canceller Email',  # NEW: Walk-in cancellation data
+        'Requested Tutor Name',  # NEW: Walk-in preference data
     ]
     
     for col in df.columns:
@@ -77,15 +93,18 @@ def _is_pii_data(series):
 # ANONYMIZATION WITH CODEBOOK
 # ============================================================================
 
-def anonymize_with_codebook(df, create_codebook=True, password=None, confirm_password=None):
+def anonymize_with_codebook(df, create_codebook=True, password=None, confirm_password=None, session_type='scheduled'):
     """
     Anonymize PII while optionally creating encrypted reverse-lookup codebook.
+    
+    NOW SUPPORTS: Both scheduled sessions AND walk-in data
     
     Parameters:
     - df: DataFrame with PII
     - create_codebook: Whether to generate codebook
     - password: Password to encrypt codebook
     - confirm_password: Password confirmation
+    - session_type: 'scheduled' or 'walkin' (for codebook metadata)
     
     Returns:
     - df_anon: Anonymized dataframe
@@ -110,6 +129,7 @@ def anonymize_with_codebook(df, create_codebook=True, password=None, confirm_pas
         'tutors': {},
         'metadata': {
             'created': datetime.now().isoformat(),
+            'session_type': session_type,  # NEW: Track data source type
             'total_students': 0,
             'total_tutors': 0,
             'dataset_date_range': None
@@ -120,22 +140,33 @@ def anonymize_with_codebook(df, create_codebook=True, password=None, confirm_pas
         'pii_columns_removed': [],
         'students_anonymized': 0,
         'tutors_anonymized': 0,
-        'codebook_created': create_codebook
+        'codebook_created': create_codebook,
+        'session_type': session_type  # NEW: Track in log
     }
     
     df_anon = df.copy()
     
     # Store date range for codebook metadata
-    if 'Requested At Date' in df.columns:
-        min_date = pd.to_datetime(df['Requested At Date']).min()
-        max_date = pd.to_datetime(df['Requested At Date']).max()
-        codebook['metadata']['dataset_date_range'] = f"{min_date.date()} to {max_date.date()}"
+    # UPDATED: Handle both scheduled and walk-in date columns
+    date_column = None
+    if 'Requested At Date' in df.columns:  # Scheduled sessions
+        date_column = 'Requested At Date'
+    elif 'Check In At Date' in df.columns:  # Walk-in data
+        date_column = 'Check In At Date'
+    
+    if date_column:
+        try:
+            min_date = pd.to_datetime(df[date_column]).min()
+            max_date = pd.to_datetime(df[date_column]).max()
+            codebook['metadata']['dataset_date_range'] = f"{min_date.date()} to {max_date.date()}"
+        except (ValueError, TypeError):
+            codebook['metadata']['dataset_date_range'] = 'Unable to parse dates'
     
     # ========================================================================
     # ANONYMIZE STUDENTS
     # ========================================================================
 
-    # Student email column in Penji exports - check both possible column names
+    # Student email column - check all possible column names
     student_email_col = None
     if 'Student Email' in df.columns:
         student_email_col = 'Student Email'
@@ -147,7 +178,7 @@ def anonymize_with_codebook(df, create_codebook=True, password=None, confirm_pas
         used_student_ids = set()
         student_collisions = 0
 
-        for email in df[student_email_col].unique():
+        for email in df[student_email_col].dropna().unique():  # NEW: Handle NaN
             # Create consistent hash-based anonymous ID using SHA256 (deterministic)
             hash_hex = hashlib.sha256(str(email).encode()).hexdigest()
             hash_int = int(hash_hex[:8], 16)  # Use first 8 hex chars
@@ -174,21 +205,23 @@ def anonymize_with_codebook(df, create_codebook=True, password=None, confirm_pas
     
     # ========================================================================
     # ANONYMIZE TUTORS
+    # NEW: Graceful handling for walk-in "Check In" sessions with no tutors
     # ========================================================================
 
-    # Tutor email column in Penji exports - check both possible column names
+    # Check if tutors exist in this dataset
     tutor_email_col = None
     if 'Tutor Email' in df.columns:
         tutor_email_col = 'Tutor Email'
     elif 'Tutor - Email the session receipt to' in df.columns:
         tutor_email_col = 'Tutor - Email the session receipt to'
 
-    if tutor_email_col:
+    # NEW: Only process tutors if column exists AND has data
+    if tutor_email_col and df[tutor_email_col].notna().any():
         tutor_map = {}
         used_tutor_ids = set()
         tutor_collisions = 0
 
-        for email in df[tutor_email_col].unique():
+        for email in df[tutor_email_col].dropna().unique():  # NEW: Handle NaN
             # Create consistent hash-based anonymous ID using SHA256 (deterministic)
             hash_hex = hashlib.sha256(str(email).encode()).hexdigest()
             hash_int = int(hash_hex[:8], 16)  # Use first 8 hex chars
@@ -212,6 +245,11 @@ def anonymize_with_codebook(df, create_codebook=True, password=None, confirm_pas
         anonymization_log['tutors_anonymized'] = len(tutor_map)
         anonymization_log['tutor_collisions'] = tutor_collisions
         codebook['metadata']['total_tutors'] = len(tutor_map)
+    else:
+        # No tutors to anonymize (e.g., walk-in "Check In" sessions)
+        anonymization_log['tutors_anonymized'] = 0
+        anonymization_log['tutor_note'] = 'No tutor data found (expected for Check In sessions)'
+        codebook['metadata']['total_tutors'] = 0
     
     # ========================================================================
     # REMOVE ALL PII COLUMNS
@@ -233,7 +271,8 @@ def anonymize_with_codebook(df, create_codebook=True, password=None, confirm_pas
     codebook_path = None
     if create_codebook:
         timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
-        codebook_path = f"codebook_{timestamp}.enc"
+        # NEW: Include session type in filename for clarity
+        codebook_path = f"codebook_{session_type}_{timestamp}.enc"
         
         try:
             save_encrypted_codebook(codebook, codebook_path, password)
@@ -252,6 +291,8 @@ def save_encrypted_codebook(codebook, filepath, password):
     Encrypt and save codebook using password-based encryption.
     
     Uses PBKDF2 key derivation + Fernet symmetric encryption.
+    
+    UPDATED: Now displays session type in output
     """
     try:
         from cryptography.fernet import Fernet
@@ -282,12 +323,16 @@ def save_encrypted_codebook(codebook, filepath, password):
     with open(filepath, 'wb') as f:
         f.write(encrypted)
     
+    # NEW: Display session type in output
+    session_type = codebook['metadata'].get('session_type', 'unknown').title()
+    
     print(f"\n✅ Codebook encrypted and saved: {filepath}")
+    print(f"   Session Type: {session_type}")  # NEW
     print(f"   Students: {codebook['metadata']['total_students']}")
     print(f"   Tutors: {codebook['metadata']['total_tutors']}")
     print(f"   Date range: {codebook['metadata'].get('dataset_date_range', 'Unknown')}")
-    print(f"\n⚠️  IMPORTANT: Give codebook + password to supervisor ONLY!")
-    print(f"   Do NOT commit to GitHub or share insecurely.")
+    print("\n⚠️  IMPORTANT: Give codebook + password to supervisor ONLY!")
+    print("   Do NOT commit to GitHub or share insecurely.")
 
 
 def decrypt_codebook(filepath, password):
@@ -395,7 +440,7 @@ def lookup_in_codebook(anon_id, codebook_path, password):
         # Password error or corrupted file (already has nice error message)
         return str(e)
     
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         return f"❌ Codebook file not found: {codebook_path}"
     
     except Exception as e:
@@ -407,11 +452,14 @@ def get_codebook_info(codebook_path, password):
     Get metadata about codebook without looking up specific IDs.
     
     Useful for displaying codebook stats to user.
+    
+    UPDATED: Now includes session type in returned info
     """
     try:
         codebook = decrypt_codebook(codebook_path, password)
         
         info = {
+            'session_type': codebook['metadata'].get('session_type', 'unknown'),  # NEW
             'total_students': codebook['metadata']['total_students'],
             'total_tutors': codebook['metadata']['total_tutors'],
             'created': codebook['metadata']['created'],
