@@ -13,6 +13,15 @@ from src.core.data_cleaner import clean_data, detect_session_type
 from src.core.privacy import anonymize_with_codebook, lookup_in_codebook, get_codebook_info
 from src.visualizations.report_generator import generate_full_report
 
+# Walk-in specific imports
+try:
+    from src.core.walkin_cleaner import clean_walkin_data
+    from src.visualizations.walkin_report_generator import generate_walkin_report
+    WALKIN_AVAILABLE = True
+except ImportError:
+    WALKIN_AVAILABLE = False
+    print("⚠️ Walk-in modules not found - walk-in analysis disabled")
+
 
 # ============================================================================
 # PAGE CONFIG
@@ -78,12 +87,19 @@ with tab1:
     
     st.subheader("Step 1: Select Session Type")
     
+    # Check if walk-in modules are available
+    walkin_options = ["40-Minute Sessions (Scheduled)", "Walk-In Sessions"] if WALKIN_AVAILABLE else ["40-Minute Sessions (Scheduled)"]
+    
     session_mode = st.radio(
         "What type of sessions are you analyzing?",
-        options=["40-Minute Sessions (Scheduled)", "Walk-In Sessions"],
+        options=walkin_options,
         index=0,
         help="Select the type of data you're uploading. The tool will adjust its analysis accordingly."
     )
+    
+    if not WALKIN_AVAILABLE and session_mode != "40-Minute Sessions (Scheduled)":
+        st.error("❌ Walk-in modules not installed. Contact system administrator.")
+        st.stop()
     
     # Convert to internal format
     if session_mode == "40-Minute Sessions (Scheduled)":
@@ -137,37 +153,51 @@ with tab1:
 
                 with col1:
                     st.markdown("**📅 Date Information:**")
+                    date_col = None
                     if 'Requested At Date' in df.columns:
-                        dates = pd.to_datetime(df['Requested At Date'], errors='coerce')
+                        date_col = 'Requested At Date'
+                    elif 'Check In At Date' in df.columns:
+                        date_col = 'Check In At Date'
+                    
+                    if date_col:
+                        dates = pd.to_datetime(df[date_col], errors='coerce')
                         st.write(f"- First session: {dates.min().strftime('%B %d, %Y')}")
                         st.write(f"- Last session: {dates.max().strftime('%B %d, %Y')}")
                         st.write(f"- Span: {(dates.max() - dates.min()).days} days")
 
                     st.markdown("**📊 Session Statistics:**")
-                    # Check for Attendance_Status column for more accurate counting
-                    if 'Student Attendance' in df.columns:
-                        attendance_col = 'Student Attendance'
-                    elif 'Attendance_Status' in df.columns:
-                        attendance_col = 'Attendance_Status'
+                    
+                    # For walk-in data, use Status field
+                    if expected_mode == 'walkin' and 'Status' in df.columns:
+                        status_counts = df['Status'].value_counts()
+                        for status, count in status_counts.items():
+                            pct = (count / len(df)) * 100
+                            st.write(f"- {status}: {count:,} ({pct:.1f}%)")
                     else:
-                        attendance_col = None
+                        # For scheduled sessions, use Attendance_Status
+                        if 'Student Attendance' in df.columns:
+                            attendance_col = 'Student Attendance'
+                        elif 'Attendance_Status' in df.columns:
+                            attendance_col = 'Attendance_Status'
+                        else:
+                            attendance_col = None
 
-                    if attendance_col:
-                        # Count Present (Completed), Absent (No-shows)
-                        completed = df[attendance_col].str.lower().str.contains('present', na=False).sum()
-                        no_show = df[attendance_col].str.lower().str.contains('absent', na=False).sum()
+                        if attendance_col:
+                            # Count Present (Completed), Absent (No-shows)
+                            completed = df[attendance_col].str.lower().str.contains('present', na=False).sum()
+                            no_show = df[attendance_col].str.lower().str.contains('absent', na=False).sum()
 
-                        completed_pct = (completed / len(df)) * 100
-                        no_show_pct = (no_show / len(df)) * 100
+                            completed_pct = (completed / len(df)) * 100
+                            no_show_pct = (no_show / len(df)) * 100
 
-                        st.write(f"- Completed: {completed:,} ({completed_pct:.1f}%)")
-                        st.write(f"- Absent (no-show): {no_show:,} ({no_show_pct:.1f}%)")
+                            st.write(f"- Completed: {completed:,} ({completed_pct:.1f}%)")
+                            st.write(f"- Absent (no-show): {no_show:,} ({no_show_pct:.1f}%)")
 
-                    # Count cancellations from Status column
-                    if 'Status' in df.columns:
-                        cancelled = df['Status'].str.lower().str.contains('cancel', na=False).sum()
-                        cancelled_pct = (cancelled / len(df)) * 100
-                        st.write(f"- Cancelled: {cancelled:,} ({cancelled_pct:.1f}%)")
+                        # Count cancellations from Status column
+                        if 'Status' in df.columns:
+                            cancelled = df['Status'].str.lower().str.contains('cancel', na=False).sum()
+                            cancelled_pct = (cancelled / len(df)) * 100
+                            st.write(f"- Cancelled: {cancelled:,} ({cancelled_pct:.1f}%)")
 
                 with col2:
                     st.markdown("**👥 Participation:**")
@@ -295,6 +325,16 @@ with tab1:
                 else:
                     st.markdown("ℹ️ **No Codebook**\n- IDs cannot be\n- reversed")
             
+            if expected_mode == 'walkin':
+                st.info(
+                    "📊 **Walk-In Report Includes:**\n"
+                    "- Consultant workload analysis\n"
+                    "- Temporal patterns (peak hours/days)\n"
+                    "- Duration analysis by session type\n"
+                    "- Independent space usage metrics\n"
+                    "- Course distribution"
+                )
+            
             # Generate button
             can_generate = password_valid
             
@@ -320,28 +360,43 @@ with tab1:
                         df,
                         create_codebook=create_codebook,
                         password=password if create_codebook else None,
-                        confirm_password=confirm_password if create_codebook else None
+                        confirm_password=confirm_password if create_codebook else None,
+                        session_type=expected_mode  # Pass session type for codebook metadata
                     )
 
                     # Step 2: Clean
                     status_text.text("🧹 Step 2/4: Cleaning and processing...")
                     progress_bar.progress(50)
 
-                    df_clean, cleaning_log = clean_data(
-                        df_anon,
-                        mode=expected_mode,
-                        remove_outliers=remove_outliers,
-                        log_actions=False
-                    )
+                    if expected_mode == 'walkin':
+                        # Use walk-in specific cleaner
+                        if not WALKIN_AVAILABLE:
+                            st.error("❌ Walk-in modules not available. Please check installation.")
+                            st.stop()
+                        
+                        df_clean = clean_walkin_data(df_anon, cap_duration=True, max_duration_minutes=180)
+                        cleaning_log = {'mode': 'walkin', 'context': {}}
+                    else:
+                        # Use scheduled session cleaner
+                        df_clean, cleaning_log = clean_data(
+                            df_anon,
+                            mode=expected_mode,
+                            remove_outliers=remove_outliers,
+                            log_actions=False
+                        )
 
                     # Step 3: Generate report
                     status_text.text("📊 Step 3/4: Creating visualizations...")
                     progress_bar.progress(75)
 
                     timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
-                    report_filename = f"writing_studio_report_{timestamp}.pdf"
-
-                    report_path = generate_full_report(df_clean, cleaning_log, report_filename)
+                    
+                    if expected_mode == 'walkin':
+                        report_filename = f"walkin_report_{timestamp}.pdf"
+                        report_path = generate_walkin_report(df_clean, report_filename)
+                    else:
+                        report_filename = f"writing_studio_report_{timestamp}.pdf"
+                        report_path = generate_full_report(df_clean, cleaning_log, report_filename)
 
                     # Step 4: Save CSV
                     status_text.text("💾 Step 4/4: Finalizing outputs...")
@@ -382,7 +437,8 @@ with tab1:
                             os.remove(csv_filename)
                         if codebook_path and os.path.exists(codebook_path):
                             os.remove(codebook_path)
-                    except:
+                    except OSError as e:
+                        print(f"Cleanup failed: {e}")
                         pass
 
                     progress_bar.progress(100)
@@ -600,5 +656,6 @@ with tab2:
         try:
             if os.path.exists(temp_codebook_path):
                 os.remove(temp_codebook_path)
-        except:
+        except OSError as e:
+            print(f"Cleanup failed: {e}")
             pass

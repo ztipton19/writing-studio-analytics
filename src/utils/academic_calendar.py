@@ -1,8 +1,6 @@
 # src/utils/academic_calendar.py
 
 import pandas as pd
-from datetime import datetime
-
 
 def detect_semester(date):
     """

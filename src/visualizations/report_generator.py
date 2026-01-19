@@ -2,12 +2,10 @@
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-import pandas as pd
 from datetime import datetime
-import os
 
 # Import all chart functions
-from src.visualizations.charts import *
+import src.visualizations.charts as charts
 
 
 def generate_full_report(df, cleaning_log, output_path='report.pdf'):
@@ -52,7 +50,7 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         print("\n📊 Section 1: Executive Summary")
         
         # Key metrics summary (text display)
-        metrics = create_key_metrics_summary(df, context)
+        metrics = charts.create_key_metrics_summary(df, context)
         fig = create_metrics_display_page(metrics)
         if fig:
             pdf.savefig(fig)
@@ -60,14 +58,14 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
             print("   ✓ Key metrics summary")
         
         # Sessions over time
-        fig = plot_sessions_over_time(df)
+        fig = charts.plot_sessions_over_time(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Sessions over time")
 
          # Small multiples comparison
-        fig = plot_semester_metrics_comparison(df, context)
+        fig = charts.plot_semester_metrics_comparison(df, context)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
@@ -81,21 +79,21 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         print("\n📅 Section 2: Booking Behavior")
         
         # Booking lead time donut
-        fig = plot_booking_lead_time_donut(df)
+        fig = charts.plot_booking_lead_time_donut(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Booking lead time breakdown")
         
         # Sessions by day of week
-        fig = plot_sessions_by_day_of_week(df)
+        fig = charts.plot_sessions_by_day_of_week(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Sessions by day of week")
         
         # Heatmap
-        fig = plot_sessions_heatmap_day_time(df)
+        fig = charts.plot_sessions_heatmap_day_time(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
@@ -107,21 +105,21 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         print("\n✅ Section 3: Attendance & Outcomes")
         
         # Session outcomes pie
-        fig = plot_session_outcomes_pie(context)
+        fig = charts.plot_session_outcomes_pie(context)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Session outcomes")
         
         # No-show by day
-        fig = plot_no_show_by_day(df)
+        fig = charts.plot_no_show_by_day(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ No-show rate by day")
         
         # Trends over time
-        fig = plot_outcomes_over_time(df)
+        fig = charts.plot_outcomes_over_time(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
@@ -136,7 +134,7 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
             print("\n📊 Section 7: Semester Comparisons")
 
             # Semester growth
-            fig = plot_semester_growth(df)
+            fig = charts.plot_semester_growth(df)
             if fig:
                 pdf.savefig(fig)
                 plt.close(fig)
@@ -149,7 +147,7 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         print("\n⭐ Top Active Students")
 
         # Top 10 most active students
-        fig = plot_top_active_students(df, top_n=10)
+        fig = charts.plot_top_active_students(df, top_n=10)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
@@ -161,28 +159,28 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         print("\n😊 Section 4: Student Satisfaction")
         
         # Confidence comparison
-        fig = plot_confidence_comparison(df)
+        fig = charts.plot_confidence_comparison(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Pre vs post confidence")
         
         # Confidence change distribution
-        fig = plot_confidence_change_distribution(df)
+        fig = charts.plot_confidence_change_distribution(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Confidence change distribution")
         
         # Satisfaction distribution
-        fig = plot_satisfaction_distribution(df)
+        fig = charts.plot_satisfaction_distribution(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Satisfaction distribution")
         
         # Satisfaction trends
-        fig = plot_satisfaction_trends(df)
+        fig = charts.plot_satisfaction_trends(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
@@ -194,21 +192,21 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         print("\n👥 Section 5: Tutor Analytics")
         
         # Sessions per tutor
-        fig = plot_sessions_per_tutor(df)
+        fig = charts.plot_sessions_per_tutor(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Sessions per tutor")
         
         # Workload balance
-        fig = plot_tutor_workload_balance(df)
+        fig = charts.plot_tutor_workload_balance(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Workload balance")
         
         # Session length by tutor
-        fig = plot_session_length_by_tutor(df)
+        fig = charts.plot_session_length_by_tutor(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
@@ -220,28 +218,28 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         print("\n📝 Section 6: Session Content")
         
         # Writing stages
-        fig = plot_writing_stages(df)
+        fig = charts.plot_writing_stages(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Writing stages")
         
         # Focus areas
-        fig = plot_focus_areas(df)
+        fig = charts.plot_focus_areas(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ Focus areas")
         
         # First-time vs returning
-        fig = plot_first_time_vs_returning(df)
+        fig = charts.plot_first_time_vs_returning(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
             print("   ✓ First-time vs returning")
 
         # Student retention trends over time
-        fig = plot_student_retention_trends(df)
+        fig = charts.plot_student_retention_trends(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
@@ -259,21 +257,21 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
             metrics_full = calculate_all_metrics(df)
 
             # Incentive breakdown bar chart (show distribution first)
-            fig = plot_incentive_breakdown(metrics_full.get('incentives', {}))
+            fig = charts.plot_incentive_breakdown(metrics_full.get('incentives', {}))
             if fig:
                 pdf.savefig(fig)
                 plt.close(fig)
                 print("   ✓ Incentive type distribution")
 
             # Tutor ratings by incentive type (then show the analysis)
-            fig = plot_incentives_vs_tutor_rating(metrics_full.get('incentives', {}))
+            fig = charts.plot_incentives_vs_tutor_rating(metrics_full.get('incentives', {}))
             if fig:
                 pdf.savefig(fig)
                 plt.close(fig)
                 print("   ✓ Tutor ratings by incentive type")
 
             # Student satisfaction ratings by incentive type
-            fig = plot_incentives_vs_satisfaction(metrics_full.get('incentives', {}))
+            fig = charts.plot_incentives_vs_satisfaction(metrics_full.get('incentives', {}))
             if fig:
                 pdf.savefig(fig)
                 plt.close(fig)
@@ -287,7 +285,7 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         print("\n📋 Section 8: Data Quality")
         
         # Survey response rates
-        fig = plot_survey_response_rates(context)
+        fig = charts.plot_survey_response_rates(context)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
@@ -331,7 +329,7 @@ def create_cover_page(df, context):
     ax.text(0.5, 0.8, 'Writing Studio', ha='center', fontsize=36, fontweight='bold',
             transform=ax.transAxes)
     ax.text(0.5, 0.72, 'Analytics Report', ha='center', fontsize=28,
-            transform=ax.transAxes, color=COLORS['primary'])
+            transform=ax.transAxes, color=charts.COLORS['primary'])
 
     # Date range
     if 'Appointment_DateTime' in df.columns:
@@ -402,7 +400,7 @@ def create_metrics_display_page(metrics):
 
         # Value
         ax.text(0.75, y, str(value), ha='right', fontsize=16, transform=ax.transAxes,
-                color=COLORS['primary'], fontweight='bold')
+                color=charts.COLORS['primary'], fontweight='bold')
 
     plt.tight_layout(rect=MARGIN_RECT)
     return fig
@@ -500,7 +498,7 @@ def create_metadata_page(df, cleaning_log):
                     ha='center', fontsize=10, transform=ax.transAxes, family='monospace')
 
     # Generation info
-    ax.text(0.5, 0.05, f'Generated by Writing Studio Analytics Tool',
+    ax.text(0.5, 0.05, 'Generated by Writing Studio Analytics Tool',
             ha='center', fontsize=9, style='italic', transform=ax.transAxes,
             color='gray')
     ax.text(0.5, 0.02, f'{datetime.now().strftime("%B %d, %Y at %I:%M %p")}',

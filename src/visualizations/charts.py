@@ -4,7 +4,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from datetime import datetime
 import warnings
 
 warnings.filterwarnings('ignore')
@@ -133,11 +132,16 @@ def plot_booking_lead_time_donut(df):
 
     # Categorize lead times
     def categorize_lead_time(days):
-        if pd.isna(days): return None
-        if days < 1: return 'Same Day'
-        if days < 2: return '1 Day Ahead'
-        if days < 4: return '2-3 Days Ahead'
-        if days < 8: return '4-7 Days Ahead'
+        if pd.isna(days): 
+            return None
+        if days < 1: 
+            return 'Same Day'
+        if days < 2: 
+            return '1 Day Ahead'
+        if days < 4: 
+            return '2-3 Days Ahead'
+        if days < 8: 
+            return '4-7 Days Ahead'
         return '1-2 Weeks Ahead'
 
     df_plot = df.copy()
@@ -309,7 +313,7 @@ def plot_outcomes_over_time(df, date_col='Appointment_DateTime'):
             # Map seasons to decimals to preserve year-first sorting
             mapping = {'Spring': 0.1, 'Summer': 0.2, 'Fall': 0.3}
             return float(year) + mapping.get(season, 0.0)
-        except:
+        except (ValueError, TypeError):
             return 0.0
 
     # 3. Aggregate and Reindex
@@ -363,8 +367,10 @@ def plot_confidence_comparison(df):
     
     # Data for seaborn
     data_list = []
-    for val in pre_conf: data_list.append({'Type': 'Pre-Session', 'Confidence': val})
-    for val in post_conf: data_list.append({'Type': 'Post-Session', 'Confidence': val})
+    for val in pre_conf: 
+        data_list.append({'Type': 'Pre-Session', 'Confidence': val})
+    for val in post_conf: 
+        data_list.append({'Type': 'Post-Session', 'Confidence': val})
     plot_df = pd.DataFrame(data_list)
     
     fig, ax = plt.subplots(figsize=PAGE_LANDSCAPE)
@@ -522,7 +528,8 @@ def plot_satisfaction_trends(df):
 
 def plot_sessions_per_tutor(df):
     """Chart 5.1: Sessions per tutor (Strictly Descending)"""
-    if 'Tutor_Anon_ID' not in df.columns: return None
+    if 'Tutor_Anon_ID' not in df.columns: 
+        return None
 
     # Ensure descending sort
     tutor_counts = df['Tutor_Anon_ID'].value_counts().sort_values(ascending=True).tail(20)
@@ -807,7 +814,7 @@ def get_semester_sort_key(semester_str):
         season, year = semester_str.split()
         mapping = {'Spring': 0.1, 'Summer': 0.2, 'Fall': 0.3}
         return float(year) + mapping.get(season, 0.0)
-    except:
+    except (ValueError, TypeError):
         return 0.0
 
 def sort_semesters(semester_list):
@@ -816,7 +823,8 @@ def sort_semesters(semester_list):
 
 # Apply this to your growth chart:
 def plot_semester_growth(df):
-    if 'Semester_Label' not in df.columns: return None
+    if 'Semester_Label' not in df.columns: 
+        return None
     
     counts = df['Semester_Label'].value_counts()
     sorted_labels = sort_semesters(counts.index.tolist())
@@ -848,7 +856,7 @@ def plot_semester_metrics_comparison(df, context):
             season, year = semester_str.split()
             mapping = {'Spring': 0.1, 'Summer': 0.2, 'Fall': 0.3}
             return float(year) + mapping.get(season, 0.0)
-        except:
+        except (ValueError, TypeError):
             return 0.0
 
     semesters = df['Semester_Label'].unique()
@@ -968,7 +976,7 @@ def plot_missing_data_concern(missing_report):
     fig, ax = plt.subplots(figsize=PAGE_LANDSCAPE)
 
     y_pos = range(len(columns))
-    bars = ax.barh(y_pos, percentages, color=COLORS['warning'], alpha=0.8)
+    ax.barh(y_pos, percentages, color=COLORS['warning'], alpha=0.8)
 
     ax.set_yticks(y_pos)
     ax.set_yticklabels(columns, fontsize=10)
@@ -1063,7 +1071,6 @@ def plot_incentives_vs_tutor_rating(incentive_metrics):
     # Add statistical significance indicator if available
     if 'statistical_tests' in incentive_metrics:
         tests = incentive_metrics['statistical_tests']
-        y_note = 0.3
 
         if 'incentivized_vs_not' in tests and tests['incentivized_vs_not']['significant_at_05']:
             sig_level = '**' if tests['incentivized_vs_not']['significant_at_01'] else '*'
@@ -1151,7 +1158,6 @@ def plot_incentives_vs_satisfaction(incentive_metrics):
     # Add statistical significance indicator if available
     if 'satisfaction_statistical_tests' in incentive_metrics:
         tests = incentive_metrics['satisfaction_statistical_tests']
-        y_note = 0.3
 
         if 'incentivized_vs_not' in tests and tests['incentivized_vs_not']['significant_at_05']:
             sig_level = '**' if tests['incentivized_vs_not']['significant_at_01'] else '*'

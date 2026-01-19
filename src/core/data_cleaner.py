@@ -2,7 +2,6 @@
 
 import pandas as pd
 import numpy as np
-from datetime import datetime
 import warnings
 
 warnings.filterwarnings('ignore')
@@ -808,7 +807,7 @@ def clean_scheduled_sessions(df, remove_outliers_flag=True, log_actions=True):
             # Cancellation stats
             if 'cancellations' in context:
                 cancel_ctx = context['cancellations']
-                print(f"\n📅 Session Outcomes:")
+                print("\n📅 Session Outcomes:")
                 print(f"   Total sessions: {cancel_ctx['total_sessions']:,}")
                 print(f"   Completed: {cancel_ctx['completed']:,} ({cancel_ctx['completion_rate']:.1f}%)")
                 print(f"   Cancelled: {cancel_ctx['cancelled']:,} ({cancel_ctx['cancellation_rate']:.1f}%)")
@@ -817,15 +816,15 @@ def clean_scheduled_sessions(df, remove_outliers_flag=True, log_actions=True):
             # Student issues stats
             if 'student_issues' in context:
                 issues_ctx = context['student_issues']
-                print(f"\n💬 Student Feedback:")
+                print("\n💬 Student Feedback:")
                 print(f"   Sessions with issues reported: {issues_ctx['sessions_with_issues']:,} ({issues_ctx['issue_rate']:.1f}%)")
                 print(f"   Sessions without issues: {issues_ctx['sessions_without_issues']:,}")
-                print(f"   → Low issue rate is a positive indicator!")
+                print("   → Low issue rate is a positive indicator!")
             
             # Survey completion stats
             if 'surveys' in context:
                 survey_ctx = context['surveys']
-                print(f"\n📝 Survey Completion Rates:")
+                print("\n📝 Survey Completion Rates:")
                 print(f"   Pre-session survey: {survey_ctx['pre_survey_completion_rate']:.1f}%")
                 print(f"   Post-session survey: {survey_ctx['post_survey_completion_rate']:.1f}%")
                 print(f"   Both surveys completed: {survey_ctx['both_surveys_completion_rate']:.1f}%")
