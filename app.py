@@ -9,6 +9,17 @@ from src.core.data_cleaner import clean_data, detect_session_type
 from src.core.privacy import anonymize_with_codebook, lookup_in_codebook, get_codebook_info
 from src.visualizations.report_generator import generate_full_report
 
+# AI Chat imports
+AI_CHAT_AVAILABLE = False
+try:
+    from src.ai_chat.chat_handler import ChatHandler
+    from src.ai_chat.setup_model import get_model_path
+    AI_CHAT_AVAILABLE = True
+    print("✅ AI Chat modules loaded successfully")
+except ImportError as e:
+    AI_CHAT_AVAILABLE = False
+    print(f"⚠️ AI Chat disabled: {e}")
+
 # Walk-in specific imports
 WALKIN_AVAILABLE = False
 try:
@@ -57,10 +68,134 @@ st.sidebar.markdown(
 
 
 # ============================================================================
+# AI CHAT TAB FUNCTION (defined before use)
+# ============================================================================
+
+def render_ai_chat_tab():
+    """Render AI chat interface."""
+    st.header("🤖 AI Chat Assistant")
+    
+    st.info(
+        "Ask questions about your data! I can help you understand patterns, "
+        "trends, and insights. Note: I only discuss aggregated data to protect privacy."
+    )
+    
+    # Check if data is available
+    if 'df_clean' not in st.session_state:
+        st.warning(
+            "⚠️ No data available. Please generate a report in **Generate Report** tab first."
+        )
+        return
+    
+    # Initialize chat handler
+    if 'chat_handler' not in st.session_state:
+        with st.spinner("Loading AI model (first time only)..."):
+            try:
+                model_path = get_model_path()
+                st.session_state.chat_handler = ChatHandler(model_path, verbose=False)
+                st.session_state.chat_messages = []
+                
+                # Show system info
+                sys_info = st.session_state.chat_handler.check_system_requirements()
+                with st.expander("💻 System Information"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write(f"- **RAM**: {sys_info['ram_gb']} GB")
+                        st.write(f"- **GPU**: {sys_info['gpu_acceleration']}")
+                    with col2:
+                        st.write(f"- **CPU Threads**: {sys_info['cpu_threads']}")
+                        st.write(f"- **RAM Sufficient**: {'✅ Yes' if sys_info['ram_sufficient'] else '⚠️ No (may be slow)'}")
+                
+                st.success("✅ AI model loaded successfully!")
+            except Exception as e:
+                st.error(f"❌ Error loading AI model: {str(e)}")
+                st.info("💡 Make sure you've downloaded the model by running: `python src/ai_chat/setup_model.py`")
+                return
+    
+    # Display chat history
+    if 'chat_messages' in st.session_state:
+        for message in st.session_state.chat_messages:
+            with st.chat_message(message['role']):
+                st.write(message['content'])
+    
+    # Chat input
+    if prompt := st.chat_input("Ask a question about your data..."):
+        # Add user message
+        st.session_state.chat_messages.append({
+            'role': 'user',
+            'content': prompt
+        })
+        
+        with st.chat_message("user"):
+            st.write(prompt)
+        
+        # Generate response
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                try:
+                    result = st.session_state.chat_handler.handle_query(
+                        prompt,
+                        st.session_state
+                    )
+                    response = result['response']
+                    st.write(response)
+                except Exception as e:
+                    st.error(f"❌ Error generating response: {str(e)}")
+                    response = "I encountered an error. Please try again."
+        
+        # Add assistant message
+        st.session_state.chat_messages.append({
+            'role': 'assistant',
+            'content': response
+        })
+        
+        # Rerun to update display
+        st.rerun()
+    
+    # Helpful suggestions
+    with st.expander("💡 Example Questions"):
+        session_type = st.session_state.get('data_mode', 'scheduled')
+        
+        if session_type == 'scheduled':
+            st.markdown("""
+            **Scheduled Sessions:**
+            - What were the busiest days of the week?
+            - How did student satisfaction change over time?
+            - Which writing stages were most common?
+            - What was the average booking lead time?
+            """)
+        else:
+            st.markdown("""
+            **Walk-In Sessions:**
+            - What were the peak hours for walk-ins?
+            - How many students used the space independently?
+            - What was the average session duration?
+            - Which courses were most common?
+            """)
+    
+    # Clear chat button
+    if st.button("🗑️ Clear Chat History"):
+        if 'chat_handler' in st.session_state:
+            st.session_state.chat_handler.clear_history()
+        st.session_state.chat_messages = []
+        st.rerun()
+    
+    # Model info
+    st.markdown("---")
+    st.caption(
+        "🤖 Powered by Gemma 3 4B (Google) - Local-only inference, no cloud APIs"
+    )
+
+
+# ============================================================================
 # MAIN APP - TABS
 # ============================================================================
 
-tab1, tab2 = st.tabs(["📊 Generate Report", "🔍 Codebook Lookup"])
+# Determine number of tabs based on available features
+if AI_CHAT_AVAILABLE:
+    tab1, tab2, tab3 = st.tabs(["📊 Generate Report", "🔍 Codebook Lookup", "🤖 AI Chat Assistant"])
+else:
+    tab1, tab2 = st.tabs(["📊 Generate Report", "🔍 Codebook Lookup"])
 
 
 # ============================================================================
@@ -650,3 +785,14 @@ with tab2:
         except OSError as e:
             print(f"Cleanup failed: {e}")
             pass
+
+
+# ============================================================================
+# TAB 3: AI CHAT ASSISTANT
+# ============================================================================
+
+if AI_CHAT_AVAILABLE:
+    with tab3:
+        render_ai_chat_tab()
+else:
+    pass
