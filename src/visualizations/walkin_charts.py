@@ -346,9 +346,9 @@ def create_sessions_heatmap(df):
 
 def create_duration_distribution_chart(metrics):
     """
-    Chart: Duration distribution by session type
+    Chart: Duration distribution (overall)
     
-    Histogram showing duration distribution for Completed vs Check In sessions.
+    Simple histogram showing overall duration distribution.
     
     Parameters:
     - metrics: Dictionary from walkin_metrics.calculate_duration_stats()
@@ -361,67 +361,51 @@ def create_duration_distribution_chart(metrics):
         print(f"⚠️  Cannot create duration chart: {metrics['message']}")
         return None
     
-    if 'by_status' not in metrics:
-        print("⚠️  Cannot create duration chart: missing status breakdown")
-        return None
+    # Create figure
+    fig, ax = plt.subplots(figsize=PAGE_LANDSCAPE)
     
-    # Create figure with subplots
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=PAGE_LANDSCAPE)
+    # Get overall statistics
+    mean_dur = metrics['overall']['mean']
+    median_dur = metrics['overall']['median']
+    std_dur = metrics['overall']['std']
     
-    # Plot 1: Bar chart comparing averages
-    statuses = list(metrics['by_status'].keys())
-    means = [metrics['by_status'][s]['mean'] for s in statuses]
-    medians = [metrics['by_status'][s]['median'] for s in statuses]
+    # Create simple histogram with summary statistics as text
+    # Note: We can't create histogram from aggregated metrics alone
+    # This chart shows summary statistics instead
     
-    x = np.arange(len(statuses))
-    width = 0.35
+    # Create bar chart for summary statistics
+    stats_names = ['Mean', 'Median', 'Std Dev', 'Min', 'Max']
+    stats_values = [
+        metrics['overall']['mean'],
+        metrics['overall']['median'],
+        metrics['overall']['std'],
+        metrics['overall']['min'],
+        metrics['overall']['max']
+    ]
     
-    bars1 = ax1.bar(x - width/2, means, width, label='Mean', 
-                    color=COLORS['primary'], alpha=0.8)
-    bars2 = ax1.bar(x + width/2, medians, width, label='Median', 
-                    color=COLORS['secondary'], alpha=0.8)
+    colors = [COLORS['primary'], COLORS['secondary'], COLORS['neutral'], 
+              COLORS['success'], COLORS['warning']]
     
-    # Add value labels
-    for bars in [bars1, bars2]:
-        for bar in bars:
-            height = bar.get_height()
-            ax1.text(bar.get_x() + bar.get_width()/2., height + 1, 
-                    f'{height:.0f}', 
-                    ha='center', va='bottom', fontsize=9)
+    bars = ax.bar(stats_names, stats_values, color=colors, alpha=0.8, edgecolor='white')
     
-    ax1.set_xlabel('Session Type')
-    ax1.set_ylabel('Duration (minutes)')
-    ax1.set_title('Average Duration by Session Type')
-    ax1.set_xticks(x)
-    ax1.set_xticklabels(statuses)
-    ax1.legend()
-    ax1.grid(axis='y', alpha=0.3)
+    # Add value labels on bars
+    for bar, value in zip(bars, stats_values):
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height + 2,
+                f'{value:.1f} min',
+                ha='center', va='bottom', fontsize=10, weight='bold')
     
-    # Plot 2: Summary statistics table
-    ax2.axis('off')
+    # Labels and title
+    ax.set_ylabel('Duration (minutes)')
+    ax.set_title('Overall Session Duration Statistics', fontsize=14, pad=20)
+    ax.grid(axis='y', alpha=0.3)
     
-    # Create table data
-    table_data = []
-    table_data.append(['Metric', 'Overall'])
-    table_data.append(['Mean', f"{metrics['overall']['mean']:.1f} min"])
-    table_data.append(['Median', f"{metrics['overall']['median']:.1f} min"])
-    table_data.append(['Std Dev', f"{metrics['overall']['std']:.1f} min"])
-    table_data.append(['Min', f"{metrics['overall']['min']:.0f} min"])
-    table_data.append(['Max', f"{metrics['overall']['max']:.0f} min"])
-    table_data.append(['Total Hours', f"{metrics['overall']['total_hours']:.1f} hrs"])
-    
-    table = ax2.table(cellText=table_data, cellLoc='left', loc='center',
-                     colWidths=[0.4, 0.4])
-    table.auto_set_font_size(False)
-    table.set_fontsize(10)
-    table.scale(1, 2)
-    
-    # Style header row
-    for i in range(2):
-        table[(0, i)].set_facecolor(COLORS['primary'])
-        table[(0, i)].set_text_props(weight='bold', color='white')
-    
-    ax2.set_title('Overall Duration Statistics', pad=20)
+    # Add total hours annotation
+    total_hours = metrics['overall']['total_hours']
+    ax.annotate(f'Total: {total_hours:.1f} hours',
+                xy=(0.5, 0.95), xycoords='axes fraction',
+                ha='center', va='top', fontsize=11,
+                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.3))
     
     plt.tight_layout(rect=MARGIN_RECT)
     
@@ -451,14 +435,18 @@ def create_duration_by_course_chart(metrics):
     course_data = metrics['by_course']
     
     # Sort by mean duration (descending, then reverse for barh top-to-bottom)
-    sorted_courses = sorted(course_data.items(), 
-                           key=lambda x: x[1]['mean'], 
-                           reverse=True)[:10]
-    sorted_courses = sorted_courses[::-1]  # Reverse for descending top-to-bottom
-    
-    courses = [c for c, _ in sorted_courses]
-    durations = [d['mean'] for _, d in sorted_courses]
-    counts = [d['count'] for _, d in sorted_courses]
+    try:
+        sorted_courses = sorted(course_data.items(), 
+                               key=lambda x: x[1]['mean'], 
+                               reverse=True)[:10]
+        sorted_courses = sorted_courses[::-1]  # Reverse for descending top-to-bottom
+        
+        courses = [c for c, _ in sorted_courses]
+        durations = [d['mean'] for _, d in sorted_courses]
+        counts = [d['count'] for _, d in sorted_courses]
+    except KeyError as e:
+        print(f"⚠️  Cannot create duration by course chart: missing key {e}")
+        return None
     
     # Create figure
     fig, ax = plt.subplots(figsize=PAGE_LANDSCAPE)
@@ -492,7 +480,7 @@ def create_checkin_usage_chart(metrics):
     """
     Chart: Check-in (independent space usage) overview
     
-    Shows percentage breakdown and duration comparison.
+    Shows percentage breakdown of session types.
     
     Parameters:
     - metrics: Dictionary from walkin_metrics.calculate_checkin_usage()
@@ -505,49 +493,21 @@ def create_checkin_usage_chart(metrics):
         print("ℹ️  No check-in sessions to visualize")
         return None
     
-    # Create figure with subplots
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=PAGE_LANDSCAPE)
+    # Create figure (single subplot now)
+    fig, ax = plt.subplots(figsize=PAGE_LANDSCAPE)
     
-    # Plot 1: Pie chart showing percentage of sessions
+    # Pie chart showing percentage of sessions
     labels = ['Check In\n(Independent)', 'Completed\n(With Consultant)']
     sizes = [metrics['percentage_of_all'], 100 - metrics['percentage_of_all']]
     colors = [COLORS['warning'], COLORS['primary']]
     
-    wedges, texts, autotexts = ax1.pie(sizes, labels=labels, autopct='%1.1f%%',
-                                         startangle=90, colors=colors,
-                                         explode=(0.05, 0))
+    wedges, texts, autotexts = ax.pie(sizes, labels=labels, autopct='%1.1f%%',
+                                       startangle=90, colors=colors,
+                                       explode=(0.05, 0))
     
-    ax1.set_title('Session Type Distribution', fontsize=12)
+    ax.set_title('Independent Space Usage Analysis', fontsize=14, pad=20)
     
-    # Plot 2: Duration statistics
-    if 'duration' in metrics:
-        ax2.axis('off')
-        
-        # Create table
-        table_data = []
-        table_data.append(['Metric', 'Check In'])
-        table_data.append(['Count', f"{metrics['total_checkin_sessions']}"])
-        table_data.append(['Mean', f"{metrics['duration']['mean']:.1f} min"])
-        table_data.append(['Median', f"{metrics['duration']['median']:.1f} min"])
-        table_data.append(['Min', f"{metrics['duration']['min']:.0f} min"])
-        table_data.append(['Max', f"{metrics['duration']['max']:.0f} min"])
-        table_data.append(['Total Hours', f"{metrics['duration']['total_hours']:.1f} hrs"])
-        
-        table = ax2.table(cellText=table_data, cellLoc='left', loc='center',
-                         colWidths=[0.4, 0.4])
-        table.auto_set_font_size(False)
-        table.set_fontsize(10)
-        table.scale(1, 2)
-        
-        # Style header row
-        for i in range(2):
-            table[(0, i)].set_facecolor(COLORS['warning'])
-            table[(0, i)].set_text_props(weight='bold', color='white')
-        
-        ax2.set_title('Independent Work Duration', fontsize=12, pad=20)
-    
-    plt.suptitle('Independent Space Usage Analysis', fontsize=14, y=0.98)
-    plt.tight_layout(rect=[0.09, 0.09, 0.91, 0.95])
+    plt.tight_layout(rect=MARGIN_RECT)
     
     return fig
 

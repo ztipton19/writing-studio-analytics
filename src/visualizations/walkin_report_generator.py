@@ -125,15 +125,29 @@ def generate_walkin_report(df, output_path='walkin_report.pdf'):
     
     # Calculate all metrics
     print("\n📊 Calculating metrics...")
-    metrics = calculate_all_metrics(df)
+    try:
+        metrics = calculate_all_metrics(df)
+    except Exception as e:
+        print(f"❌ Error calculating metrics: {str(e)}")
+        raise
     
     # Generate executive summary
     print("📝 Generating executive summary...")
-    summary = generate_executive_summary(metrics)
+    try:
+        summary = generate_executive_summary(metrics)
+    except Exception as e:
+        print(f"❌ Error generating executive summary: {str(e)}")
+        raise
     
     # Generate all charts
     print("📈 Generating charts...")
-    charts = create_all_walkin_charts(df, metrics)
+    try:
+        charts = create_all_walkin_charts(df, metrics)
+    except Exception as e:
+        print(f"❌ Error generating charts: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise
     
     # Get date range
     if 'Check_In_DateTime' in df.columns:

@@ -325,16 +325,6 @@ with tab1:
                 else:
                     st.markdown("ℹ️ **No Codebook**\n- IDs cannot be\n- reversed")
             
-            if expected_mode == 'walkin':
-                st.info(
-                    "📊 **Walk-In Report Includes:**\n"
-                    "- Consultant workload analysis\n"
-                    "- Temporal patterns (peak hours/days)\n"
-                    "- Duration analysis by session type\n"
-                    "- Independent space usage metrics\n"
-                    "- Course distribution"
-                )
-            
             # Generate button
             can_generate = password_valid
             
