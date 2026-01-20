@@ -373,9 +373,16 @@ with tab1:
                         if not WALKIN_AVAILABLE:
                             st.error("❌ Walk-in modules not available. Please check installation.")
                             st.stop()
-                        
+
                         df_clean = clean_walkin_data(df_anon, cap_duration=True, max_duration_minutes=180)
-                        cleaning_log = {'mode': 'walkin', 'context': {}}
+                        cleaning_log = {
+                            'mode': 'walkin',
+                            'context': {},
+                            'final_rows': len(df_clean),
+                            'final_cols': len(df_clean.columns),
+                            'original_rows': len(df),
+                            'original_cols': len(df.columns)
+                        }
                     else:
                         # Use scheduled session cleaner
                         df_clean, cleaning_log = clean_data(
@@ -510,7 +517,7 @@ with tab1:
                 # ========================================================
 
                 st.markdown("---")
-                st.subheader("📊 Report Summary")
+                st.subheader("📊 Report Summary for last report generated")
 
                 cleaning_log = st.session_state['cleaning_log']
                 anon_log = st.session_state['anon_log']
@@ -519,7 +526,8 @@ with tab1:
                 col1, col2, col3, col4 = st.columns(4)
 
                 with col1:
-                    st.metric("Total Sessions", f"{cleaning_log['final_rows']:,}")
+                    total_sessions = cleaning_log.get('final_rows', len(st.session_state.get('df_clean', [])))
+                    st.metric("Total Sessions", f"{total_sessions:,}")
 
                 with col2:
                     if 'context' in cleaning_log and 'cancellations' in cleaning_log['context']:
@@ -532,7 +540,8 @@ with tab1:
                     if create_codebook:
                         st.metric("Tutors", f"{anon_log['tutors_anonymized']}")
                     else:
-                        st.metric("Columns", f"{cleaning_log['final_cols']}")
+                        final_cols = cleaning_log.get('final_cols', 'N/A')
+                        st.metric("Columns", f"{final_cols}")
 
                 with col4:
                     if 'outliers_removed' in cleaning_log:

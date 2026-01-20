@@ -20,7 +20,7 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
     Returns:
     - Path to generated PDF
     """
-    from src.core.metrics import calculate_all_metrics
+    from src.core.metrics import calculate_all_metrics, generate_executive_summary
     
     # Extract context from cleaning log
     context = cleaning_log.get('context', {})
@@ -45,17 +45,27 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
             plt.close(fig)
         
         # ====================================================================
+        # METADATA PAGE
+        # ====================================================================
+        print("\n📄 Adding metadata page...")
+        fig = create_metadata_page(df, cleaning_log)
+        if fig:
+            pdf.savefig(fig)
+            plt.close(fig)
+        
+        # ====================================================================
         # SECTION 1: EXECUTIVE SUMMARY
         # ====================================================================
         print("\n📊 Section 1: Executive Summary")
         
-        # Key metrics summary (text display)
-        metrics = charts.create_key_metrics_summary(df, context)
-        fig = create_metrics_display_page(metrics)
+        # Generate executive summary from metrics
+        print("   Generating executive summary...")
+        summary = generate_executive_summary(metrics)
+        fig = create_executive_summary_page(summary)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Key metrics summary")
+            print("   ✓ Executive summary")
         
         # Sessions over time
         fig = charts.plot_sessions_over_time(df)
@@ -291,18 +301,9 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
             plt.close(fig)
             print("   ✓ Survey response rates")
         
-        # ====================================================================
-        # METADATA PAGE
-        # ====================================================================
-        print("\n📄 Adding metadata page...")
-        fig = create_metadata_page(df, cleaning_log)
-        if fig:
-            pdf.savefig(fig)
-            plt.close(fig)
-        
         # Set PDF metadata
         d = pdf.infodict()
-        d['Title'] = 'Writing Studio Analytics Report'
+        d['Title'] = 'Writing Studio Sessions Analytics Report'
         d['Author'] = 'Writing Studio Analytics Tool'
         d['Subject'] = f'Analysis of {len(df):,} tutoring sessions'
         d['Keywords'] = 'Tutoring, Analytics, Writing Studio'
@@ -326,82 +327,89 @@ def create_cover_page(df, context):
     ax.axis('off')
 
     # Title
-    ax.text(0.5, 0.8, 'Writing Studio', ha='center', fontsize=36, fontweight='bold',
+    ax.text(0.5, 0.7, 'Writing Studio', ha='center', va='center', fontsize=36, fontweight='bold',
             transform=ax.transAxes)
-    ax.text(0.5, 0.72, 'Analytics Report', ha='center', fontsize=28,
+    ax.text(0.5, 0.62, 'Analytics Report', ha='center', va='center', fontsize=28,
             transform=ax.transAxes, color=charts.COLORS['primary'])
 
-    # Date range
+    # Stats
+    total_sessions = len(df)
     if 'Appointment_DateTime' in df.columns:
-        min_date = df['Appointment_DateTime'].min().strftime('%B %d, %Y')
-        max_date = df['Appointment_DateTime'].max().strftime('%B %d, %Y')
-        ax.text(0.5, 0.6, f'{min_date} - {max_date}', ha='center', fontsize=14,
-                transform=ax.transAxes, style='italic')
+        min_date = df['Appointment_DateTime'].min().date()
+        max_date = df['Appointment_DateTime'].max().date()
+        date_text = f"Period: {min_date} to {max_date}"
+    else:
+        date_text = "All Available Data"
 
-    # Quick stats box - centered individual lines
-    stats_y = 0.45
-    ax.text(0.5, stats_y, 'Quick Statistics', ha='center', fontsize=16, fontweight='bold',
+    stats_text = f"{total_sessions:,} Sessions\n{date_text}"
+    ax.text(0.5, 0.4, stats_text,
+            ha='center', va='center', fontsize=16,
             transform=ax.transAxes)
 
-    if 'cancellations' in context:
-        ctx = context['cancellations']
-        y = stats_y - 0.08
-
-        ax.text(0.5, y, f"Total Sessions: {ctx['total_sessions']:,}",
-                ha='center', fontsize=12, transform=ax.transAxes, family='monospace')
-        y -= 0.04
-        ax.text(0.5, y, f"Completion Rate: {ctx['completion_rate']:.1f}%",
-                ha='center', fontsize=12, transform=ax.transAxes, family='monospace')
-        y -= 0.04
-        ax.text(0.5, y, f"Cancellation Rate: {ctx['cancellation_rate']:.1f}%",
-                ha='center', fontsize=12, transform=ax.transAxes, family='monospace')
-        y -= 0.04
-        ax.text(0.5, y, f"No-Show Rate: {ctx['no_show_rate']:.1f}%",
-                ha='center', fontsize=12, transform=ax.transAxes, family='monospace')
-
     # Generated date
-    ax.text(0.5, 0.1, f'Generated: {datetime.now().strftime("%B %d, %Y at %I:%M %p")}',
-            ha='center', fontsize=10, style='italic', transform=ax.transAxes,
-            color='gray')
+    gen_date = datetime.now().strftime('%B %d, %Y')
+    ax.text(0.5, 0.2, f'Generated: {gen_date}',
+            ha='center', va='center', fontsize=12, style='italic',
+            transform=ax.transAxes)
 
     plt.tight_layout(rect=MARGIN_RECT)
     return fig
 
 
-def create_metrics_display_page(metrics):
-    """Create a visual display of key metrics"""
+def create_executive_summary_page(summary):
+    """Create executive summary text page"""
     from src.visualizations.charts import PAGE_PORTRAIT, MARGIN_RECT
     fig, ax = plt.subplots(figsize=PAGE_PORTRAIT)
     ax.axis('off')
-
+    
     # Title
-    ax.text(0.5, 0.95, 'Key Performance Metrics', ha='center', fontsize=20, fontweight='bold',
+    ax.text(0.5, 0.95, 'Executive Summary',
+            ha='center', va='top', fontsize=20, weight='bold',
             transform=ax.transAxes)
-
-    # Metrics grid
-    y_start = 0.85
-    y_step = 0.12
-
-    metric_list = [
-        ('Total Sessions', metrics.get('total_sessions', 'N/A')),
-        ('Completion Rate', f"{metrics.get('completion_rate', 0):.1f}%"),
-        ('Cancellation Rate', f"{metrics.get('cancellation_rate', 0):.1f}%"),
-        ('No-Show Rate', f"{metrics.get('no_show_rate', 0):.1f}%"),
-        ('Pre-Survey Response', f"{metrics.get('pre_survey_rate', 0):.1f}%"),
-        ('Post-Survey Response', f"{metrics.get('post_survey_rate', 0):.1f}%"),
-    ]
-
-    for i, (label, value) in enumerate(metric_list):
-        y = y_start - (i * y_step)
-
-        # Label
-        ax.text(0.25, y, label, ha='left', fontsize=14, transform=ax.transAxes,
-                fontweight='bold')
-
-        # Value
-        ax.text(0.75, y, str(value), ha='right', fontsize=16, transform=ax.transAxes,
-                color=charts.COLORS['primary'], fontweight='bold')
-
+    
+    # Overview
+    y_pos = 0.88
+    ax.text(0.12, y_pos, 'Overview', fontsize=14, weight='bold',
+            transform=ax.transAxes)
+    y_pos -= 0.03
+    ax.text(0.12, y_pos, summary['overview'], fontsize=11, wrap=True,
+            transform=ax.transAxes, ha='left')
+    
+    # Add extra space after overview for better visual separation
+    y_pos -= 0.05
+    
+    # Key Findings
+    y_pos -= 0.03
+    ax.text(0.12, y_pos, 'Key Findings', fontsize=14, weight='bold',
+            transform=ax.transAxes, ha='left')
+    y_pos -= 0.03
+    for finding in summary['key_findings']:
+        ax.text(0.14, y_pos, f"• {finding}", fontsize=10, wrap=True,
+                transform=ax.transAxes, ha='left')
+        y_pos -= 0.04
+    
+    # Concerns (if any)
+    if summary['concerns']:
+        y_pos -= 0.03
+        ax.text(0.12, y_pos, 'Concerns', fontsize=14, weight='bold', 
+                color='#C73E1D', transform=ax.transAxes, ha='left')
+        y_pos -= 0.03
+        for concern in summary['concerns']:
+            ax.text(0.14, y_pos, f"• {concern}", fontsize=10, color='#C73E1D',
+                    wrap=True, transform=ax.transAxes, ha='left')
+            y_pos -= 0.04
+    
+    # Recommendations (if any)
+    if summary['recommendations']:
+        y_pos -= 0.03
+        ax.text(0.12, y_pos, 'Recommendations', fontsize=14, weight='bold',
+                color='#06A77D', transform=ax.transAxes, ha='left')
+        y_pos -= 0.03
+        for rec in summary['recommendations']:
+            ax.text(0.14, y_pos, f"• {rec}", fontsize=10, color='#06A77D',
+                    wrap=True, transform=ax.transAxes, ha='left')
+            y_pos -= 0.04
+    
     plt.tight_layout(rect=MARGIN_RECT)
     return fig
 

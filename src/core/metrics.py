@@ -806,3 +806,241 @@ def export_metrics_to_csv(metrics, filepath='metrics.csv'):
     df.to_csv(filepath)
     
     return filepath
+
+
+# ============================================================================
+# EXECUTIVE SUMMARY GENERATION
+# ============================================================================
+
+def generate_executive_summary(metrics):
+    """
+    Generate executive summary from calculated metrics.
+    
+    Extracts key findings, concerns, and recommendations from the
+    comprehensive metrics dictionary.
+    
+    Parameters:
+    - metrics: Dictionary from calculate_all_metrics()
+    
+    Returns:
+    - Dictionary with executive summary points:
+      * overview: Brief summary paragraph
+      * key_findings: List of important observations
+      * concerns: List of issues requiring attention
+      * recommendations: List of actionable suggestions
+    """
+    
+    summary = {
+        'key_findings': [],
+        'concerns': [],
+        'recommendations': []
+    }
+    
+    # Overall dataset overview
+    attendance = metrics.get('attendance', {}).get('overall', {})
+    total_sessions = attendance.get('total_sessions', 'N/A')
+    completion_rate = attendance.get('completion_rate', 0)
+    
+    summary['overview'] = (
+        f"This report analyzes {total_sessions} tutoring sessions, "
+        f"with an overall completion rate of {completion_rate:.1f}%. "
+        f"The analysis covers booking behavior, student satisfaction, "
+        f"tutor performance, and session quality metrics."
+    )
+    
+    # Attendance and outcomes findings
+    if attendance:
+        no_show_rate = attendance.get('no_show_rate', 0)
+        cancellation_rate = attendance.get('cancellation_rate', 0)
+        
+        summary['key_findings'].append(
+            f"Session outcomes: {completion_rate:.1f}% completed, "
+            f"{cancellation_rate:.1f}% cancelled, {no_show_rate:.1f}% no-show"
+        )
+        
+        # Concerns about high no-show or cancellation rates
+        if no_show_rate > 15:
+            summary['concerns'].append(
+                f"High no-show rate ({no_show_rate:.1f}%) - consider reminder system"
+            )
+        
+        if cancellation_rate > 20:
+            summary['concerns'].append(
+                f"High cancellation rate ({cancellation_rate:.1f}%) - review booking policies"
+            )
+    
+    # Booking behavior findings
+    booking = metrics.get('booking', {})
+    if booking and 'lead_time_stats' in booking:
+        lead_time = booking['lead_time_stats']
+        median_days = lead_time.get('median', 0)
+        
+        summary['key_findings'].append(
+            f"Students typically book {median_days:.1f} days in advance (median)"
+        )
+        
+        if median_days < 1:
+            summary['recommendations'].append(
+                "Students are booking very last minute - consider promoting advance booking"
+            )
+    
+    # Time patterns findings
+    time_patterns = metrics.get('time_patterns', {})
+    if time_patterns:
+        by_day = time_patterns.get('by_day_of_week', {})
+        if by_day:
+            busiest_day = by_day.get('busiest_day', 'N/A')
+            summary['key_findings'].append(f"Busiest day of week: {busiest_day}")
+        
+        by_hour = time_patterns.get('by_hour', {})
+        if by_hour:
+            peak_hour = by_hour.get('peak_hour', 'N/A')
+            summary['key_findings'].append(f"Peak usage hour: {peak_hour}:00")
+    
+    # Student satisfaction findings
+    satisfaction = metrics.get('satisfaction', {})
+    if satisfaction:
+        overall_sat = satisfaction.get('satisfaction', {})
+        if overall_sat:
+            mean_sat = overall_sat.get('mean', 0)
+            summary['key_findings'].append(
+                f"Overall student satisfaction: {mean_sat:.2f}/5.00"
+            )
+            
+            if mean_sat < 4.0:
+                summary['concerns'].append(
+                    f"Below-average satisfaction ({mean_sat:.2f}) - investigate session quality"
+                )
+        
+        # Confidence changes
+        confidence_change = satisfaction.get('confidence_change', {})
+        if confidence_change:
+            improved_pct = confidence_change.get('improved_pct', 0)
+            summary['key_findings'].append(
+                f"{improved_pct:.1f}% of students showed increased confidence after sessions"
+            )
+            
+            if improved_pct < 50:
+                summary['recommendations'].append(
+                    "Low confidence improvement rate - review session content and tutoring techniques"
+                )
+        
+        # Response rates
+        response_rate = overall_sat.get('response_rate', 0) if overall_sat else 0
+        if response_rate < 50:
+            summary['concerns'].append(
+                f"Low survey response rate ({response_rate:.1f}%) - improve student engagement"
+            )
+    
+    # Tutor workload findings
+    tutors = metrics.get('tutors', {})
+    if tutors:
+        workload = tutors.get('balance', {})
+        if workload:
+            balance_status = workload.get('balance_interpretation', 'unknown')
+            cv = workload.get('coefficient_of_variation', 0)
+            summary['key_findings'].append(
+                f"Tutor workload distribution: {balance_status} (CV: {cv:.1f}%)"
+            )
+            
+            if balance_status == 'highly_unbalanced':
+                summary['concerns'].append(
+                    f"Highly unbalanced tutor workload - review scheduling practices"
+                )
+                summary['recommendations'].append(
+                    "Implement workload balancing strategies for fair consultant assignment"
+                )
+    
+    # Session length findings
+    session_length = metrics.get('session_length', {})
+    if session_length:
+        overall = session_length.get('overall', {})
+        if overall:
+            mean_minutes = overall.get('mean_minutes', 0)
+            summary['key_findings'].append(
+                f"Average session length: {mean_minutes:.1f} minutes"
+            )
+    
+    # Student engagement findings
+    students = metrics.get('students', {})
+    if students:
+        first_time = students.get('first_time_vs_repeat', {})
+        if first_time:
+            first_time_pct = first_time.get('first_time_pct', 0)
+            repeat_pct = first_time.get('repeat_pct', 0)
+            summary['key_findings'].append(
+                f"Student mix: {first_time_pct:.1f}% first-timers, {repeat_pct:.1f}% repeat visitors"
+            )
+            
+            if first_time_pct < 30:
+                summary['recommendations'].append(
+                    "Low first-timer rate - consider outreach programs to new students"
+                )
+    
+    # Incentive analysis findings
+    incentives = metrics.get('incentives', {})
+    if incentives and 'tutor_rating_by_incentive' in incentives:
+        incentive_breakdown = incentives.get('incentive_breakdown', {})
+        if incentive_breakdown:
+            any_incentive_pct = incentive_breakdown.get('any_incentive', {}).get('percentage', 0)
+            summary['key_findings'].append(
+                f"{any_incentive_pct:.1f}% of sessions were incentivized (extra credit or required)"
+            )
+        
+        tutor_ratings = incentives.get('tutor_rating_by_incentive', {})
+        mean_diff = incentives.get('mean_difference', {})
+        
+        if mean_diff:
+            diff = mean_diff.get('incentivized_minus_not_incentivized', 0)
+            if abs(diff) > 0.2:  # Meaningful difference
+                direction = 'higher' if diff > 0 else 'lower'
+                summary['key_findings'].append(
+                    f"Incentivized students have {direction} tutor ratings ({diff:+.2f})"
+                )
+    
+    # Semester growth findings
+    semesters = metrics.get('semesters', {})
+    if semesters:
+        growth = semesters.get('growth_rates', {})
+        if growth:
+            latest_semester = list(growth.keys())[-1] if growth else None
+            latest_growth = growth.get(latest_semester, 0)
+            
+            if latest_growth != 0:
+                direction = 'growth' if latest_growth > 0 else 'decline'
+                summary['key_findings'].append(
+                    f"Latest semester {direction}: {latest_growth:+.1f}%"
+                )
+                
+                if latest_growth < -10:
+                    summary['concerns'].append(
+                        f"Significant decline in sessions - investigate causes"
+                    )
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_findings = []
+    for finding in summary['key_findings']:
+        if finding not in seen:
+            seen.add(finding)
+            unique_findings.append(finding)
+    summary['key_findings'] = unique_findings
+    
+    # Same for concerns and recommendations
+    seen = set()
+    unique_concerns = []
+    for concern in summary['concerns']:
+        if concern not in seen:
+            seen.add(concern)
+            unique_concerns.append(concern)
+    summary['concerns'] = unique_concerns
+    
+    seen = set()
+    unique_recs = []
+    for rec in summary['recommendations']:
+        if rec not in seen:
+            seen.add(rec)
+            unique_recs.append(rec)
+    summary['recommendations'] = unique_recs
+    
+    return summary

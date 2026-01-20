@@ -532,7 +532,7 @@ def plot_sessions_per_tutor(df):
         return None
 
     # Ensure descending sort
-    tutor_counts = df['Tutor_Anon_ID'].value_counts().sort_values(ascending=True).tail(20)
+    tutor_counts = df['Tutor_Anon_ID'].value_counts().sort_values(ascending=True)
 
     fig, ax = plt.subplots(figsize=PAGE_LANDSCAPE)
     y_pos = range(len(tutor_counts))
@@ -540,7 +540,7 @@ def plot_sessions_per_tutor(df):
 
     ax.set_yticks(y_pos)
     ax.set_yticklabels(tutor_counts.index)
-    ax.set_title('Sessions per Tutor (Top 20 - Descending)')
+    ax.set_title('Sessions per Tutor')
     ax.grid(False)
 
     for i, val in enumerate(tutor_counts.values):
@@ -587,7 +587,7 @@ def plot_session_length_by_tutor(df):
         return None
     
     # Get top 10 tutors by session count
-    top_tutors = df['Tutor_Anon_ID'].value_counts().head(10).index
+    top_tutors = df['Tutor_Anon_ID'].value_counts().index
     
     tutor_stats = df[df['Tutor_Anon_ID'].isin(top_tutors)].groupby('Tutor_Anon_ID')['Actual_Session_Length'].agg(['mean', 'std'])
     tutor_stats = tutor_stats.sort_values('mean', ascending=False)
@@ -602,7 +602,7 @@ def plot_session_length_by_tutor(df):
     ax.set_xticks(x)
     ax.set_xticklabels(tutor_stats.index, rotation=45, ha='right')
     ax.set_ylabel('Average Session Length (minutes)')
-    ax.set_title('Average Session Length by Tutor (Top 10 by Volume)')
+    ax.set_title('Average Session Length by Tutor')
     ax.axhline(y=40, color='red', linestyle='--', linewidth=1, label='Standard 40 min', alpha=0.7)
     ax.legend()
     ax.grid(False)

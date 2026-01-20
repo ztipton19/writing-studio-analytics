@@ -580,21 +580,14 @@ def generate_executive_summary(metrics):
     # Consultant workload findings
     if 'consultant_workload' in metrics and 'error' not in metrics['consultant_workload']:
         workload = metrics['consultant_workload']
-        gini = workload.get('gini_coefficient', 0)
-        
+
+        # Report basic stats only (no thresholds or judgments)
+        mean_sessions = workload['sessions_per_consultant']['mean']
+        total_consultants = workload['sessions_per_consultant']['count']
+
         summary['key_findings'].append(
-            f"Workload distribution: {workload['gini_interpretation']} (Gini: {gini:.3f})"
+            f"{total_consultants} consultants handled sessions (average: {mean_sessions:.1f} sessions each)"
         )
-        
-        if gini > 0.4:
-            summary['concerns'].append(
-                "High workload inequality detected - investigate consultant assignment practices"
-            )
-        
-        if workload['low_performers']['count'] > 0:
-            summary['concerns'].append(
-                f"{workload['low_performers']['count']} consultant(s) below performance threshold"
-            )
     
     # Temporal patterns findings
     if 'temporal_patterns' in metrics:

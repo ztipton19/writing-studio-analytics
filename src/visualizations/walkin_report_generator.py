@@ -11,18 +11,22 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
     from src.core.walkin_metrics import calculate_all_metrics, generate_executive_summary
     from walkin_charts import create_all_walkin_charts
+    import src.visualizations.charts as charts
 except ImportError:
     print("Warning: Could not import walkin modules from current directory")
 
 
 def create_cover_page(df, date_range=None):
     """Create cover page for walk-in report"""
-    fig, ax = plt.subplots(figsize=(8.5, 11))
+    from src.visualizations.charts import PAGE_PORTRAIT, MARGIN_RECT
+    fig, ax = plt.subplots(figsize=PAGE_PORTRAIT)
     ax.axis('off')
     
     # Title
-    ax.text(0.5, 0.7, 'Writing Studio\nWalk-In Analytics Report',
-            ha='center', va='center', fontsize=32, weight='bold')
+    ax.text(0.5, 0.7, 'Writing Studio', ha='center', va='center', fontsize=36, fontweight='bold',
+            transform=ax.transAxes)
+    ax.text(0.5, 0.62, 'Walk-In Analytics Report', ha='center', va='center', fontsize=28,
+            transform=ax.transAxes, color=charts.COLORS['primary'])
     
     # Stats
     total_sessions = len(df)
@@ -30,17 +34,19 @@ def create_cover_page(df, date_range=None):
         date_text = f"Period: {date_range}"
     else:
         date_text = "All Available Data"
-    
+
     stats_text = f"{total_sessions:,} Walk-In Sessions\n{date_text}"
     ax.text(0.5, 0.4, stats_text,
-            ha='center', va='center', fontsize=16)
-    
+            ha='center', va='center', fontsize=16,
+            transform=ax.transAxes)
+
     # Generated date
     gen_date = datetime.now().strftime('%B %d, %Y')
     ax.text(0.5, 0.2, f'Generated: {gen_date}',
-            ha='center', va='center', fontsize=12, style='italic')
-    
-    plt.tight_layout()
+            ha='center', va='center', fontsize=12, style='italic',
+            transform=ax.transAxes)
+
+    plt.tight_layout(rect=MARGIN_RECT)
     return fig
 
 
@@ -73,16 +79,16 @@ def create_executive_summary_page(summary):
         ax.text(0.1, y_pos, 'Concerns', fontsize=14, weight='bold', color='#C73E1D')
         y_pos -= 0.03
         for concern in summary['concerns']:
-            ax.text(0.12, y_pos, f"⚠ {concern}", fontsize=10, color='#C73E1D')
+            ax.text(0.12, y_pos, f"• {concern}", fontsize=10, color='#C73E1D')
             y_pos -= 0.04
-    
+
     # Recommendations (if any)
     if summary['recommendations']:
         y_pos -= 0.03
         ax.text(0.1, y_pos, 'Recommendations', fontsize=14, weight='bold', color='#06A77D')
         y_pos -= 0.03
         for rec in summary['recommendations']:
-            ax.text(0.12, y_pos, f"💡 {rec}", fontsize=10, color='#06A77D')
+            ax.text(0.12, y_pos, f"• {rec}", fontsize=10, color='#06A77D')
             y_pos -= 0.04
     
     plt.tight_layout()

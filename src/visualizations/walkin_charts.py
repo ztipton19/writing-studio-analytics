@@ -50,93 +50,73 @@ PALETTE = [COLORS['primary'], COLORS['secondary'], COLORS['success'],
 
 def create_consultant_workload_chart(metrics):
     """
-    Chart: Consultant workload distribution with Gini coefficient
-    
+    Chart: Consultant workload distribution
+
     Shows sessions per consultant with:
-    - Bar chart sorted by workload
-    - Threshold line (mean - 1 std dev)
-    - Mean line
-    - Gini coefficient annotation
-    - Low performers highlighted in red
-    
+    - Bar chart sorted by workload (descending)
+    - Mean line for reference
+    - Neutral color coding
+
+    NOTE: Lower counts may reflect GAs, supervisors, main email account,
+    or scheduling patterns (not necessarily performance issues).
+
     Parameters:
     - metrics: Dictionary from walkin_metrics.calculate_consultant_workload()
-    
+
     Returns:
     - matplotlib figure object
     """
-    
+
     if 'error' in metrics:
         print(f"⚠️  Cannot create workload chart: {metrics['message']}")
         return None
-    
+
     # Extract data
     sessions_data = metrics['raw_data']['sessions_per_consultant']
-    gini = metrics['gini_coefficient']
-    threshold = metrics['low_performers']['threshold']
     mean_sessions = metrics['sessions_per_consultant']['mean']
-    
+
     # Sort by sessions (ascending for better visual)
     sorted_data = sorted(sessions_data.items(), key=lambda x: x[1])
     consultants = [c for c, _ in sorted_data]
     sessions = [s for _, s in sorted_data]
-    
-    # Identify low performers
-    low_performer_ids = set(metrics['low_performers']['consultants'].keys())
-    colors_list = [COLORS['danger'] if c in low_performer_ids else COLORS['primary'] 
-                   for c in consultants]
-    
+
     # Create figure
     fig, ax = plt.subplots(figsize=PAGE_LANDSCAPE)
-    
-    # Create bar chart
-    bars = ax.barh(consultants, sessions, color=colors_list, alpha=0.8, edgecolor='white')
-    
-    # Add threshold line
-    ax.axvline(threshold, color=COLORS['warning'], linestyle='--', 
-               linewidth=2, label=f'Threshold ({threshold:.1f})', alpha=0.7)
-    
-    # Add mean line
-    ax.axvline(mean_sessions, color=COLORS['success'], linestyle='-', 
+
+    # Create bar chart with single neutral color
+    bars = ax.barh(consultants, sessions, color=COLORS['primary'], alpha=0.8, edgecolor='white')
+
+    # Add mean line only
+    ax.axvline(mean_sessions, color=COLORS['neutral'], linestyle='-',
                linewidth=2, label=f'Mean ({mean_sessions:.1f})', alpha=0.7)
-    
+
     # Add value labels on bars
     for bar in bars:
         width = bar.get_width()
-        ax.text(width + 0.3, bar.get_y() + bar.get_height()/2, 
-                f'{int(width)}', 
+        ax.text(width + 0.3, bar.get_y() + bar.get_height()/2,
+                f'{int(width)}',
                 ha='left', va='center', fontsize=9)
-    
-    # Add Gini coefficient annotation
-    gini_interpretation = metrics['gini_interpretation']
-    gini_text = f'Gini Coefficient: {gini:.3f}\n{gini_interpretation}'
-    
-    # Color code the Gini text
-    if gini < 0.3:
-        gini_color = COLORS['success']
-    elif gini < 0.4:
-        gini_color = COLORS['warning']
-    else:
-        gini_color = COLORS['danger']
-    
-    ax.text(0.98, 0.98, gini_text,
+
+    # Add disclaimer note
+    disclaimer = ('Note: Lower counts may reflect GAs, supervisors,\n'
+                 'admin accounts, or scheduling patterns.')
+    ax.text(0.98, 0.02, disclaimer,
             transform=ax.transAxes,
-            fontsize=11,
-            verticalalignment='top',
+            fontsize=9,
+            verticalalignment='bottom',
             horizontalalignment='right',
-            bbox=dict(boxstyle='round', facecolor='white', edgecolor=gini_color, linewidth=2),
-            color=gini_color,
-            weight='bold')
-    
+            style='italic',
+            color='gray')
+
     # Labels and title
     ax.set_xlabel('Number of Sessions')
     ax.set_ylabel('Consultant (Anonymous ID)')
     ax.set_title('Consultant Workload Distribution', fontsize=14, pad=20)
     ax.legend(loc='lower right')
     ax.grid(False)
-    
+
     plt.tight_layout(rect=MARGIN_RECT)
-    
+
     return fig
 
 
@@ -470,10 +450,11 @@ def create_duration_by_course_chart(metrics):
     # Extract data (top 10)
     course_data = metrics['by_course']
     
-    # Sort by mean duration
+    # Sort by mean duration (descending, then reverse for barh top-to-bottom)
     sorted_courses = sorted(course_data.items(), 
                            key=lambda x: x[1]['mean'], 
                            reverse=True)[:10]
+    sorted_courses = sorted_courses[::-1]  # Reverse for descending top-to-bottom
     
     courses = [c for c, _ in sorted_courses]
     durations = [d['mean'] for _, d in sorted_courses]
@@ -592,8 +573,9 @@ def create_checkin_courses_chart(metrics):
     if not course_data:
         return None
     
-    # Sort by count
+    # Sort by count (descending, then reverse for barh top-to-bottom)
     sorted_courses = sorted(course_data.items(), key=lambda x: x[1], reverse=True)
+    sorted_courses = sorted_courses[::-1]  # Reverse for descending top-to-bottom
     courses = [c for c, _ in sorted_courses]
     counts = [cnt for _, cnt in sorted_courses]
     
@@ -645,8 +627,9 @@ def create_course_distribution_chart(metrics):
     # Extract data
     course_data = metrics['distribution']
     
-    # Sort by count
+    # Sort by count (descending, then reverse for barh top-to-bottom)
     sorted_courses = sorted(course_data.items(), key=lambda x: x[1], reverse=True)
+    sorted_courses = sorted_courses[::-1]  # Reverse for descending top-to-bottom
     courses = [c for c, _ in sorted_courses]
     counts = [cnt for _, cnt in sorted_courses]
     percentages = [metrics['percentages'][c] for c in courses]
