@@ -28,30 +28,37 @@ except ImportError:
 # MAIN CLEANING PIPELINE
 # ============================================================================
 
-def clean_walkin_data(df, cap_duration=True, max_duration_minutes=180):
+def clean_walkin_data(df):
     """
     Main cleaning pipeline for walk-in data.
     
     Steps:
     1. Parse datetime columns
     2. Consolidate course field
-    3. Handle duration outliers
+    3. Handle duration outliers (IQR method)
     4. Add derived fields (semester, day_of_week, hour, etc.)
     5. Drop useless columns
     6. Validate data quality
     
     Parameters:
     - df: Raw walk-in DataFrame from Penji CSV
-    - cap_duration: Whether to cap extreme durations (default: True)
-    - max_duration_minutes: Maximum duration before capping (default: 180 = 3 hours)
     
     Returns:
     - Cleaned DataFrame ready for anonymization and analysis
+    - Dictionary with cleaning log (including outlier stats)
     """
     
     print("\n" + "="*70)
     print("WALK-IN DATA CLEANING PIPELINE")
     print("="*70)
+    
+    cleaning_log = {
+        'mode': 'walkin',
+        'original_rows': len(df),
+        'original_cols': len(df.columns),
+        'final_rows': 0,
+        'final_cols': 0
+    }
     
     df_clean = df.copy()
     
@@ -65,11 +72,8 @@ def clean_walkin_data(df, cap_duration=True, max_duration_minutes=180):
     
     # Step 3: Handle duration outliers
     print("[3/6] Handling duration outliers...")
-    df_clean, outlier_stats = handle_duration_outliers(
-        df_clean, 
-        cap_duration=cap_duration,
-        max_minutes=max_duration_minutes
-    )
+    df_clean, outlier_stats = handle_duration_outliers(df_clean)
+    cleaning_log['outliers_removed'] = outlier_stats
     
     # Step 4: Add derived fields
     print("[4/6] Adding derived fields...")
@@ -82,6 +86,11 @@ def clean_walkin_data(df, cap_duration=True, max_duration_minutes=180):
     # Step 6: Validate data quality
     print("[6/6] Validating data quality...")
     quality_report = validate_data_quality(df_clean)
+    cleaning_log['quality_report'] = quality_report
+    
+    # Update final counts
+    cleaning_log['final_rows'] = len(df_clean)
+    cleaning_log['final_cols'] = len(df_clean.columns)
     
     # Summary
     print("\n" + "="*70)
@@ -90,11 +99,15 @@ def clean_walkin_data(df, cap_duration=True, max_duration_minutes=180):
     print(f"Original rows: {len(df)}")
     print(f"Cleaned rows: {len(df_clean)}")
     print(f"Columns: {len(df.columns)} → {len(df_clean.columns)}")
-    print(f"Duration outliers capped: {outlier_stats['capped_count']}")
+    if outlier_stats['removed_count'] > 0:
+        print(f"Outliers removed: {outlier_stats['removed_count']} ({outlier_stats['removed_pct']:.1f}%)")
+        print(f"Valid range: {outlier_stats['lower_bound']:.2f} - {outlier_stats['upper_bound']:.2f} minutes")
+    else:
+        print(f"Outliers removed: 0")
     print(f"Missing data issues: {quality_report['total_issues']}")
     print("="*70 + "\n")
     
-    return df_clean
+    return df_clean, cleaning_log
 
 
 # ============================================================================
@@ -239,57 +252,78 @@ def consolidate_courses(df):
 # DURATION OUTLIER HANDLING
 # ============================================================================
 
-def handle_duration_outliers(df, cap_duration=True, max_minutes=180):
+def handle_duration_outliers(df, method='iqr'):
     """
-    Handle extreme duration outliers.
+    Handle extreme duration outliers using IQR method (same as scheduled sessions).
     
-    Strategy: Cap durations at max_minutes (default 180 = 3 hours)
+    Strategy: Remove rows beyond Q3 + 1.5*IQR (statistical outlier removal)
     
     Rationale:
-    - Sessions >3 hours are likely data entry errors
-    - Capping preserves the record while preventing skewed averages
-    - We track and report how many were capped
+    - Uses statistical method to identify outliers (same as scheduled sessions)
+    - Removes outlier rows entirely (not just capping)
+    - Consistent with user-facing "Remove statistical outliers" checkbox
     
     Parameters:
     - df: DataFrame with 'Duration Minutes' column
-    - cap_duration: Whether to cap (default: True)
-    - max_minutes: Maximum allowed duration (default: 180)
+    - method: Outlier detection method (default: 'iqr')
     
     Returns:
-    - DataFrame with capped durations
+    - DataFrame with outliers removed
     - Dictionary with outlier statistics
     """
     df_clean = df.copy()
     
     stats = {
-        'capped_count': 0,
-        'max_original': 0,
-        'capped_sessions': []
+        'removed_count': 0,
+        'removed_pct': 0,
+        'lower_bound': 0,
+        'upper_bound': 0,
+        'method': method,
+        'original_count': len(df),
+        'final_count': len(df)
     }
     
     if 'Duration Minutes' not in df.columns:
         print("  ⚠️  No 'Duration Minutes' column found - skipping outlier handling")
         return df_clean, stats
     
-    # Identify outliers
-    outliers = df_clean[df_clean['Duration Minutes'] > max_minutes]
-    stats['capped_count'] = len(outliers)
-    stats['max_original'] = df_clean['Duration Minutes'].max()
+    original_count = len(df_clean)
+    values = df_clean['Duration Minutes'].dropna()
     
-    if stats['capped_count'] > 0:
-        print(f"  ⚠️  Found {stats['capped_count']} sessions with duration >{max_minutes} min")
-        print(f"      Original max duration: {stats['max_original']:.0f} minutes")
+    if len(values) == 0:
+        print("  ⚠️  No valid duration values - skipping outlier handling")
+        return df_clean, stats
+    
+    if method == 'iqr':
+        # Calculate IQR bounds
+        Q1 = values.quantile(0.25)
+        Q3 = values.quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = max(3, Q1 - 1.5 * IQR)  # At least 3 minutes
+        upper_bound = Q3 + 1.5 * IQR
         
-        if cap_duration:
-            # Cap the durations
-            df_clean['Duration_Minutes_Original'] = df_clean['Duration Minutes']
-            df_clean.loc[df_clean['Duration Minutes'] > max_minutes, 'Duration Minutes'] = max_minutes
-            print(f"  ✓ Capped {stats['capped_count']} durations to {max_minutes} minutes")
-            print("      Original values preserved in 'Duration_Minutes_Original' column")
+        stats['lower_bound'] = round(lower_bound, 2)
+        stats['upper_bound'] = round(upper_bound, 2)
+        
+        # Remove outliers (keep NaN values)
+        df_clean = df_clean[
+            (df_clean['Duration Minutes'].isna()) |
+            ((df_clean['Duration Minutes'] >= lower_bound) & 
+             (df_clean['Duration Minutes'] <= upper_bound))
+        ].copy()
+        
+        removed_count = original_count - len(df_clean)
+        stats['removed_count'] = removed_count
+        stats['removed_pct'] = (removed_count / original_count) * 100 if original_count > 0 else 0
+        stats['final_count'] = len(df_clean)
+        
+        if removed_count > 0:
+            print(f"  ⚠️  Removed {removed_count} outliers ({stats['removed_pct']:.1f}%)")
+            print(f"      Valid range: {stats['lower_bound']:.2f} - {stats['upper_bound']:.2f} minutes")
         else:
-            print("  ℹ️  Outliers identified but not capped (cap_duration=False)")
+            print(f"  ✓ No outliers found (all within {stats['lower_bound']:.2f}-{stats['upper_bound']:.2f} min)")
     else:
-        print(f"  ✓ No duration outliers found (all ≤{max_minutes} min)")
+        print(f"  ⚠️  Unknown method: {method} - skipping outlier handling")
     
     return df_clean, stats
 

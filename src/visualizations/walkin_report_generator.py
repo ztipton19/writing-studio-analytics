@@ -95,25 +95,192 @@ def create_executive_summary_page(summary):
     return fig
 
 
-def create_section_divider(title):
-    """Create section divider page"""
-    fig, ax = plt.subplots(figsize=(8.5, 11))
+def create_metadata_page(df, cleaning_log=None):
+    """Create metadata/technical details page for walk-in report"""
+    from src.visualizations.charts import PAGE_PORTRAIT, MARGIN_RECT
+    fig, ax = plt.subplots(figsize=PAGE_PORTRAIT)
     ax.axis('off')
-    
-    ax.text(0.5, 0.5, title,
-            ha='center', va='center', fontsize=28, weight='bold',
-            bbox=dict(boxstyle='round', facecolor='#2E86AB', alpha=0.2, pad=1))
-    
-    plt.tight_layout()
+
+    # Title
+    ax.text(0.5, 0.95, 'Report Metadata', ha='center', fontsize=18, fontweight='bold',
+            transform=ax.transAxes)
+
+    # Data summary - centered
+    y = 0.88
+    ax.text(0.5, y, 'DATA SUMMARY', ha='center', fontsize=12, fontweight='bold',
+            transform=ax.transAxes)
+
+    y -= 0.04
+    ax.text(0.5, y, '─' * 30, ha='center', fontsize=10, transform=ax.transAxes,
+            family='monospace')
+
+    y -= 0.04
+    if cleaning_log:
+        ax.text(0.5, y, f"Original Rows: {cleaning_log.get('original_rows', 'N/A'):,}",
+                ha='center', fontsize=10, transform=ax.transAxes, family='monospace')
+    else:
+        ax.text(0.5, y, f"Total Sessions: {len(df):,}",
+                ha='center', fontsize=10, transform=ax.transAxes, family='monospace')
+
+    y -= 0.03
+    if cleaning_log:
+        ax.text(0.5, y, f"Original Columns: {cleaning_log.get('original_cols', 'N/A')}",
+                ha='center', fontsize=10, transform=ax.transAxes, family='monospace')
+    else:
+        ax.text(0.5, y, f"Total Columns: {len(df.columns)}",
+                ha='center', fontsize=10, transform=ax.transAxes, family='monospace')
+
+    y -= 0.03
+    if cleaning_log:
+        ax.text(0.5, y, f"Final Rows: {cleaning_log.get('final_rows', len(df)):,}",
+                ha='center', fontsize=10, transform=ax.transAxes, family='monospace')
+
+    y -= 0.03
+    if cleaning_log:
+        ax.text(0.5, y, f"Final Columns: {cleaning_log.get('final_cols', len(df.columns))}",
+                ha='center', fontsize=10, transform=ax.transAxes, family='monospace')
+
+    # Display outlier information
+    if cleaning_log and 'outliers_removed' in cleaning_log:
+        outliers = cleaning_log['outliers_removed']
+        y -= 0.04
+        ax.text(0.5, y, f"Outliers Removed: {outliers.get('removed_count', 0)} ({outliers.get('removed_pct', 0):.1f}%)",
+                ha='center', fontsize=10, transform=ax.transAxes, family='monospace')
+        y -= 0.03
+        ax.text(0.5, y, f"Outlier Method: {outliers.get('method', 'N/A').upper()}",
+                ha='center', fontsize=10, transform=ax.transAxes, family='monospace')
+
+    # Date range - centered
+    if 'Check_In_DateTime' in df.columns:
+        y -= 0.08
+        min_date = df['Check_In_DateTime'].min()
+        max_date = df['Check_In_DateTime'].max()
+        days_span = (max_date - min_date).days
+
+        ax.text(0.5, y, 'DATE RANGE', ha='center', fontsize=12, fontweight='bold',
+                transform=ax.transAxes)
+
+        y -= 0.04
+        ax.text(0.5, y, '─' * 30, ha='center', fontsize=10, transform=ax.transAxes,
+                family='monospace')
+
+        y -= 0.04
+        ax.text(0.5, y, f"Start: {min_date.strftime('%B %d, %Y')}",
+                ha='center', fontsize=10, transform=ax.transAxes, family='monospace')
+
+        y -= 0.03
+        ax.text(0.5, y, f"End: {max_date.strftime('%B %d, %Y')}",
+                ha='center', fontsize=10, transform=ax.transAxes, family='monospace')
+
+        y -= 0.03
+        ax.text(0.5, y, f"Days Covered: {days_span:,} days",
+                ha='center', fontsize=10, transform=ax.transAxes, family='monospace')
+
+    # Hour breakdown - centered
+    if 'Check_In_DateTime' in df.columns:
+        y -= 0.08
+        df['Hour'] = df['Check_In_DateTime'].dt.hour
+        hour_counts = df['Hour'].value_counts().sort_index()
+        peak_hour = hour_counts.idxmax()
+        peak_count = hour_counts.max()
+
+        ax.text(0.5, y, 'PEAK USAGE HOURS', ha='center', fontsize=12, fontweight='bold',
+                transform=ax.transAxes)
+
+        y -= 0.04
+        ax.text(0.5, y, '─' * 30, ha='center', fontsize=10, transform=ax.transAxes,
+                family='monospace')
+
+        y -= 0.04
+        peak_time = f"{peak_hour}:00"
+        ax.text(0.5, y, f"Peak Hour: {peak_time} ({peak_count:,} sessions)",
+                ha='center', fontsize=10, transform=ax.transAxes, family='monospace')
+
+        y -= 0.03
+        avg_per_hour = len(df) / len(hour_counts)
+        ax.text(0.5, y, f"Average per Hour: {avg_per_hour:.1f} sessions",
+                ha='center', fontsize=10, transform=ax.transAxes, family='monospace')
+
+    # Day of week breakdown - centered
+    if 'Check_In_DateTime' in df.columns:
+        y -= 0.08
+        df['Day_of_Week'] = df['Check_In_DateTime'].dt.day_name()
+        day_counts = df['Day_of_Week'].value_counts()
+        busiest_day = day_counts.idxmax()
+        busiest_count = day_counts.max()
+
+        ax.text(0.5, y, 'BUSIEST DAY', ha='center', fontsize=12, fontweight='bold',
+                transform=ax.transAxes)
+
+        y -= 0.04
+        ax.text(0.5, y, '─' * 30, ha='center', fontsize=10, transform=ax.transAxes,
+                family='monospace')
+
+        y -= 0.04
+        ax.text(0.5, y, f"{busiest_day} ({busiest_count:,} sessions)",
+                ha='center', fontsize=10, transform=ax.transAxes, family='monospace')
+
+    # Consultant coverage - centered
+    if 'Consultant_Name' in df.columns:
+        y -= 0.08
+        unique_consultants = df['Consultant_Name'].nunique()
+
+        ax.text(0.5, y, 'CONSULTANT COVERAGE', ha='center', fontsize=12, fontweight='bold',
+                transform=ax.transAxes)
+
+        y -= 0.04
+        ax.text(0.5, y, '─' * 30, ha='center', fontsize=10, transform=ax.transAxes,
+                family='monospace')
+
+        y -= 0.04
+        ax.text(0.5, y, f"Unique Consultants: {unique_consultants}",
+                ha='center', fontsize=10, transform=ax.transAxes, family='monospace')
+
+        y -= 0.03
+        avg_per_consultant = len(df) / unique_consultants
+        ax.text(0.5, y, f"Average Sessions per Consultant: {avg_per_consultant:.1f}",
+                ha='center', fontsize=10, transform=ax.transAxes, family='monospace')
+
+    # Duration stats - centered
+    if 'Duration_Minutes' in df.columns:
+        y -= 0.08
+        avg_duration = df['Duration_Minutes'].mean()
+        median_duration = df['Duration_Minutes'].median()
+
+        ax.text(0.5, y, 'SESSION DURATION', ha='center', fontsize=12, fontweight='bold',
+                transform=ax.transAxes)
+
+        y -= 0.04
+        ax.text(0.5, y, '─' * 30, ha='center', fontsize=10, transform=ax.transAxes,
+                family='monospace')
+
+        y -= 0.04
+        ax.text(0.5, y, f"Average: {avg_duration:.1f} minutes",
+                ha='center', fontsize=10, transform=ax.transAxes, family='monospace')
+
+        y -= 0.03
+        ax.text(0.5, y, f"Median: {median_duration:.1f} minutes",
+                ha='center', fontsize=10, transform=ax.transAxes, family='monospace')
+
+    # Generation info
+    ax.text(0.5, 0.05, 'Generated by Writing Studio Analytics Tool',
+            ha='center', fontsize=9, style='italic', transform=ax.transAxes,
+            color='gray')
+    ax.text(0.5, 0.02, f'{datetime.now().strftime("%B %d, %Y at %I:%M %p")}',
+            ha='center', fontsize=9, style='italic', transform=ax.transAxes,
+            color='gray')
+
+    plt.tight_layout(rect=MARGIN_RECT)
     return fig
 
 
-def generate_walkin_report(df, output_path='walkin_report.pdf'):
+def generate_walkin_report(df, cleaning_log=None, output_path='walkin_report.pdf'):
     """
     Generate comprehensive PDF report for walk-in data.
     
     Parameters:
     - df: Cleaned walk-in DataFrame
+    - cleaning_log: Log from data cleaning (includes outlier stats)
     - output_path: Where to save PDF
     
     Returns:
@@ -166,6 +333,12 @@ def generate_walkin_report(df, output_path='walkin_report.pdf'):
         pdf.savefig(fig)
         plt.close(fig)
         
+        # Metadata Page
+        print("📄 Creating metadata page...")
+        fig = create_metadata_page(df, cleaning_log)
+        pdf.savefig(fig)
+        plt.close(fig)
+        
         # Executive Summary
         print("📄 Creating executive summary...")
         fig = create_executive_summary_page(summary)
@@ -174,9 +347,6 @@ def generate_walkin_report(df, output_path='walkin_report.pdf'):
         
         # SECTION 1: CONSULTANT WORKLOAD
         print("\n👥 Section 1: Consultant Workload")
-        fig = create_section_divider("Consultant Workload Analysis")
-        pdf.savefig(fig)
-        plt.close(fig)
         
         if 'consultant_workload' in charts:
             pdf.savefig(charts['consultant_workload'])
@@ -190,14 +360,6 @@ def generate_walkin_report(df, output_path='walkin_report.pdf'):
         
         # SECTION 2: TEMPORAL PATTERNS
         print("\n⏰ Section 2: Temporal Patterns")
-        fig = create_section_divider("Temporal Usage Patterns")
-        pdf.savefig(fig)
-        plt.close(fig)
-        
-        if 'sessions_by_hour' in charts:
-            pdf.savefig(charts['sessions_by_hour'])
-            plt.close(charts['sessions_by_hour'])
-            print("   ✓ Sessions by hour")
         
         if 'sessions_by_day' in charts:
             pdf.savefig(charts['sessions_by_day'])
@@ -211,14 +373,16 @@ def generate_walkin_report(df, output_path='walkin_report.pdf'):
         
         # SECTION 3: DURATION ANALYSIS
         print("\n⏱️  Section 3: Duration Analysis")
-        fig = create_section_divider("Session Duration Analysis")
-        pdf.savefig(fig)
-        plt.close(fig)
         
-        if 'duration_distribution' in charts:
-            pdf.savefig(charts['duration_distribution'])
-            plt.close(charts['duration_distribution'])
-            print("   ✓ Duration distribution")
+        if 'completed_duration' in charts:
+            pdf.savefig(charts['completed_duration'])
+            plt.close(charts['completed_duration'])
+            print("   ✓ Completed sessions duration (Consultant Meetings)")
+        
+        if 'checkin_duration' in charts:
+            pdf.savefig(charts['checkin_duration'])
+            plt.close(charts['checkin_duration'])
+            print("   ✓ Check-in sessions duration (Independent Space Usage)")
         
         if 'duration_by_course' in charts:
             pdf.savefig(charts['duration_by_course'])
@@ -227,9 +391,6 @@ def generate_walkin_report(df, output_path='walkin_report.pdf'):
         
         # SECTION 4: INDEPENDENT SPACE USAGE
         print("\n🏢 Section 4: Independent Space Usage")
-        fig = create_section_divider("Check-In Space Usage")
-        pdf.savefig(fig)
-        plt.close(fig)
         
         if 'checkin_usage' in charts:
             pdf.savefig(charts['checkin_usage'])
@@ -243,9 +404,6 @@ def generate_walkin_report(df, output_path='walkin_report.pdf'):
         
         # SECTION 5: COURSE DISTRIBUTION
         print("\n📚 Section 5: Course Distribution")
-        fig = create_section_divider("Course & Writing Types")
-        pdf.savefig(fig)
-        plt.close(fig)
         
         if 'course_distribution' in charts:
             pdf.savefig(charts['course_distribution'])
@@ -267,7 +425,7 @@ def generate_walkin_report(df, output_path='walkin_report.pdf'):
     
     print("\n" + "="*80)
     print(f"✅ Report generated: {output_path}")
-    print(f"   Total pages: ~{5 + len(charts)}")
+    print(f"   Total pages: ~{3 + len(charts)}")
     print("="*80 + "\n")
     
     return output_path

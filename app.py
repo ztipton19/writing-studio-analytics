@@ -364,15 +364,7 @@ with tab1:
                             st.error("❌ Walk-in modules not available. Please check installation.")
                             st.stop()
 
-                        df_clean = clean_walkin_data(df_anon, cap_duration=True, max_duration_minutes=180)
-                        cleaning_log = {
-                            'mode': 'walkin',
-                            'context': {},
-                            'final_rows': len(df_clean),
-                            'final_cols': len(df_clean.columns),
-                            'original_rows': len(df),
-                            'original_cols': len(df.columns)
-                        }
+                        df_clean, cleaning_log = clean_walkin_data(df_anon)
                     else:
                         # Use scheduled session cleaner
                         df_clean, cleaning_log = clean_data(
@@ -390,7 +382,7 @@ with tab1:
                     
                     if expected_mode == 'walkin':
                         report_filename = f"walkin_report_{timestamp}.pdf"
-                        report_path = generate_walkin_report(df_clean, report_filename)
+                        report_path = generate_walkin_report(df_clean, cleaning_log, report_filename)
                     else:
                         report_filename = f"writing_studio_report_{timestamp}.pdf"
                         report_path = generate_full_report(df_clean, cleaning_log, report_filename)

@@ -583,7 +583,7 @@ def generate_executive_summary(metrics):
 
         # Report basic stats only (no thresholds or judgments)
         mean_sessions = workload['sessions_per_consultant']['mean']
-        total_consultants = workload['sessions_per_consultant']['count']
+        total_consultants = workload['total_consultants']
 
         summary['key_findings'].append(
             f"{total_consultants} consultants handled sessions (average: {mean_sessions:.1f} sessions each)"

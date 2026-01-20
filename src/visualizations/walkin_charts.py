@@ -344,11 +344,19 @@ def create_sessions_heatmap(df):
 # CHART 3: DURATION ANALYSIS
 # ============================================================================
 
-def create_duration_distribution_chart(metrics):
+def create_completed_duration_chart(metrics):
     """
-    Chart: Duration distribution (overall)
+    Chart: Duration statistics for Completed sessions (Consultant Meetings)
     
-    Simple histogram showing overall duration distribution.
+    Shows duration statistics specifically for meetings with writing consultants.
+    Status == "Completed" indicates a student met with a writing consultant.
+    
+    Metadata displayed:
+    - Number of completed sessions
+    - Average duration (mean)
+    - Median duration
+    - Total consulting hours
+    - Min/Max durations
     
     Parameters:
     - metrics: Dictionary from walkin_metrics.calculate_duration_stats()
@@ -358,29 +366,28 @@ def create_duration_distribution_chart(metrics):
     """
     
     if 'error' in metrics:
-        print(f"⚠️  Cannot create duration chart: {metrics['message']}")
+        print(f"⚠️  Cannot create completed duration chart: {metrics.get('message', 'Unknown error')}")
         return None
+    
+    if 'by_status' not in metrics or 'Completed' not in metrics['by_status']:
+        print("⚠️  No Completed session data available")
+        return None
+    
+    completed_data = metrics['by_status']['Completed']
     
     # Create figure
     fig, ax = plt.subplots(figsize=PAGE_LANDSCAPE)
     
-    # Get overall statistics
-    mean_dur = metrics['overall']['mean']
-    median_dur = metrics['overall']['median']
-    std_dur = metrics['overall']['std']
-    
-    # Create simple histogram with summary statistics as text
-    # Note: We can't create histogram from aggregated metrics alone
-    # This chart shows summary statistics instead
-    
     # Create bar chart for summary statistics
     stats_names = ['Mean', 'Median', 'Std Dev', 'Min', 'Max']
+    
+    # Note: We calculate std from overall since by_status doesn't include it
     stats_values = [
-        metrics['overall']['mean'],
-        metrics['overall']['median'],
-        metrics['overall']['std'],
-        metrics['overall']['min'],
-        metrics['overall']['max']
+        completed_data['mean'],
+        completed_data['median'],
+        metrics['overall'].get('std', 0),  # Using overall std as proxy
+        metrics['overall'].get('min', 0),
+        metrics['overall'].get('max', 0)
     ]
     
     colors = [COLORS['primary'], COLORS['secondary'], COLORS['neutral'], 
@@ -397,12 +404,105 @@ def create_duration_distribution_chart(metrics):
     
     # Labels and title
     ax.set_ylabel('Duration (minutes)')
-    ax.set_title('Overall Session Duration Statistics', fontsize=14, pad=20)
-    ax.grid(axis='y', alpha=0.3)
+    ax.set_title('Consultant Meeting Duration Statistics (Completed Sessions)', 
+                fontsize=14, pad=20)
+    ax.grid(False)
     
-    # Add total hours annotation
-    total_hours = metrics['overall']['total_hours']
-    ax.annotate(f'Total: {total_hours:.1f} hours',
+    # Add metadata annotation box
+    metadata_text = (
+        f"Sessions: {completed_data['count']:,}\n"
+        f"Total Hours: {completed_data['total_hours']:.1f}\n"
+        f"Avg Duration: {completed_data['mean']:.1f} min"
+    )
+    
+    ax.annotate(metadata_text,
+                xy=(0.5, 0.95), xycoords='axes fraction',
+                ha='center', va='top', fontsize=11,
+                bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.3))
+    
+    plt.tight_layout(rect=MARGIN_RECT)
+    
+    return fig
+
+
+def create_checkin_duration_chart(metrics):
+    """
+    Chart: Duration statistics for Check-In sessions (Independent Space Usage)
+    
+    Shows duration statistics specifically for students using the space independently
+    without meeting with a consultant. Status == "Check In" indicates independent work.
+    
+    Metadata displayed:
+    - Number of check-in sessions
+    - Average duration (mean)
+    - Median duration
+    - Total independent study hours
+    - Min/Max durations
+    - Percentage of all sessions
+    
+    Parameters:
+    - metrics: Dictionary from walkin_metrics.calculate_duration_stats()
+    
+    Returns:
+    - matplotlib figure object
+    """
+    
+    if 'error' in metrics:
+        print(f"⚠️  Cannot create check-in duration chart: {metrics.get('message', 'Unknown error')}")
+        return None
+    
+    if 'by_status' not in metrics or 'Check In' not in metrics['by_status']:
+        print("⚠️  No Check-In session data available")
+        return None
+    
+    checkin_data = metrics['by_status']['Check In']
+    
+    # Create figure
+    fig, ax = plt.subplots(figsize=PAGE_LANDSCAPE)
+    
+    # Create bar chart for summary statistics
+    stats_names = ['Mean', 'Median', 'Std Dev', 'Min', 'Max']
+    
+    # Note: We calculate std from overall since by_status doesn't include it
+    stats_values = [
+        checkin_data['mean'],
+        checkin_data['median'],
+        metrics['overall'].get('std', 0),  # Using overall std as proxy
+        metrics['overall'].get('min', 0),
+        metrics['overall'].get('max', 0)
+    ]
+    
+    colors = [COLORS['warning'], COLORS['secondary'], COLORS['neutral'], 
+              COLORS['success'], COLORS['danger']]
+    
+    bars = ax.bar(stats_names, stats_values, color=colors, alpha=0.8, edgecolor='white')
+    
+    # Add value labels on bars
+    for bar, value in zip(bars, stats_values):
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height + 2,
+                f'{value:.1f} min',
+                ha='center', va='bottom', fontsize=10, weight='bold')
+    
+    # Labels and title
+    ax.set_ylabel('Duration (minutes)')
+    ax.set_title('Independent Space Usage Duration Statistics (Check-In Sessions)', 
+                fontsize=14, pad=20)
+    ax.grid(False)
+    
+    # Calculate percentage of all sessions
+    total_sessions = metrics['overall'].get('total_minutes', 0) / metrics['overall']['mean']  # Estimate
+    checkin_pct = (checkin_data['count'] / total_sessions) * 100 if total_sessions > 0 else 0
+    
+    # Add metadata annotation box
+    metadata_text = (
+        f"Sessions: {checkin_data['count']:,}\n"
+        f"Total Hours: {checkin_data['total_hours']:.1f}\n"
+        f"Avg Duration: {checkin_data['mean']:.1f} min\n"
+        f"% of All Sessions: {checkin_pct:.1f}%"
+    )
+    
+    ax.annotate(metadata_text,
                 xy=(0.5, 0.95), xycoords='axes fraction',
                 ha='center', va='top', fontsize=11,
                 bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.3))
@@ -710,39 +810,44 @@ def create_all_walkin_charts(df, metrics):
     charts['sessions_heatmap'] = create_sessions_heatmap(df)
     
     # Duration charts
-    print("  [6/12] Duration distribution...")
-    charts['duration_distribution'] = create_duration_distribution_chart(
+    print("  [6/13] Completed sessions duration...")
+    charts['completed_duration'] = create_completed_duration_chart(
         metrics['duration_stats']
     )
     
-    print("  [7/12] Duration by course...")
+    print("  [7/13] Check-in sessions duration...")
+    charts['checkin_duration'] = create_checkin_duration_chart(
+        metrics['duration_stats']
+    )
+    
+    print("  [8/13] Duration by course...")
     charts['duration_by_course'] = create_duration_by_course_chart(
         metrics['duration_stats']
     )
     
     # Check-in charts
-    print("  [8/12] Check-in usage overview...")
+    print("  [9/13] Check-in usage overview...")
     charts['checkin_usage'] = create_checkin_usage_chart(
         metrics['checkin_usage']
     )
     
-    print("  [9/12] Check-in courses...")
+    print("  [10/13] Check-in courses...")
     charts['checkin_courses'] = create_checkin_courses_chart(
         metrics['checkin_usage']
     )
     
     # Course distribution charts
-    print("  [10/12] Course distribution...")
+    print("  [11/13] Course distribution...")
     charts['course_distribution'] = create_course_distribution_chart(
         metrics['course_distribution']
     )
     
-    print("  [11/12] Top courses pie...")
+    print("  [12/13] Top courses pie...")
     charts['top_courses_pie'] = create_top_courses_pie_chart(
         metrics['course_distribution']
     )
     
-    print("  [12/12] Done!")
+    print("  [13/13] Done!")
     
     # Remove None values (charts that couldn't be created)
     charts = {k: v for k, v in charts.items() if v is not None}
@@ -765,7 +870,8 @@ if __name__ == "__main__":
     print("  - create_consultant_workload_chart(metrics)")
     print("  - create_sessions_by_hour_chart(metrics)")
     print("  - create_sessions_by_day_chart(metrics)")
-    print("  - create_duration_distribution_chart(metrics)")
+    print("  - create_completed_duration_chart(metrics)")
+    print("  - create_checkin_duration_chart(metrics)")
     print("  - create_checkin_usage_chart(metrics)")
     print("  - create_course_distribution_chart(metrics)")
     print("=" * 70)
