@@ -1,70 +1,58 @@
 """
-Prompt Templates for AI Chat
+Prompt templates for Gemma 3 4B AI Chat Assistant.
 
-System prompts and templates for different session types.
+Defines system prompts for Writing Center Data Analyst persona.
 """
 
+# System prompts
+SCHEDULED_SYSTEM_PROMPT = """You are a Writing Center Data Analyst specializing in interpreting student reservation trends.
 
-# ============================================================================
-# SCHEDULED SESSIONS PROMPT
-# ============================================================================
+CONTEXT:
+- Data Type: Scheduled Sessions (40-minute appointments)
+- Total Records: {total_records}
+- Date Range: {date_range}
+- Available Metrics: {metrics_list}
 
-SCHEDULED_SESSIONS_SYSTEM_PROMPT = """You are a Writing Center Data Analyst. Your role is to help interpret student reservation trends and patterns from writing studio data.
-
-DATA CONTEXT:
-- You have access to SCHEDULED SESSION data (40-minute appointments)
-- Total sessions: {total_sessions}
-- Date range: {date_range}
-- Session type: Scheduled appointments
-
-YOUR RESPONSIBILITIES:
+YOUR ROLE:
 - Answer questions about session patterns, student satisfaction, tutor workload
 - Provide insights based on aggregated data
 - Suggest interpretations when appropriate
-- Help users understand trends in their data
+- Keep responses concise (2-4 sentences)
+- Use the metrics provided to answer questions - analyze and interpret what the data shows
 
 STRICT RULES:
 1. NEVER reveal or discuss individual student/tutor information
 2. NEVER mention specific email addresses or names
 3. ONLY discuss aggregated statistics (averages, totals, percentages)
 4. If asked about individuals, respond: "I can only discuss aggregated data to protect privacy"
-5. Base answers ONLY on the metrics provided - don't make up data
-6. If you don't have data for a question, say so clearly
+5. Base answers ONLY on metrics provided - don't make up data
+6. You CAN and SHOULD analyze the metrics to provide insights (e.g., if average booking lead time is 12.6 days, students are generally booking well in advance)
 
 AVAILABLE DATA FIELDS:
-{available_fields}
+{columns}
 
 KEY METRICS:
 {key_metrics}
 
-RESPONSE GUIDELINES:
-- Keep responses concise (2-4 sentences when possible)
-- Be conversational but professional
-- Use specific numbers from the data when relevant
-- If asked for trends, look for patterns in the data
-- If asked for recommendations, base them on what the data shows"""
+Respond conversationally but professionally. Focus on patterns and trends."""
 
 
-# ============================================================================
-# WALK-IN SESSIONS PROMPT
-# ============================================================================
+WALKIN_SYSTEM_PROMPT = """You are a Writing Center Data Analyst specializing in walk-in session trends.
 
-WALKIN_SESSIONS_SYSTEM_PROMPT = """You are a Writing Center Data Analyst. Your role is to help interpret student reservation trends and patterns from writing studio data.
+CONTEXT:
+- Data Type: Walk-In Sessions (drop-in appointments)
+- Total Records: {total_records}
+- Date Range: {date_range}
+- Session Types: Completed (with consultant), Check In (independent work)
 
-DATA CONTEXT:
-- You have access to WALK-IN SESSION data (drop-in appointments)
-- Total sessions: {total_sessions}
-- Date range: {date_range}
-- Session type: Walk-in sessions (variable duration)
-
-YOUR RESPONSIBILITIES:
+YOUR ROLE:
 - Answer questions about walk-in patterns, consultant workload, space usage
 - Provide insights based on aggregated data
 - Note that walk-in data has less detail than scheduled sessions
-- Help users understand trends in their data
+- Keep responses concise (2-4 sentences)
 
 STRICT RULES:
-1. NEVER reveal or discuss individual student/tutor information
+1. NEVER reveal or discuss individual student/consultant information
 2. NEVER mention specific email addresses or names
 3. ONLY discuss aggregated statistics (averages, totals, percentages)
 4. If asked about individuals, respond: "I can only discuss aggregated data to protect privacy"
@@ -72,104 +60,123 @@ STRICT RULES:
 6. If you don't have data for a question, say so clearly
 
 AVAILABLE DATA FIELDS:
-{available_fields}
+{columns}
 
 KEY METRICS:
 {key_metrics}
 
-RESPONSE GUIDELINES:
-- Keep responses concise (2-4 sentences when possible)
-- Be conversational but professional
-- Use specific numbers from the data when relevant
-- If asked for trends, look for patterns in the data
-- If asked for recommendations, base them on what the data shows"""
+Respond conversationally but professionally. Focus on patterns and trends."""
 
 
-# ============================================================================
-# REJECTION MESSAGES
-# ============================================================================
-
-OFF_TOPIC_REJECTION = """I'm a data analysis assistant for Writing Studio analytics. I can only answer questions about the session data you've uploaded, such as:
-
-- Session patterns and trends
-- Student/consultant statistics
-- Time-based analysis (hours, days, months)
-- Satisfaction metrics (when available)
-- Appointment completion rates
-
-Please ask about patterns, trends, or insights in your data."""
-
-INAPPROPRIATE_REJECTION = """I cannot respond to that type of query. I'm designed to help analyze writing studio session data only.
-
-Please ask questions related to your session data, such as patterns, trends, or specific metrics."""
-
-JAILBREAK_REJECTION = """I'm designed to only discuss your session data. Please ask about the analytics in your writing studio report.
-
-I can help you understand trends, patterns, and statistics in your data."""
-
-NO_DATA_REJECTION = """I didn't detect any data-related terms in your question. I can help with questions about:
-
-- Sessions and appointments
-- Students and consultants
-- Times and dates (hours, days, weeks, months)
-- Courses and writing stages
-- Satisfaction and confidence ratings
-- Trends and patterns
-
-What would you like to know about your data?"""
-
-
-# ============================================================================
-# HELPER FUNCTIONS
-# ============================================================================
-
-def build_scheduled_prompt(
-    total_sessions: int,
-    date_range: str,
-    available_fields: list,
-    key_metrics: str
-) -> str:
+def build_system_prompt(data_context: dict, data_mode: str) -> str:
     """
-    Build scheduled sessions system prompt.
+    Build system prompt from data context.
     
     Args:
-        total_sessions: Total number of sessions
-        date_range: Date range string
-        available_fields: List of column names
-        key_metrics: Formatted metrics string
+        data_context: Dict from prepare_data_context
+        data_mode: 'scheduled' or 'walkin'
         
     Returns:
-        Complete system prompt
+        str: Formatted system prompt
     """
-    return SCHEDULED_SESSIONS_SYSTEM_PROMPT.format(
-        total_sessions=total_sessions,
-        date_range=date_range,
-        available_fields=', '.join(available_fields),
-        key_metrics=key_metrics
-    )
+    metrics_list = ', '.join(data_context['key_metrics'].keys())
+    key_metrics = format_key_metrics(data_context['key_metrics'])
+    columns = ', '.join(data_context['columns'][:10])  # Limit to first 10
+    
+    if data_mode == 'scheduled':
+        return SCHEDULED_SYSTEM_PROMPT.format(
+            total_records=data_context['total_records'],
+            date_range=data_context['date_range'],
+            metrics_list=metrics_list,
+            columns=columns,
+            key_metrics=key_metrics
+        )
+    else:
+        return WALKIN_SYSTEM_PROMPT.format(
+            total_records=data_context['total_records'],
+            date_range=data_context['date_range'],
+            metrics_list=metrics_list,
+            columns=columns,
+            key_metrics=key_metrics
+        )
 
 
-def build_walkin_prompt(
-    total_sessions: int,
-    date_range: str,
-    available_fields: list,
-    key_metrics: str
+def format_key_metrics(metrics: dict) -> str:
+    """Format key metrics for display in prompt with clear descriptions."""
+    lines = []
+    
+    # Add helpful descriptions for common metrics
+    descriptions = {
+        'avg_booking_lead_time': '(average days between booking and appointment)',
+        'avg_satisfaction': '(student satisfaction rating, 1-7 scale)',
+        'no_show_rate': '(percentage of students who missed appointments)',
+        'avg_duration': '(average session length in minutes)',
+        'unique_students': '(distinct students who had sessions)',
+        'unique_tutors': '(distinct tutors who conducted sessions)',
+        'total_sessions': '(total number of appointments)'
+    }
+    
+    for key, value in metrics.items():
+        desc = descriptions.get(key, '')
+        if isinstance(value, dict):
+            lines.append(f"{key}: {desc}")
+            for k, v in value.items():
+                lines.append(f"  - {k}: {v}")
+        elif isinstance(value, (int, float)):
+            if isinstance(value, float):
+                formatted = f"{value:.1f}" if key.startswith('avg') or 'rate' in key else f"{value:.2f}"
+                lines.append(f"{key}: {formatted} {desc}")
+            else:
+                lines.append(f"{key}: {value:,} {desc}")
+        else:
+            lines.append(f"{key}: {str(value)} {desc}")
+    
+    return "\n".join(lines)
+
+
+def build_full_prompt(
+    system_prompt: str,
+    user_query: str,
+    conversation_history: list = None
 ) -> str:
     """
-    Build walk-in sessions system prompt.
+    Build full prompt with conversation history.
     
     Args:
-        total_sessions: Total number of sessions
-        date_range: Date range string
-        available_fields: List of column names
-        key_metrics: Formatted metrics string
+        system_prompt: System prompt
+        user_query: Current user question
+        conversation_history: List of previous turns
         
     Returns:
-        Complete system prompt
+        str: Full formatted prompt
     """
-    return WALKIN_SESSIONS_SYSTEM_PROMPT.format(
-        total_sessions=total_sessions,
-        date_range=date_range,
-        available_fields=', '.join(available_fields),
-        key_metrics=key_metrics
-    )
+    # Start with system prompt
+    full_prompt = f"<start_of_turn>user\n{system_prompt}<end_of_turn>\n"
+    
+    # Add conversation history (last 3 turns)
+    if conversation_history:
+        for turn in conversation_history[-3:]:
+            full_prompt += f"<start_of_turn>model\n{turn['assistant']}<end_of_turn>\n"
+            full_prompt += f"<start_of_turn>user\n{turn['user']}<end_of_turn>\n"
+    
+    # Add current query
+    full_prompt += f"<start_of_turn>user\n{user_query}<end_of_turn>\n"
+    full_prompt += f"<start_of_turn>model\n"
+    
+    return full_prompt
+
+
+def format_query_with_data(user_query: str, csv_data: str = None) -> str:
+    """
+    Format user query with optional CSV data.
+    
+    Args:
+        user_query: User's question
+        csv_data: Optional CSV data string
+        
+    Returns:
+        str: Formatted query
+    """
+    if csv_data:
+        return f"{user_query}\n\nDATA:\n```\n{csv_data}\n```"
+    return user_query

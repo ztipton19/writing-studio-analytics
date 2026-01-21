@@ -52,7 +52,11 @@ urllib3>=2.6.3
 watchdog>=6.0.0
 zipp>=3.23.0
 
-# AI Chat dependencies
+# AI Chat dependencies (Gemma 3 4B support)
 llama-cpp-python>=0.3.0
 huggingface-hub>=0.20.0
 psutil>=6.0.0
+
+# Optional GPU acceleration (install separately if needed)
+# For Metal (Apple Silicon): pip install --pre --upgrade llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/metal
+# For CUDA: CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python --no-cache-dir

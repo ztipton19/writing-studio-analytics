@@ -1,229 +1,239 @@
 """
-Main Chat Handler
+Main chat handler for AI Chat Assistant.
 
-Orchestrates all components for AI chat functionality.
+Orchestrates:
+- Data preparation
+- Input validation
+- Prompt construction
+- LLM generation
+- Response filtering
+- Conversation history
 """
 
-from typing import Dict, Any, List, Optional
-from pathlib import Path
-
+from typing import Dict, Any, Tuple
 from .llm_engine import GemmaLLM
-from .data_prep import prepare_chat_context
-from .prompt_templates import (
-    build_scheduled_prompt,
-    build_walkin_prompt
-)
+from .data_prep import prepare_data_context, prepare_chart_context
+from .prompt_templates import build_system_prompt, build_full_prompt, format_query_with_data
 from .safety_filters import InputValidator, ResponseFilter
 
 
 class ChatHandler:
     """
-    Main chat orchestration.
+    Main chat orchestration for AI Chat Assistant.
     
     Coordinates:
-    - Input validation
+    - Input validation (pre-generation)
     - Context building
     - Prompt construction
     - LLM generation
-    - Response filtering
-    - Conversation history
+    - Response filtering (post-generation)
+    - Conversation history management
     """
     
-    def __init__(
-        self,
-        model_path: str,
-        verbose: bool = False
-    ):
+    def __init__(self, model_path: str, verbose: bool = False):
         """
         Initialize chat handler.
         
         Args:
-            model_path: Path to Gemma 3 4B GGUF model
+            model_path: Path to Gemma 3 4B model file
             verbose: Enable verbose logging
         """
-        # Initialize LLM
-        self.llm = GemmaLLM(
-            model_path=model_path,
-            verbose=verbose
-        )
-        
-        # Initialize safety layers
+        self.llm = GemmaLLM(model_path, verbose=verbose)
         self.input_validator = InputValidator()
         self.response_filter = ResponseFilter()
+        self.conversation_history = []
+        self.verbose = verbose
         
-        # Conversation history
-        self.conversation_history: List[Dict[str, str]] = []
+        if verbose:
+            print("🤖 ChatHandler initialized")
+    
+    def check_system(self) -> Dict[str, Any]:
+        """
+        Check system requirements.
         
-        # Track model info
-        self.model_info = {
-            'model_path': model_path,
-            'gpu_acceleration': self.llm.gpu_info['acceleration']
-        }
+        Returns:
+            Dict with system information
+        """
+        return self.llm.check_system_requirements()
     
     def handle_query(
         self,
         user_query: str,
-        session_state: Dict[str, Any],
-        chart_path: Optional[str] = None
-    ) -> Dict[str, Any]:
+        df_clean,
+        metrics: Dict[str, Any],
+        data_mode: str = 'scheduled',
+        chart_path: str = None,
+        include_csv: bool = True
+    ) -> Tuple[str, Dict[str, Any]]:
         """
-        Handle user query.
+        Handle user query with full pipeline.
         
         Args:
             user_query: User's question
-            session_state: Streamlit session state with DataFrame
+            df_clean: Cleaned DataFrame
+            metrics: Metrics dictionary
+            data_mode: 'scheduled' or 'walkin'
             chart_path: Optional path to chart image
+            include_csv: Whether to include CSV in prompt
             
         Returns:
-            Dictionary with response and metadata
+            (response: str, metadata: dict)
         """
-        # Step 1: Validate input (before LLM generation)
+        # 0. VALIDATE INPUT FIRST (pre-generation)
         is_valid, reason = self.input_validator.is_on_topic(user_query)
         
         if not is_valid:
-            # Return rejection immediately (no LLM call)
+            # Return rejection message immediately (no LLM call)
             rejection_msg = self.input_validator.get_rejection_message(reason)
-            return {
-                'response': rejection_msg,
+            if self.verbose:
+                print(f"❌ Query rejected: {reason}")
+            
+            return rejection_msg, {
                 'rejected': True,
                 'reason': reason,
-                'llm_called': False,
-                'model_info': self.model_info
+                'llm_called': False
             }
         
-        # Step 2: Build context from session state
-        df_clean = session_state.get('df_clean')
-        if df_clean is None:
-            return {
-                'response': "No data available. Please upload a CSV file first.",
-                'rejected': True,
-                'reason': 'no_data',
-                'llm_called': False,
-                'model_info': self.model_info
+        if self.verbose:
+            print(f"✅ Query accepted: {user_query[:50]}...")
+        
+        # 1. Build data context
+        data_context = prepare_data_context(df_clean, metrics, data_mode)
+        
+        # 2. Build system prompt
+        system_prompt = build_system_prompt(data_context, data_mode)
+        
+        # 3. Format user query
+        if include_csv:
+            user_query_formatted = format_query_with_data(user_query, data_context['csv_summary'])
+        else:
+            user_query_formatted = user_query
+        
+        # 4. Prepare chart context (multimodal)
+        chart_context = prepare_chart_context(chart_path)
+        
+        # 5. Build full prompt
+        full_prompt = build_full_prompt(
+            system_prompt,
+            user_query_formatted,
+            self.conversation_history
+        )
+        
+        # Add chart note if available
+        if chart_context:
+            full_prompt += f"\n\n{chart_context['note']}\n"
+        
+        # 6. Generate response
+        try:
+            raw_response = self.llm.generate(
+                full_prompt,
+                max_tokens=512,
+                temperature=0.7,
+                top_p=0.9
+            )
+        except Exception as e:
+            error_msg = f"I encountered an error generating a response: {str(e)}"
+            if self.verbose:
+                print(f"❌ Generation error: {str(e)}")
+            
+            return error_msg, {
+                'error': True,
+                'error_type': 'generation_error',
+                'rejected': False,
+                'llm_called': True
             }
         
-        context = prepare_chat_context(df_clean, session_state)
+        # 7. Filter response (PII check)
+        safe_response = self.response_filter.filter_response(raw_response)
         
-        # Step 3: Build system prompt based on session type
-        if context['session_type'] == 'scheduled':
-            system_prompt = build_scheduled_prompt(
-                total_sessions=context['total_records'],
-                date_range=context['date_range'],
-                available_fields=context['metrics']['columns'],
-                key_metrics=context['metrics_str']
-            )
-        else:  # walkin
-            system_prompt = build_walkin_prompt(
-                total_sessions=context['total_records'],
-                date_range=context['date_range'],
-                available_fields=context['metrics']['columns'],
-                key_metrics=context['metrics_str']
-            )
-        
-        # Step 4: Build full prompt with conversation history
-        full_prompt = self._build_prompt(
-            system_prompt=system_prompt,
-            user_query=user_query,
-            csv_payload=context['csv_payload']
-        )
-        
-        # Step 5: Generate response from LLM
-        result = self.llm.query_with_data(
-            user_query=full_prompt,
-            csv_payload="",  # Already in full_prompt
-            chart_path=chart_path
-        )
-        
-        # Step 6: Filter response for PII
-        safe_response = self.response_filter.filter_response(result)
-        
-        # Step 7: Update conversation history
+        # 8. Update conversation history
         self.conversation_history.append({
             'user': user_query,
             'assistant': safe_response
         })
         
-        # Keep only last 10 turns to manage context
-        if len(self.conversation_history) > 10:
-            self.conversation_history = self.conversation_history[-10:]
+        # Keep only last 5 turns to manage context
+        if len(self.conversation_history) > 5:
+            self.conversation_history = self.conversation_history[-5:]
         
-        # Return response with metadata
-        return {
-            'response': safe_response,
+        # Return metadata
+        metadata = {
             'rejected': False,
-            'reason': 'valid',
             'llm_called': True,
-            'context_type': context['session_type'],
-            'total_records': context['total_records'],
-            'model_info': self.model_info
+            'pii_filtered': raw_response != safe_response,
+            'data_mode': data_mode,
+            'chart_used': chart_path is not None
         }
-    
-    def _build_prompt(
-        self,
-        system_prompt: str,
-        user_query: str,
-        csv_payload: str
-    ) -> str:
-        """
-        Build full prompt with system prompt, data, and conversation history.
         
-        Args:
-            system_prompt: System instructions
-            user_query: Current user question
-            csv_payload: Formatted CSV data
-            
-        Returns:
-            Complete prompt string
-        """
-        # Start with system prompt and data
-        prompt = f"{system_prompt}\n\n"
-        prompt += f"{csv_payload}\n\n"
+        if self.verbose:
+            if metadata['pii_filtered']:
+                print("⚠️ Response filtered for PII")
+            print(f"✅ Response generated: {safe_response[:50]}...")
         
-        # Add conversation history (last 3 turns)
-        if self.conversation_history:
-            prompt += "CONVERSATION HISTORY:\n"
-            for turn in self.conversation_history[-3:]:
-                prompt += f"User: {turn['user']}\n"
-                prompt += f"Assistant: {turn['assistant']}\n\n"
-        
-        # Add current query
-        prompt += f"Question: {user_query}\n"
-        prompt += "Assistant:"
-        
-        return prompt
+        return safe_response, metadata
     
     def clear_history(self):
         """Clear conversation history."""
         self.conversation_history = []
+        if self.verbose:
+            print("🧹 Conversation history cleared")
     
-    def get_conversation_history(self) -> List[Dict[str, str]]:
+    def get_history(self) -> list:
         """Get conversation history."""
         return self.conversation_history.copy()
     
-    def check_system_requirements(self) -> Dict[str, Any]:
+    def query_with_data(
+        self,
+        user_query: str,
+        csv_payload: str,
+        chart_path: str = None
+    ) -> str:
         """
-        Check system requirements (RAM, GPU).
+        Query with direct data payload (simplified interface).
         
+        This is the method specified in the task requirements.
+        It provides a simpler interface for direct CSV/JSON data queries.
+        
+        Args:
+            user_query: User's question
+            csv_payload: CSV-formatted data string
+            chart_path: Optional path to chart image
+            
         Returns:
-            Dictionary with system info
+            str: Generated response
         """
-        import psutil
+        # Build simple prompt
+        prompt = f"""You are a Writing Center Data Analyst.
+
+User Query: {user_query}
+
+Data:
+```
+{csv_payload}
+```
+
+Analyze the data above and answer the user's question. Focus on:
+- Patterns and trends
+- Aggregated statistics (averages, totals, percentages)
+- Key insights
+
+STRICT RULES:
+1. NEVER reveal individual records
+2. NEVER discuss specific names or emails
+3. ONLY discuss aggregated data
+4. If asked about individuals, say you can only discuss aggregates
+
+Provide a concise, professional response."""
+
+        # Add chart note if available
+        if chart_path:
+            prompt += "\n\nA chart image is also available for visual analysis."
+
+        # Generate response
+        response = self.llm.generate(
+            prompt,
+            max_tokens=512,
+            temperature=0.7
+        )
         
-        # Get RAM info
-        ram_gb = psutil.virtual_memory().total / (1024**3)
-        
-        # Get GPU info
-        gpu_acceleration = self.llm.gpu_info['acceleration']
-        has_gpu = gpu_acceleration != 'CPU'
-        
-        # Get CPU info
-        cpu_count = self.llm.n_threads
-        
-        return {
-            'ram_gb': round(ram_gb, 1),
-            'has_gpu': has_gpu,
-            'gpu_acceleration': gpu_acceleration,
-            'cpu_threads': cpu_count,
-            'ram_sufficient': ram_gb >= 8.0,
-            'model_loaded': self.llm._model is not None
-        }
+        return response

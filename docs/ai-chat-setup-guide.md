@@ -1,506 +1,474 @@
-# AI Chat Feature - Setup & Migration Guide
+# AI Chat Assistant - Model Setup Guide
 
 ## Overview
 
-This guide walks through setting up the Gemma 3 4B AI chat feature for the Writing Studio Analytics application.
+The AI Chat feature uses local-only inference with small language models. This implementation provides private, offline data analysis without cloud APIs.
 
-## Migration: Phi-3 → Gemma 3 4B
+## ⚠️ Important: Model Download Required
 
-We've migrated from Phi-3-mini to **Gemma 3 4B Instruct** for enhanced capabilities:
+Due to Hugging Face authentication requirements on model repositories, **you must manually download the model file**. The setup script will attempt to download, but will likely fail with 401 errors.
 
-### Key Changes
+## Quick Start
 
-| Feature | Phi-3 | Gemma 3 4B |
-|----------|---------|--------------|
-| Context Window | 4K tokens | **128K tokens** |
-| Vision Support | ❌ No | ✅ **Yes** (multimodal) |
-| Model Size | ~2.3GB | ~3-4GB (Q4_K_M) |
-| Developer | Microsoft | Google |
-| Quantization | Q4_K_M | Q4_K_M or Q8_0 |
-| Inference Speed | Fast | Fast (with 128K context) |
+### Step 1: Download a Model
 
-### Why Gemma 3 4B?
+Choose one of the following models and download manually:
 
-1. **Massive Context Window**: 128K tokens can handle full semester CSV data (~5,000 rows)
-2. **Vision Capabilities**: Can analyze chart images alongside text queries
-3. **Better Quality**: More capable for complex analytical questions
-4. **Modern Architecture**: Recent release with improved reasoning
+**Option A: Phi-3-mini (Recommended)**
+- Best for analytics tasks
+- Size: ~2.3GB
+- Context: 4K tokens
+- Download: https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf
+- File: `Phi-3-mini-4k-instruct-Q4_K_M.gguf` (or `Phi-3-mini-4k-instruct-q4.gguf`)
 
----
+**Option B: Gemma 2 2B**
+- Smaller, faster
+- Size: ~1.4GB
+- Context: 8K tokens
+- Download: https://huggingface.co/google/gemma-2-2b-it-GGUF
+- File: `gemma-2-2b-it-Q4_K_M.gguf`
 
-## Installation Steps
+**Option C: Gemma 3 4B**
+- Largest context (128K tokens)
+- Size: ~2.3GB
+- May require Hugging Face account/auth
+- Download: https://huggingface.co/google/gemma-3-4b-it-qat-q4_0-gguf
+- File: `gemma-3-4b-it-qat.Q4_0.gguf`
 
-### Step 1: Install Dependencies
+### Step 2: Save Model File
 
-```bash
-# Install from updated requirements.txt
-pip install -r requirements.txt
+After downloading:
+1. Create `models/` directory if it doesn't exist
+2. Move the downloaded `.gguf` file to `models/` directory
+3. Rename if needed (the code will look for common names)
 
-# OR install AI chat dependencies manually
-pip install llama-cpp-python>=0.3.0 huggingface-hub>=0.20.0 psutil>=6.0.0
-```
-
-### Step 2: Download Gemma 3 4B Model
-
-Run the setup script to download the model:
-
-```bash
-python src/ai_chat/setup_model.py
-```
-
-This will:
-- Download `gemma-3-4b-it-Q4_K_M.gguf` (~3-4GB) from HuggingFace
-- Save it to `models/` directory
-- Show download progress
-
-**Expected Output:**
-```
-Downloading Gemma 3 4B Instruct (Q4_K_M quantization)...
-From: https://huggingface.co/google/gemma-3-4b-it-gguf/resolve/main/gemma-3-4b-it-Q4_K_M.gguf
-To: models/gemma-3-4b-it-Q4_K_M.gguf
-
-[████████████████████████████████████████████████] 100%
-
-✅ Model downloaded successfully!
-Model location: models/gemma-3-4b-it-Q4_K_M.gguf
-Model size: 3.2 GB
-```
-
-### Step 3: Verify Installation
+### Step 3: Verify Model
 
 ```bash
-# Test imports
-python -c "from src.ai_chat.chat_handler import ChatHandler; print('✅ All imports successful')"
-
-# Verify model exists
-ls -lh models/gemma-3-4b-it-Q4_K_M.gguf
+ls -lh models/*.gguf
 ```
 
-### Step 4: Run the Application
+You should see your model file with its size (e.g., 2.3GB).
+
+### Step 4: Update Model Path (if needed)
+
+The app uses `get_model_path()` to find the model. If your filename differs from the expected name, update it in `app.py`:
+
+```python
+# In app.py, find the AI Chat tab initialization
+MODEL_PATH = "models/your-actual-model-name.gguf"
+```
+
+### Step 5: Run the App
 
 ```bash
 streamlit run app.py
 ```
 
-You should see:
-```
-✅ AI Chat modules loaded successfully
-✅ Walk-in modules successfully loaded from src/
+Navigate to the **"🤖 AI Chat Assistant"** tab and ask questions!
 
-  You can now view your Streamlit app in your browser.
+## Installation
 
-  Local URL: http://localhost:8501
-  Network URL: http://192.168.x.x:8501
-```
+### Install Dependencies
 
----
-
-## System Requirements
-
-### Minimum (CPU Only)
-
-- **RAM**: 8GB (recommended: 16GB)
-- **Storage**: 4GB free space (for model)
-- **CPU**: Any modern multi-core processor
-- **OS**: Windows 10+, macOS 10.15+, Linux
-
-### Recommended (GPU Accelerated)
-
-- **RAM**: 16GB+
-- **GPU**: NVIDIA (CUDA 11.8+) or Apple Silicon (Metal)
-- **VRAM**: 4GB+ (for offloading layers)
-
-### Performance Estimates
-
-| Configuration | Model Load Time | Inference Speed |
-|--------------|----------------|-----------------|
-| CPU Only (8GB RAM) | 10-15s | 3-5 tokens/sec |
-| CPU Only (16GB RAM) | 8-12s | 4-6 tokens/sec |
-| GPU (Metal/CUDA) | 5-8s | 15-25 tokens/sec |
-
----
-
-## Using the AI Chat Feature
-
-### 1. Generate a Report
-
-First, generate a report in the **"Generate Report"** tab:
-1. Upload your Penji export
-2. Select session type
-3. Configure options
-4. Click **"Generate Report"**
-
-This creates the `df_clean` in session state that the AI can analyze.
-
-### 2. Open AI Chat Tab
-
-Click the **"🤖 AI Chat Assistant"** tab (third tab).
-
-First load will show:
-```
-Loading AI model (first time only)...
-
-💻 System Information
-- RAM: 16.0 GB
-- GPU: Metal (MPS)
-- CPU Threads: 8
-- RAM Sufficient: ✅ Yes
-
-✅ AI model loaded successfully!
+```bash
+pip install -r requirements.txt
 ```
 
-### 3. Ask Questions
+Key dependencies:
+- `llama-cpp-python>=0.3.0` - Local LLM runtime
+- `huggingface-hub>=0.20.0` - Model download utility
+- `psutil>=6.0.0` - System monitoring
 
-Use the chat input to ask questions about your data:
+### Optional: Enable GPU Acceleration
 
-**Example Questions:**
+**For Apple Silicon (M1/M2/M3):**
+```bash
+pip install --pre --upgrade llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/metal
+```
 
-Scheduled Sessions:
+**For NVIDIA (CUDA):**
+```bash
+CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python --no-cache-dir
+```
+
+**For CPU-only (default):**
+```bash
+CMAKE_ARGS="-DLLAMA_CUBLAS=off" pip install llama-cpp-python
+```
+
+## Usage
+
+### In Streamlit App
+
+1. Start the app: `streamlit run app.py`
+2. Upload CSV and generate report
+3. Navigate to **"🤖 AI Chat Assistant"** tab
+4. Ask questions about your data!
+
+### Example Questions
+
+**For Scheduled Sessions:**
 - "What were the busiest days of the week?"
 - "How did student satisfaction change over time?"
 - "Which writing stages were most common?"
 - "What was the average booking lead time?"
 
-Walk-In Sessions:
+**For Walk-In Sessions:**
 - "What were the peak hours for walk-ins?"
 - "How many students used the space independently?"
 - "What was the average session duration?"
 - "Which courses were most common?"
 
-### 4. Multimodal Analysis (Vision)
+## Architecture
 
-The AI can analyze charts alongside text. This feature is ready for future integration:
-- Pass chart image paths to `handle_query()`
-- AI interprets visualizations + data context
-- Great for asking "What does this chart show?"
-
----
-
-## Architecture Overview
-
-```
-┌─────────────────────────────────────────────────┐
-│         Streamlit App (app.py)          │
-├─────────────────────────────────────────────────┤
-│  Tab 1: Generate Report                  │
-│  Tab 2: Codebook Lookup                 │
-│  Tab 3: AI Chat Assistant ◄── NEW        │
-└────────────┬────────────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────────────────┐
-│         Chat Handler                      │
-│  - Input validation                      │
-│  - Context building                      │
-│  - Prompt construction                  │
-│  - Response filtering                    │
-└────────────┬────────────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────────────────┐
-│         GemmaLLM (llama-cpp-python)    │
-│  - Model loading                       │
-│  - Text generation                     │
-│  - Multimodal (vision) support          │
-│  - GPU acceleration (Metal/CUDA)       │
-└────────────┬────────────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────────────────┐
-│  Gemma 3 4B Instruct (GGUF)          │
-│  - 128K context window                 │
-│  - Q4_K_M quantization (~3GB)        │
-│  - Local-only inference                 │
-└─────────────────────────────────────────────────┘
-```
-
----
-
-## Privacy & Safety
-
-### Multi-Layer Protection
-
-```
-User Query → [Input Validation] → [Context Builder] → [LLM Generation] → [Response Filter] → Display
-     ↓                    ↓                    ↓                    ↓                 ↓
-  Block off-topic    Only aggregated      Privacy-aware       Block PII leaks
-  & inappropriate     statistics only       system prompt      (emails, IDs)
-```
-
-### What Gets Blocked
-
-**Input Validation (Pre-generation):**
-- Off-topic queries (recipes, dating, weather)
-- Inappropriate content (violence, illegal)
-- Jailbreak attempts ("ignore all instructions")
-
-**Response Filtering (Post-generation):**
-- Email addresses
-- Anonymous IDs (STU_xxxxx, TUT_xxxx)
-- Suspicious phrases ("this student", "this tutor")
-
-### What's Shared with AI
-
-✅ **Shared:**
-- Aggregated statistics (counts, averages, percentages)
-- Data summaries and patterns
-- Column names and data types
-- Sample rows (anonymized)
-
-❌ **Never Shared:**
-- Raw individual records
-- Email addresses
-- Student/tutor names
-- Identifying information
-
----
-
-## Troubleshooting
-
-### Issue: "AI Chat disabled"
-
-**Symptom:** Tab doesn't appear, console shows import error
-
-**Solution:**
-```bash
-# Install missing dependencies
-pip install llama-cpp-python huggingface-hub psutil
-
-# If llama-cpp-python fails, try:
-CMAKE_ARGS="-DLLAMA_CUBLAS=off" pip install llama-cpp-python --upgrade --force-reinstall --no-cache-dir
-```
-
-### Issue: "Model file not found"
-
-**Symptom:** Error when loading AI chat
-
-**Solution:**
-```bash
-# Run setup script
-python src/ai_chat/setup_model.py
-
-# Or manually download
-mkdir -p models
-cd models
-wget https://huggingface.co/google/gemma-3-4b-it-gguf/resolve/main/gemma-3-4b-it-Q4_K_M.gguf
-```
-
-### Issue: "RAM insufficient, may be slow"
-
-**Symptom:** Warning in System Information
-
-**Solution:**
-- Acceptable for testing, but responses will be slower
-- Close other applications to free RAM
-- Consider using Q4_K_M quantization (already default)
-
-### Issue: Slow inference
-
-**Symptom:** Responses take 10+ seconds
-
-**Solutions:**
-1. **Enable GPU acceleration:**
-   - macOS: Install torch with Metal support
-   - Windows/Linux: Install CUDA toolkit
-2. **Reduce context:** Limit conversation history
-3. **Lower token limit:** Reduce `max_tokens` in `llm_engine.py`
-
----
-
-## Development & Testing
-
-### Test Script
-
-Create `test_ai_chat.py`:
-
-```python
-from src.ai_chat.chat_handler import ChatHandler
-from src.ai_chat.setup_model import get_model_path
-
-# Load model
-model_path = get_model_path()
-handler = ChatHandler(model_path, verbose=True)
-
-# Mock session state
-mock_state = {
-    'df_clean': None,  # Would be your DataFrame
-    'data_mode': 'scheduled'
-}
-
-# Test query
-result = handler.handle_query(
-    "What is this app about?",
-    mock_state
-)
-
-print("Response:", result['response'])
-print("Metadata:", result['model_info'])
-```
-
-Run with:
-```bash
-python test_ai_chat.py
-```
-
-### Unit Tests
-
-```bash
-# Test data preparation
-python -m pytest tests/test_data_prep.py
-
-# Test safety filters
-python -m pytest tests/test_safety.py
-
-# Test chat handler
-python -m pytest tests/test_chat_handler.py
-```
-
----
-
-## File Structure
+### File Structure
 
 ```
 src/ai_chat/
-├── __init__.py                 # Module initialization
-├── setup_model.py             # Model download script
-├── llm_engine.py              # GemmaLLM class (wrapper)
-├── data_prep.py               # CSV preparation utilities
-├── prompt_templates.py         # System prompts
-├── safety_filters.py          # Input validation & PII filtering
-└── chat_handler.py           # Main orchestration
+├── __init__.py              # Package exports
+├── setup_model.py            # Model download script (may require manual download)
+├── llm_engine.py            # GemmaLLM wrapper class
+├── data_prep.py             # Data context preparation
+├── prompt_templates.py       # System prompts
+├── safety_filters.py         # Input validation + PII filtering
+└── chat_handler.py          # Main orchestration
 
 models/
-└── gemma-3-4b-it-Q4_K_M.gguf  # Downloaded model (~3GB)
+└── *.gguf                 # Model weights (download manually)
 ```
 
----
+### Key Components
 
-## Performance Optimization
+#### 1. GemmaLLM (`llm_engine.py`)
 
-### For CPU-Only Systems
+Wrapper around llama-cpp-python with:
+- 128K context window support (configurable)
+- Auto GPU detection (Metal/CUDA)
+- System requirements checking
+- Works with any GGUF model
 
-1. **Reduce conversation history:**
-   ```python
-   # In chat_handler.py, change:
-   if len(self.conversation_history) > 10:  # From 10 to 5
-       self.conversation_history = self.conversation_history[-5:]
-   ```
+**Key Method:**
+```python
+from src.ai_chat.llm_engine import GemmaLLM
 
-2. **Lower token limits:**
-   ```python
-   # In llm_engine.py, change:
-   n_ctx=64000  # From 128000 to 64000
-   max_tokens=256  # From 512 to 256
-   ```
+llm = GemmaLLM("models/Phi-3-mini-4k-instruct-Q4_K_M.gguf")
+response = llm.generate(prompt, max_tokens=512, temperature=0.7)
+```
 
-3. **Use faster quantization:**
-   - Download Q4_K_M instead of Q8_0 (already default)
+#### 2. ChatHandler (`chat_handler.py`)
 
-### For GPU Systems
+Main orchestration layer:
+- Validates user queries (blocks off-topic/inappropriate)
+- Builds context from session state
+- Constructs prompts with conversation history
+- Filters responses for PII
+- Manages conversation history
 
-1. **Verify GPU acceleration:**
-   ```python
-   # Check GPU info
-   sys_info = handler.check_system_requirements()
-   print(sys_info['gpu_acceleration'])  # Should show "Metal (MPS)" or "CUDA"
-   ```
+#### 3. InputValidator (`safety_filters.py`)
 
-2. **Adjust GPU layers:**
-   ```python
-   # In llm_engine.py, increase GPU offloading:
-   n_gpu_layers=-1  # Offload all layers to GPU
-   ```
+Pre-generation validation that:
+- Blocks off-topic queries (recipes, weather, etc.)
+- Blocks inappropriate content
+- Detects jailbreak attempts
+- Ensures data-related keywords present
 
----
+#### 4. ResponseFilter (`safety_filters.py`)
+
+Post-generation PII protection that:
+- Detects email addresses
+- Detects anonymous IDs (STU_xxxxx, TUT_xxxx)
+- Detects suspicious phrases
+- Returns generic error if PII detected
+
+## System Prompt Structure
+
+The assistant is defined as a "Writing Center Data Analyst" specializing in:
+
+**For Scheduled Sessions:**
+- 40-minute appointments
+- Student satisfaction trends
+- Tutor workload distribution
+- Booking lead times
+- Writing stage patterns
+
+**For Walk-In Sessions:**
+- Drop-in visits
+- Peak hours and space usage
+- Independent work vs consultant sessions
+- Course patterns
+
+**Strict Rules (enforced):**
+1. NEVER reveal individual student/tutor information
+2. NEVER discuss specific email addresses or names
+3. ONLY discuss aggregated statistics
+4. Base answers ONLY on provided metrics
+5. If asked about individuals, refuse politely
+
+## Safety & PII Protection
+
+### Multi-Layer Defense
+
+```
+User Query
+    ↓
+Layer 1: Input Validation (Pre-generation)
+    • Off-topic detection
+    • Inappropriate content
+    • Jailbreak attempts
+    → REJECTED or ALLOWED
+    ↓ (if allowed)
+Layer 2: Context Restriction
+    • Only aggregated metrics passed
+    • NO raw DataFrame rows
+    → LLM receives limited context
+    ↓
+Layer 3: System Prompt Instructions
+    • Explicit PII rules
+    • "Writing Center Data Analyst" persona
+    → LLM follows instructions
+    ↓
+Layer 4: Response Filtering (Post-generation)
+    • Email detection (regex)
+    • Anonymous ID detection
+    • Suspicious phrase detection
+    → BLOCKED or DISPLAYED
+    ↓
+User sees safe response
+```
+
+### Example Scenarios
+
+**✅ GOOD (Allowed):**
+```
+User: "What were the busiest hours?"
+AI: "The busiest hours were 2:00 PM (87 sessions) and 3:00 PM (82 sessions)..."
+```
+
+**❌ BAD (Rejected - Input Validation):**
+```
+User: "What's the best pizza recipe?"
+AI: "I'm a data analysis assistant for Writing Studio analytics..."
+```
+
+**❌ BAD (Filtered - Response):**
+```
+User: "List all student emails"
+LLM: "student1@uni.edu, student2@uni.edu..."
+Filter: BLOCKED (contains email addresses)
+User: "I apologize, but I cannot provide that response..."
+```
+
+## Performance Expectations
+
+### First Load
+- **Time**: 5-10 seconds (one-time)
+- **RAM**: ~3-4GB after loading
+- **Display**: Loading spinner with progress
+
+### Per Query
+- **Time**: 2-5 seconds (CPU), 1-2 seconds (GPU)
+- **Tokens/sec**: ~10-20 (CPU), ~30-50 (GPU)
+- **Display**: "Thinking..." spinner
+
+### System Requirements
+
+**Minimum:**
+- RAM: 6GB (may be slow)
+- CPU: 4 cores
+- Disk: 3GB free (model + dependencies)
+
+**Recommended:**
+- RAM: 8GB+
+- CPU: 8 cores
+- Disk: 5GB free
+- GPU: Metal M1+ or CUDA 11.0+ (optional but recommended)
+
+## Troubleshooting
+
+### Model Not Found
+
+**Error**: `FileNotFoundError: models/*.gguf not found`
+
+**Solution**: Download model manually:
+1. Choose a model from "Quick Start" section above
+2. Download the .gguf file
+3. Save to `models/` directory
+4. Verify: `ls -lh models/*.gguf`
+
+### Import Error: llama-cpp-python
+
+**Error**: `ImportError: No module named 'llama_cpp'`
+
+**Solution**: Install with correct backend:
+```bash
+# CPU-only
+pip install llama-cpp-python
+
+# Metal (Apple Silicon)
+pip install --pre --upgrade llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/metal
+
+# CUDA (NVIDIA)
+CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python --no-cache-dir
+```
+
+### Slow Performance
+
+**Symptoms**: Queries take >10 seconds
+
+**Solutions**:
+1. Enable GPU acceleration (see Step 2 above)
+2. Reduce context window (in `app.py` or `llm_engine.py`, change `n_ctx=128000` to `n_ctx=4096`)
+3. Close other applications to free RAM
+4. Use smaller model (Phi-3-mini or Gemma 2 2B)
+
+### Out of Memory
+
+**Error**: `MemoryError` or application crashes
+
+**Solutions**:
+1. Ensure you have 8GB+ RAM
+2. Reduce `n_ctx` in code
+3. Use smaller model
+4. Close other memory-intensive applications
+
+### GPU Not Detected
+
+**Symptoms**: "GPU: None (CPU only)" in system info
+
+**Solutions**:
+1. Reinstall llama-cpp-python with GPU backend
+2. Verify GPU drivers are up to date
+3. Check: `torch.cuda.is_available()` or `torch.backends.mps.is_available()`
+
+## Integration with Data Pipeline
+
+### How Data Flows to AI Chat
+
+1. **User uploads CSV** → Report generation
+2. **Data is cleaned** → `df_clean` (anonymized)
+3. **Metrics calculated** → Cleaning log with key stats
+4. **Stored in session state**:
+   - `df_clean`: Cleaned DataFrame
+   - `metrics`: Key metrics (total sessions, completion rate, etc.)
+   - `data_mode`: 'scheduled' or 'walkin'
+5. **User navigates to AI Chat tab**
+6. **AI Chat queries session state** → Generates context
+7. **User asks question** → LLM generates response
+8. **Response filtered** → Displayed to user
+
+### Example: Query with Data
+
+```python
+# In chat_handler.py
+def query_with_data(user_query: str, csv_payload: str, chart_path: str = None) -> str:
+    """
+    Direct query interface for CSV/JSON data.
+    
+    Args:
+        user_query: User's question
+        csv_payload: CSV-formatted data string
+        chart_path: Optional path to chart image
+        
+    Returns:
+        str: Generated response
+    """
+    prompt = f"""You are a Writing Center Data Analyst.
+    
+    User Query: {user_query}
+    
+    Data:
+    ```
+    {csv_payload}
+    ```
+    
+    Analyze the data above and answer the user's question..."""
+    
+    response = self.llm.generate(prompt, max_tokens=512, temperature=0.7)
+    return response
+```
+
+## Advanced: Chart Analysis (Multimodal)
+
+The system is prepared for multimodal chart analysis. When a `chart_path` is provided:
+
+1. Chart context is prepared (`prepare_chart_context`)
+2. Note is added to prompt: "A chart image is available for visual analysis"
+3. Future enhancement: Load image alongside text using model's vision capabilities
+
+**To enable (future work):**
+```python
+# In llm_engine.py - modify to support vision
+def generate_with_image(self, prompt: str, image_path: str):
+    # Load and encode image
+    # Include in prompt for multimodal inference
+    pass
+```
+
+## Model Comparison
+
+| Feature | Phi-3-mini | Gemma 2 2B | Gemma 3 4B |
+|---------|-------------|----------------|--------------|
+| Context | 4K tokens | 8K tokens | 128K tokens |
+| Size | 2.3GB (Q4) | 1.4GB (Q4) | 2.3GB (Q4) |
+| Speed | Fast | Very fast | Fast |
+| Vision | No | No | Yes |
+| Analytics Quality | Excellent | Very good | Excellent |
+| License | MIT | Apache 2.0 | Gemma License |
+
+**Recommendation:**
+- **For analytics tasks**: Phi-3-mini works excellently (original choice)
+- **For speed/smaller size**: Gemma 2 2B is good
+- **For largest context**: Gemma 3 4B (if you can download)
 
 ## Future Enhancements
 
-### Planned Features
+### Phase 2 Features
+- [ ] Chart generation from natural language
+- [ ] Data filtering via chat ("Show me only Fall 2024")
+- [ ] Report comparison mode
+- [ ] Voice input (speech-to-text)
+- [ ] Export conversation to PDF
 
-1. **Chart Generation**
-   - User: "Show sessions by hour"
-   - AI generates matplotlib code → executes → displays chart
-
-2. **Data Filtering**
-   - User: "Show me only Fall 2024 data"
-   - AI filters DataFrame → regenerates metrics
-
-3. **Voice Input**
-   - Speech-to-text for queries
-   - Accessibility feature
-
-4. **Export Conversation**
-   - Save chat history to .txt
-   - Include in PDF report
-
-### Contributing
-
-To contribute to the AI chat feature:
-
-1. Edit files in `src/ai_chat/`
-2. Test with `test_ai_chat.py`
-3. Update this documentation
-4. Submit pull request
-
----
+### Phase 3 Features
+- [ ] Multimodal chart analysis (load images alongside text)
+- [ ] Automated insights generation
+- [ ] Trend prediction
+- [ ] Recommendation engine
 
 ## License & Attribution
 
-### Gemma 3 4B License
+**Model**: Varies based on your choice
+- Phi-3-mini: MIT License
+- Gemma 2 2B: Apache 2.0
+- Gemma 3 4B: Gemma License
 
-- **Model**: Gemma 3 4B Instruct
-- **Author**: Google
-- **License**: Gemma License
-- **Source**: https://huggingface.co/google/gemma-3-4b-it-gguf
-
-**Attribution must be included in:**
-- User-facing documentation
-- About sections
-- Source code comments
-
-### llama-cpp-python
-
-- **Library**: llama-cpp-python
-- **Author**: André Betzler
-- **License**: MIT
-- **Source**: https://github.com/abetlen/llama-cpp-python
-
----
+**Attribution in App:**
+```python
+st.caption(
+    "🤖 Powered by local LLM - No cloud APIs, complete privacy"
+)
+```
 
 ## Support
 
-### Getting Help
-
-1. **Check this guide first** - most issues are covered above
-2. **Review error messages** - they're usually descriptive
-3. **Check system requirements** - ensure you have 8GB+ RAM
-4. **Consult logs** - terminal output shows detailed errors
-
-### Reporting Bugs
-
-When reporting issues, include:
-- OS and version
-- Python version (`python --version`)
-- Exact error message
-- Steps to reproduce
-- System specs (RAM, GPU)
-
----
+For issues or questions:
+1. Check troubleshooting section above
+2. Review `src/ai_chat/` source code for details
+3. Verify model file exists: `ls -lh models/*.gguf`
+4. Test with verbose mode: Check system info in app
 
 ## Summary
 
-The AI Chat feature with Gemma 3 4B provides:
+The AI Chat Assistant is ready for use:
+- ✅ Support for multiple model options (Phi-3, Gemma 2, Gemma 3)
+- ✅ GPU acceleration (Metal/CUDA) with detection
+- ✅ Multi-layer PII protection
+- ✅ Input validation (pre-generation)
+- ✅ Response filtering (post-generation)
+- ✅ Vision support (prepared for multimodal)
+- ✅ Local-only inference (no cloud APIs)
+- ✅ "Writing Center Data Analyst" persona
+- ✅ Flexible architecture (works with any GGUF model)
 
-✅ **Local-only inference** - No cloud APIs, no data leaves your machine
-✅ **128K context window** - Handles full semester data
-✅ **Vision capabilities** - Can analyze charts and visualizations
-✅ **Privacy-first** - Multi-layer safety protection
-✅ **Easy setup** - One script to download everything
-✅ **Production-ready** - Integrated into existing app
-
-**Status**: ✅ Implementation Complete
-
-Next steps:
-1. Run `python src/ai_chat/setup_model.py`
-2. Test with `streamlit run app.py`
-3. Generate a report and try the AI chat tab
+**The only remaining step: Download a model file manually and place it in `models/` directory.**

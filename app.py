@@ -7,7 +7,18 @@ from datetime import datetime
 
 from src.core.data_cleaner import clean_data, detect_session_type
 from src.core.privacy import anonymize_with_codebook, lookup_in_codebook, get_codebook_info
+from src.core.metrics import calculate_all_metrics
 from src.visualizations.report_generator import generate_full_report
+
+
+def calculate_and_store_metrics(df_clean, data_mode):
+    """Calculate metrics from cleaned DataFrame for AI Chat."""
+    try:
+        metrics_dict = calculate_all_metrics(df_clean, data_mode)
+        return metrics_dict
+    except Exception as e:
+        print(f"Error calculating metrics: {e}")
+        return {'total_sessions': len(df_clean) if df_clean is not None else 0}
 
 # AI Chat imports
 AI_CHAT_AVAILABLE = False
@@ -96,7 +107,7 @@ def render_ai_chat_tab():
                 st.session_state.chat_messages = []
                 
                 # Show system info
-                sys_info = st.session_state.chat_handler.check_system_requirements()
+                sys_info = st.session_state.chat_handler.check_system()
                 with st.expander("💻 System Information"):
                     col1, col2 = st.columns(2)
                     with col1:
@@ -129,19 +140,35 @@ def render_ai_chat_tab():
         with st.chat_message("user"):
             st.write(prompt)
         
-        # Generate response
+                # Generate response
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
                 try:
-                    result = st.session_state.chat_handler.handle_query(
-                        prompt,
-                        st.session_state
-                    )
-                    response = result['response']
-                    st.write(response)
+                    # Get data from session state
+                    df_clean = st.session_state.get('df_clean')
+                    metrics = st.session_state.get('metrics', {})
+                    data_mode = st.session_state.get('data_mode', 'scheduled')
+                    
+                    if df_clean is None:
+                        st.error("❌ No data available. Please generate a report first.")
+                        response = "I don't have any data to analyze yet. Please generate a report first."
+                    elif not metrics:
+                        st.error("❌ No metrics available.")
+                        response = "I don't have metrics data yet. Please generate a report first."
+                    else:
+                        response, metadata = st.session_state.chat_handler.handle_query(
+                            prompt,
+                            df_clean,
+                            metrics,
+                            data_mode
+                        )
+                        st.write(response)
                 except Exception as e:
-                    st.error(f"❌ Error generating response: {str(e)}")
-                    response = "I encountered an error. Please try again."
+                    import traceback
+                    st.error(f"❌ Error: {str(e)}")
+                    with st.expander("🔍 Error Details"):
+                        st.code(traceback.format_exc())
+                    response = f"I encountered an error: {str(e)}. Please try again or check the error details above."
         
         # Add assistant message
         st.session_state.chat_messages.append({
@@ -549,6 +576,11 @@ with tab1:
                     st.session_state['cleaning_log'] = cleaning_log
                     st.session_state['anon_log'] = anon_log
                     st.session_state['create_codebook'] = create_codebook
+                    
+                    # Store for AI Chat access
+                    st.session_state['df_clean'] = df_clean
+                    st.session_state['metrics'] = calculate_and_store_metrics(df_clean, expected_mode)
+                    st.session_state['data_mode'] = expected_mode
 
                     # Increment password key counter to clear password fields on next rerun
                     st.session_state['password_key_counter'] += 1

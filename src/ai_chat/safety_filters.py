@@ -1,7 +1,7 @@
 """
-Safety and Validation Layers for AI Chat
+Safety and validation filters for AI Chat.
 
-Input validation (pre-generation) and response filtering (post-generation).
+Prevents off-topic queries and PII leakage.
 """
 
 import re
@@ -27,15 +27,15 @@ class InputValidator:
             'game', 'movie', 'music', 'song', 'celebrity',
             'joke', 'story', 'poem', 'essay about'
         ]
-        
+
         # Harmful/inappropriate keywords
         self.harmful_keywords = [
             'kill', 'murder', 'suicide', 'bomb', 'weapon',
             'drug', 'illegal', 'hack', 'steal', 'fraud',
             'nude', 'sex', 'porn', 'explicit'
         ]
-        
-        # Jailbreak attempts
+
+        # Jailbreak attempts (trying to override system instructions)
         self.jailbreak_patterns = [
             r'ignore (previous|all) instructions',
             r'you are now',
@@ -47,9 +47,10 @@ class InputValidator:
             r'system prompt',
             r'forget (everything|all)',
             r'instead of being',
+            r'rather than being',
         ]
-        
-        # Data-related keywords (must be present)
+
+        # Data-related keywords (valid queries)
         self.data_keywords = [
             'session', 'student', 'tutor', 'consultant', 'appointment',
             'hour', 'day', 'week', 'month', 'time', 'date',
@@ -58,7 +59,7 @@ class InputValidator:
             'trend', 'pattern', 'average', 'mean', 'total',
             'busiest', 'most', 'least', 'peak', 'show'
         ]
-    
+
     def is_on_topic(self, query: str) -> Tuple[bool, str]:
         """
         Check if query is about the data.
@@ -67,33 +68,35 @@ class InputValidator:
             (is_valid: bool, reason: str)
         """
         query_lower = query.lower()
-        
+
         # Check for off-topic keywords
         for keyword in self.off_topic_keywords:
             if keyword in query_lower:
                 return False, f"off_topic: {keyword}"
-        
+
         # Check for harmful keywords
         for keyword in self.harmful_keywords:
             if keyword in query_lower:
                 return False, f"inappropriate: {keyword}"
-        
+
         # Check for jailbreak attempts
         for pattern in self.jailbreak_patterns:
             if re.search(pattern, query_lower):
                 return False, "jailbreak_attempt"
-        
+
         # Check if query contains data-related terms
         has_data_keyword = any(kw in query_lower for kw in self.data_keywords)
-        
+
         if not has_data_keyword and len(query.split()) > 3:
             # Long query with no data keywords = probably off-topic
             return False, "no_data_keywords"
-        
+
         return True, "valid"
-    
+
     def get_rejection_message(self, reason: str) -> str:
-        """Get user-friendly rejection message."""
+        """
+        Get user-friendly rejection message.
+        """
         if reason.startswith("off_topic"):
             return (
                 "I'm a data analysis assistant for Writing Studio analytics. "
@@ -135,17 +138,20 @@ class ResponseFilter:
     
     def __init__(self):
         self.email_pattern = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
-        self.anon_id_pattern = re.compile(r'\b(STU|TUT)_\d+\b')
+        self.anon_id_pattern = re.compile(r'\b(STU|TUT)_(\d+)\b')
         
+        # Suspicious phrases
         self.suspicious_phrases = [
             "student email",
             "tutor email",
             "student name",
             "tutor name",
             "this student",
-            "this tutor"
+            "this tutor",
+            "individual student",
+            "individual tutor"
         ]
-    
+
     def is_safe(self, response: str) -> Tuple[bool, str]:
         """
         Check if response is safe to show user.
@@ -153,22 +159,23 @@ class ResponseFilter:
         Returns:
             (is_safe: bool, reason: str)
         """
+        response_lower = response.lower()
+
         # Check for email addresses
         if self.email_pattern.search(response):
             return False, "Response contains email address"
-        
+
         # Check for anonymous IDs
         if self.anon_id_pattern.search(response):
             return False, "Response contains anonymous ID"
-        
+
         # Check for suspicious phrases
-        response_lower = response.lower()
         for phrase in self.suspicious_phrases:
             if phrase in response_lower:
                 return False, f"Response contains suspicious phrase: {phrase}"
-        
+
         return True, "Safe"
-    
+
     def filter_response(self, response: str) -> str:
         """
         Filter response and return safe version.
@@ -176,7 +183,7 @@ class ResponseFilter:
         If unsafe, returns error message.
         """
         is_safe, reason = self.is_safe(response)
-        
+
         if is_safe:
             return response
         else:
