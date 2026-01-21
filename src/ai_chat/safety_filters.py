@@ -5,6 +5,8 @@ Prevents off-topic queries and PII leakage.
 """
 
 import re
+import os
+from datetime import datetime
 from typing import Tuple, Dict, Any
 
 
@@ -16,38 +18,128 @@ class InputValidator:
     - Off-topic questions (recipes, dating, general knowledge)
     - Inappropriate content (violence, illegal activities)
     - Attempts to jailbreak the system
+    
+    Logs:
+    - All blocked queries to blocked_queries.log for review
     """
     
-    def __init__(self):
+    def __init__(self, log_blocked_queries: bool = True, log_file: str = None):
+        """
+        Initialize InputValidator.
+        
+        Args:
+            log_blocked_queries: Whether to log blocked queries to file
+            log_file: Path to log file (defaults to logs/blocked_queries.log)
+        """
+        # Configure logging
+        self.log_blocked_queries = log_blocked_queries
+        if log_file is None:
+            self.log_file = os.path.join(os.getcwd(), 'logs', 'blocked_queries.log')
+        else:
+            self.log_file = log_file
+        
+        # Create logs directory if it doesn't exist
+        if self.log_blocked_queries:
+            os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
+        
         # Off-topic keywords (non-data questions)
         self.off_topic_keywords = [
-            'recipe', 'cook', 'pizza', 'food', 'restaurant',
+            # Food/Cooking
+            'recipe', 'cook', 'pizza', 'food', 'restaurant', 'bake',
+            # Animals/Science
+            'hippo', 'hippopotamus', 'lion', 'tiger', 'elephant', 'animal', 'pet',
+            'life expectancy', 'lifespan', 'habitat', 'species',
+            # General Knowledge
+            'capital of', 'country', 'continent', 'ocean',
+            'president of', 'prime minister', 'leader',
+            'invented', 'discovered', 'who invented',
+            'history', 'geography',
+            # Demographics/Population
+            'population', 'people live', 'how many people', 'residents', 'citizens',
+            # Entertainment
+            'game', 'movie', 'film', 'music', 'song', 'celebrity', 'actor', 'actress',
+            'tv show', 'television', 'album', 'band', 'artist',
+            # Sports
+            'football', 'basketball', 'baseball', 'soccer', 'hockey',
+            'super bowl', 'world cup', 'olympics', 'player', 'team',
+            # Personal/Relationship
             'girlfriend', 'boyfriend', 'marry', 'date me', 'love',
-            'weather', 'stock', 'cryptocurrency', 'bitcoin',
-            'game', 'movie', 'music', 'song', 'celebrity',
-            'joke', 'story', 'poem', 'essay about'
+            # Finance
+            'weather', 'stock', 'cryptocurrency', 'bitcoin', 'price',
+            'investment', 'trading', 'currency',
+            # Creative Writing
+            'joke', 'story', 'poem', 'essay about', 'write a poem',
+            'write a story', 'creative writing',
+            # Technology (non-data related)
+            'iphone', 'android', 'phone', 'computer', 'laptop',
+            'how to code', 'programming language', 'software',
+            # Weather-related terms (temperature, humidity, etc.)
+            'temperature', 'forecast', 'humidity', 'wind speed',
+            'rain', 'snow', 'sunny', 'cloudy', 'storm'
         ]
 
-        # Harmful/inappropriate keywords
+        # Harmful/inappropriate keywords (expanded)
         self.harmful_keywords = [
+            # Violence/harm
             'kill', 'murder', 'suicide', 'bomb', 'weapon',
+            'assault', 'attack', 'hurt', 'harm', 'torture', 'shoot', 'stab', 'poison', 'abuse',
+            # Illegal activities
             'drug', 'illegal', 'hack', 'steal', 'fraud',
-            'nude', 'sex', 'porn', 'explicit'
+            'smuggle', 'trafficking', 'launder', 'blackmail', 'extort', 'bribe', 'counterfeit', 'forge',
+            # Drugs/substances
+            'cocaine', 'heroin', 'meth', 'marijuana', 'overdose', 'dealer',
+            # Hacking/cybercrime
+            'phishing', 'malware', 'ransomware', 'ddos', 'exploit', 'crack', 'pirate',
+            # Explicit/adult content
+            'nude', 'sex', 'porn', 'explicit',
+            'nsfw', 'adult content', 'sexual', 'pornographic', 'erotic', 'lewd',
+            # Self-harm
+            'self-harm', 'cutting', 'eating disorder', 'anorexia', 'bulimia',
+            # Hate speech
+            'slur', 'racist', 'sexist', 'homophobic', 'transphobic', 'bigot',
+            # Scams/fraud
+            'pyramid scheme', 'ponzi', 'scam', 'con', 'cheat'
         ]
 
-        # Jailbreak attempts (trying to override system instructions)
+        # Jailbreak attempts (trying to override system instructions) - expanded
         self.jailbreak_patterns = [
             r'ignore (previous|all) instructions',
+            r'disregard (previous|all) instructions',
+            r'override (previous|all) instructions',
+            r'bypass (previous|all) instructions',
             r'you are now',
             r'you are not',
+            r'you\'re actually',
+            r'you\'re really',
             r'pretend (you|to) (are|be)',
+            r'simulate',
+            r'emulate',
             r'roleplay',
             r'act as',
             r'act like',
+            r'act (that|this)',
+            r'switch to',
+            r'change to',
+            r'become',
             r'system prompt',
             r'forget (everything|all)',
+            r'clear (your|the) instructions',
+            r'reset (your|the) instructions',
+            r'new instructions',
             r'instead of being',
             r'rather than being',
+            r'developer mode',
+            r'admin mode',
+            r'god mode',
+            r'jailbreak',
+            r'\bDAN\b',  # Do Anything Now
+            r'\bSTAN\b',  # Another jailbreak persona
+            r'hypothetically',
+            r'in theory',
+            r'opposite day',
+            r'reverse your',
+            r'magic word',
+            r'secret password'
         ]
 
         # Data-related keywords (valid queries)
@@ -55,14 +147,71 @@ class InputValidator:
             'session', 'student', 'tutor', 'consultant', 'appointment',
             'hour', 'day', 'week', 'month', 'time', 'date',
             'course', 'writing', 'satisfaction', 'confidence',
-            'how many', 'what', 'when', 'where', 'why',
             'trend', 'pattern', 'average', 'mean', 'total',
-            'busiest', 'most', 'least', 'peak', 'show'
+            'busiest', 'most', 'least', 'peak', 'show',
+            'booking', 'bookings', 'walk-in', 'check-in', 'visit',
+            'rating', 'feedback', 'engagement', 'attendance',
+            # Comparison-related terms
+            'compare', 'compared', 'comparing',
+            'differ', 'differs', 'difference', 'differences',
+            'vary', 'varies', 'varying', 'variation', 'variations',
+            'change', 'changes', 'changing', 'changed',
+            'versus', 'vs.', 'vs'
+        ]
+        
+        # Writing Studio-specific terms (required for valid queries)
+        self.writing_studio_terms = [
+            'writing studio', 'writing center',
+            'appointment', 'appointments', 'session', 'sessions',
+            'tutor', 'tutors', 'consultant', 'consultants',
+            'student', 'students', 'booking', 'bookings',
+            'satisfaction', 'rating', 'ratings', 'feedback',
+            'course', 'courses', 'subject', 'subjects',
+            'walk-in', 'walkin', 'check-in', 'checkin',
+            # Session types (case-insensitive matching)
+            'zoom', 'cord', 'online', 'in-person', 'in person',
+            'appointment type', 'session type',
+            # Days of the week
+            'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+            'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun',
+            'weekday', 'weekend', 'weekdays', 'weekends',
+            # Time-related terms
+            'time', 'hour', 'hours', 'minute', 'minutes',
+            "o'clock", 'am', 'pm', 'a.m.', 'p.m.',
+            'morning', 'afternoon', 'evening', 'night',
+            'midnight', 'noon', 'early', 'late',
+            # Months
+            'january', 'february', 'march', 'april', 'may', 'june',
+            'july', 'august', 'september', 'october', 'november', 'december',
+            'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+            # Time periods
+            'today', 'yesterday', 'tomorrow',
+            'week', 'month', 'year', 'semester', 'quarter',
+            'spring', 'fall', 'summer', 'winter',
+            'semester', 'semesters', 'quarter', 'quarters',
+            # Analytical question words (when combined with other terms, these are data-focused)
+            'when', 'where', 'which', 'what', 'how', 'why',
+            # Additional context indicators
+            'busiest', 'attendance', 'attendance rate',
+            'hourly', 'daily', 'weekly', 'monthly',
+            'trend', 'trends', 'pattern', 'patterns',
+            'visit', 'visits', 'engagement', 'peak', 'peaks',
+            # Comparison terms
+            'more', 'less', 'than', 'compare', 'comparison'
         ]
 
     def is_on_topic(self, query: str) -> Tuple[bool, str]:
         """
-        Check if query is about the data.
+        Check if query is about the Writing Studio data.
+        
+        SIMPLIFIED: Uses blocklist-only approach. Queries are ALLOWED BY DEFAULT
+        unless they contain off-topic keywords, harmful content, or jailbreak attempts.
+        
+        This is more practical than requiring specific terms, as users can ask
+        questions in many different ways. The three-layer defense still works:
+        - Layer 1: Blocklist validation (blocks hippos, recipes, etc.)
+        - Layer 2: System prompt instructs LLM to refuse off-topic questions
+        - Layer 3: Response filtering catches any off-topic LLM responses
         
         Returns:
             (is_valid: bool, reason: str)
@@ -84,14 +233,31 @@ class InputValidator:
             if re.search(pattern, query_lower):
                 return False, "jailbreak_attempt"
 
-        # Check if query contains data-related terms
-        has_data_keyword = any(kw in query_lower for kw in self.data_keywords)
-
-        if not has_data_keyword and len(query.split()) > 3:
-            # Long query with no data keywords = probably off-topic
-            return False, "no_data_keywords"
-
+        # Default: ALLOW the query (unless explicitly blocked above)
         return True, "valid"
+    
+    def log_blocked_query(self, query: str, reason: str):
+        """
+        Log blocked query to file for review.
+        
+        Args:
+            query: The blocked query text
+            reason: Why it was blocked
+        """
+        if not self.log_blocked_queries:
+            return
+        
+        try:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            log_entry = f"[{timestamp}] BLOCKED - {reason}\n"
+            log_entry += f"Query: {query}\n"
+            log_entry += "-" * 80 + "\n"
+            
+            with open(self.log_file, 'a', encoding='utf-8') as f:
+                f.write(log_entry)
+        except Exception as e:
+            # Silently fail on logging errors to not break the app
+            print(f"Warning: Failed to log blocked query: {e}")
 
     def get_rejection_message(self, reason: str) -> str:
         """
@@ -113,6 +279,13 @@ class InputValidator:
                 "I'm designed to only discuss your session data. "
                 "Please ask about the analytics in your report."
             )
+        elif reason == "no_writing_studio_context":
+            return (
+                "I didn't detect any Writing Studio-specific terms in your question. "
+                "I can help with questions about sessions, appointments, students, consultants, "
+                "tutors, satisfaction ratings, courses, booking patterns, and trends. "
+                "Please ask something related to your Writing Studio data."
+            )
         elif reason == "no_data_keywords":
             return (
                 "I didn't detect any data-related terms in your question. "
@@ -128,19 +301,20 @@ class InputValidator:
 
 class ResponseFilter:
     """
-    Filter LLM responses for PII leakage.
+    Filter LLM responses for PII leakage and generic knowledge.
     
     Checks for:
     - Email addresses
     - Anonymous IDs (STU_xxxxx, TUT_xxxx)
     - Suspicious patterns
+    - Generic knowledge (off-topic responses)
     """
     
     def __init__(self):
         self.email_pattern = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
         self.anon_id_pattern = re.compile(r'\b(STU|TUT)_(\d+)\b')
         
-        # Suspicious phrases
+        # Suspicious phrases (PII-related)
         self.suspicious_phrases = [
             "student email",
             "tutor email",
@@ -150,6 +324,36 @@ class ResponseFilter:
             "this tutor",
             "individual student",
             "individual tutor"
+        ]
+        
+        # Generic knowledge patterns (indicating off-topic response)
+        self.generic_knowledge_patterns = [
+            # Animal/biology responses
+            r'\b(life expectancy|lifespan|years in the wild|years in captivity)\b',
+            r'\b(species|habitat|diet|behavior)\s+of\b',
+            r'\b(lion|tiger|elephant|giraffe|zebra|hippo|hippopotamus)\b',
+            # Geography responses
+            r'\b(capital of|located in|borders|continent|ocean)\b',
+            r'\b(country|nation|state|province)\s+of\b',
+            # History/science responses
+            r'\b(invented|discovered|created|developed)\s+by\b',
+            r'\b(year\s+(\d{4}|in|of))',
+            # Entertainment responses
+            r'\b(won the|starring|directed by|released in)\b',
+            # Weather responses
+            r'\b(degrees|fahrenheit|celsius|forecast)\b',
+            # Recipe/cooking responses
+            r'\b(ingredients|cook for|bake for|preheat)\b',
+        ]
+        
+        # Writing Studio data-related terms (valid response indicators)
+        self.valid_data_terms = [
+            'session', 'sessions', 'appointment', 'appointments',
+            'student', 'students', 'tutor', 'tutors', 'consultant', 'consultants',
+            'writing center', 'writing studio', 'satisfaction', 'rating',
+            'data', 'metric', 'trend', 'pattern', 'average', 'total',
+            'hour', 'hours', 'day', 'days', 'week', 'weeks', 'month', 'months',
+            'course', 'courses', 'booking', 'bookings', 'walk-in', 'check-in'
         ]
 
     def is_safe(self, response: str) -> Tuple[bool, str]:
@@ -176,19 +380,73 @@ class ResponseFilter:
 
         return True, "Safe"
 
+    def contains_generic_knowledge(self, response: str) -> Tuple[bool, str]:
+        """
+        Check if response contains generic knowledge instead of data analysis.
+        
+        This catches cases where the LLM goes off-topic and answers general
+        knowledge questions instead of discussing the Writing Studio data.
+        
+        Returns:
+            (is_generic: bool, reason: str)
+        """
+        response_lower = response.lower()
+        
+        # Check for generic knowledge patterns
+        for pattern in self.generic_knowledge_patterns:
+            if re.search(pattern, response_lower):
+                return True, f"Generic knowledge detected: {pattern}"
+        
+        # Check if response contains ANY valid data-related terms
+        # If a response is about Writing Studio data, it should contain at least one of these
+        has_valid_term = any(term in response_lower for term in self.valid_data_terms)
+        
+        # If response is longer than 100 chars and has no data terms, likely off-topic
+        if len(response) > 100 and not has_valid_term:
+            return True, "Response contains no Writing Studio data terms"
+        
+        # Check for encyclopedic-style responses (lists of facts without data context)
+        # These often start with phrases like "The average X is..."
+        encyclopedic_patterns = [
+            r'^the average (.*?) is (?:approximately|about|typically)',
+            r'^(.*?) typically (?:live|last|weigh|measure)',
+            r'^(.*?) are (?:found|located) in',
+            r'^the capital of (.*?) is',
+        ]
+        
+        for pattern in encyclopedic_patterns:
+            if re.search(pattern, response_lower, re.MULTILINE):
+                return True, f"Encyclopedic response detected: {pattern}"
+        
+        return False, "Not generic knowledge"
+    
     def filter_response(self, response: str) -> str:
         """
         Filter response and return safe version.
         
+        Checks for:
+        - PII leakage
+        - Generic knowledge (off-topic responses)
+        
         If unsafe, returns error message.
         """
+        # Check PII first
         is_safe, reason = self.is_safe(response)
-
-        if is_safe:
-            return response
-        else:
+        
+        if not is_safe:
             return (
                 "I apologize, but I cannot provide that response as it may contain "
                 "sensitive information. Please rephrase your question to focus on "
                 "aggregated data and trends."
             )
+        
+        # Check for generic knowledge
+        is_generic, generic_reason = self.contains_generic_knowledge(response)
+        
+        if is_generic:
+            return (
+                "I can only answer questions about the Writing Studio session data you've uploaded. "
+                "Please ask about patterns, trends, or specific metrics from your data."
+            )
+        
+        return response

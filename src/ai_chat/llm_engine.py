@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 class GemmaLLM:
     """Local LLM engine using Gemma 3 4B via llama.cpp."""
     
-    def __init__(self, model_path: str, n_ctx: int = 128000, 
+    def __init__(self, model_path: str, n_ctx: int = 4096,
                  n_threads: int = None, n_gpu_layers: int = -1, 
                  verbose: bool = False):
         if not LLAMA_AVAILABLE:
@@ -100,7 +100,7 @@ class GemmaLLM:
         
         return self._model
     
-    def generate_chat(self, messages: list, max_tokens: int = 512,
+    def generate_chat(self, messages: list, max_tokens: int = 1024,
                    temperature: float = 0.7, top_p: float = 0.9,
                    top_k: int = 40, stop: Optional[list] = None) -> str:
         """
@@ -133,7 +133,7 @@ class GemmaLLM:
         
         return response['choices'][0]['message']['content'].strip()
     
-    def generate(self, prompt: str, max_tokens: int = 512,
+    def generate(self, prompt: str, max_tokens: int = 1024,
                 temperature: float = 0.7, top_p: float = 0.9,
                 top_k: int = 40, stop: Optional[list] = None,
                 echo: bool = False) -> str:

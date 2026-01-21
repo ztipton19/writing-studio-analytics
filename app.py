@@ -14,7 +14,7 @@ from src.visualizations.report_generator import generate_full_report
 def calculate_and_store_metrics(df_clean, data_mode):
     """Calculate metrics from cleaned DataFrame for AI Chat."""
     try:
-        metrics_dict = calculate_all_metrics(df_clean, data_mode)
+        metrics_dict = calculate_all_metrics(df_clean)
         return metrics_dict
     except Exception as e:
         print(f"Error calculating metrics: {e}")
@@ -140,7 +140,7 @@ def render_ai_chat_tab():
         with st.chat_message("user"):
             st.write(prompt)
         
-                # Generate response
+        # Generate response
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
                 try:
@@ -175,9 +175,6 @@ def render_ai_chat_tab():
             'role': 'assistant',
             'content': response
         })
-        
-        # Rerun to update display
-        st.rerun()
     
     # Helpful suggestions
     with st.expander("💡 Example Questions"):

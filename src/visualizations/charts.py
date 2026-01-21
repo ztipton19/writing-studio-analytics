@@ -142,14 +142,14 @@ def plot_booking_lead_time_donut(df):
             return '2-3 Days Ahead'
         if days < 8: 
             return '4-7 Days Ahead'
-        return '1-2 Weeks Ahead'
+        return '7+ days ahead'
 
     df_plot = df.copy()
     df_plot['Lead_Time_Category'] = df_plot['Booking_Lead_Time_Days'].apply(categorize_lead_time)
 
     # Drop "Unknown" (None) values to clean up the plot
     counts = df_plot['Lead_Time_Category'].dropna().value_counts()
-    category_order = ['Same Day', '1 Day Ahead', '2-3 Days Ahead', '4-7 Days Ahead', '1-2 Weeks Ahead']
+    category_order = ['Same Day', '1 Day Ahead', '2-3 Days Ahead', '4-7 Days Ahead', '7+ days ahead']
     counts = counts.reindex([c for c in category_order if c in counts.index])
 
     fig, ax = plt.subplots(figsize=PAGE_LANDSCAPE)
@@ -166,28 +166,69 @@ def plot_booking_lead_time_donut(df):
 def plot_sessions_by_day_of_week(df, date_col='Appointment_DateTime'):
     """
     Chart 2.3: Sessions by day (Sunday-Friday, Saturday removed)
+    Stacked bar chart showing CORD (in-person) vs ZOOM (online) locations
     """
     df_plot = df.copy()
     df_plot['Day_of_Week'] = df_plot[date_col].dt.day_name()
 
     # Custom order excluding Saturday
     day_order = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-    day_counts = df_plot['Day_of_Week'].value_counts().reindex(day_order, fill_value=0)
-
+    
     fig, ax = plt.subplots(figsize=PAGE_LANDSCAPE)
-    bars = ax.bar(day_counts.index, day_counts.values, color=COLORS['primary'], alpha=0.8)
-
-    ax.set_title('Sessions by Day of Week (Sun-Fri)')
+    
+    # Check if Location column exists for stacked chart
+    if 'Location' in df_plot.columns:
+        # Create pivot table for stacked bar chart
+        pivot_data = df_plot.groupby(['Day_of_Week', 'Location']).size().unstack(fill_value=0)
+        
+        # Reindex days in correct order
+        pivot_data = pivot_data.reindex(day_order, fill_value=0)
+        
+        # Ensure both CORD and ZOOM columns exist
+        if 'CORD' not in pivot_data.columns:
+            pivot_data['CORD'] = 0
+        if 'ZOOM' not in pivot_data.columns:
+            pivot_data['ZOOM'] = 0
+        
+        # Create stacked bar chart
+        x = range(len(day_order))
+        cord_bars = ax.bar(x, pivot_data['CORD'].values, 
+                          color=COLORS['primary'], alpha=0.8, 
+                          label='CORD (In-Person)', width=0.6)
+        zoom_bars = ax.bar(x, pivot_data['ZOOM'].values, 
+                          bottom=pivot_data['CORD'].values,
+                          color=COLORS['secondary'], alpha=0.8,
+                          label='ZOOM (Online)', width=0.6)
+        
+        # Add total labels on top of each stacked bar
+        for i, (cord, zoom) in enumerate(zip(pivot_data['CORD'].values, pivot_data['ZOOM'].values)):
+            total = cord + zoom
+            if total > 0:
+                ax.text(i, total + 0.5, f'{int(total)}', 
+                        ha='center', va='bottom', fontsize=10, fontweight='bold')
+        
+        # Add legend
+        ax.legend(loc='upper right')
+        
+    else:
+        # Fallback to simple bar chart if Location column doesn't exist
+        day_counts = df_plot['Day_of_Week'].value_counts().reindex(day_order, fill_value=0)
+        bars = ax.bar(day_counts.index, day_counts.values, color=COLORS['primary'], alpha=0.8)
+        
+        # Label bars
+        for bar in bars:
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2., height, f'{int(height)}', 
+                    ha='center', va='bottom')
+    
+    ax.set_xticks(x if 'Location' in df_plot.columns else range(len(day_order)))
+    ax.set_xticklabels(day_order, rotation=45, ha='right')
+    ax.set_title('Sessions by Day of Week (Sun-Fri) - Stacked by Location')
     ax.set_ylabel('Number of Sessions')
     ax.grid(False)
-
-    # Label bars
-    for bar in bars:
-        height = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width()/2., height, f'{int(height)}', ha='center', va='bottom')
-
+    
     plt.tight_layout(rect=MARGIN_RECT)
-
+    
     return fig
 
 

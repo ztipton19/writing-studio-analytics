@@ -194,6 +194,45 @@ def convert_text_ratings_to_numeric(df):
 
 
 # ============================================================================
+# LOCATION SIMPLIFICATION
+# ============================================================================
+
+def simplify_location(df):
+    """
+    Simplify location names to standard CORD and ZOOM labels.
+    
+    Converts:
+    - "Writing Studio - CORD 209 (building located next to Old Main)" → "CORD"
+    - "Zoom Meeting - Online" → "ZOOM"
+    
+    Returns: dataframe with simplified Location column
+    """
+    df_simplified = df.copy()
+    
+    if 'Location' not in df_simplified.columns:
+        return df_simplified
+    
+    # Define mapping patterns
+    def map_location(location_str):
+        if pd.isna(location_str):
+            return location_str
+        
+        location_str = str(location_str).lower()
+        
+        if 'cord' in location_str or 'old main' in location_str:
+            return 'CORD'
+        elif 'zoom' in location_str or 'online' in location_str:
+            return 'ZOOM'
+        else:
+            # Keep original if doesn't match known patterns
+            return str(location_str)
+    
+    df_simplified['Location'] = df_simplified['Location'].apply(map_location)
+    
+    return df_simplified
+
+
+# ============================================================================
 # COLUMN REMOVAL
 # ============================================================================
 
@@ -712,6 +751,11 @@ def clean_scheduled_sessions(df, remove_outliers_flag=True, log_actions=True):
     df_clean = create_calculated_fields(df_clean)
     if log_actions:
         print("✓ Step 5: Created calculated fields (lead time, confidence change, etc.)")
+    
+    # Step 5.5: Simplify location names
+    df_clean = simplify_location(df_clean)
+    if log_actions:
+        print("✓ Step 5.5: Simplified location names (CORD/ZOOM)")
     
     # Step 6: Remove outliers (optional)
     if remove_outliers_flag and 'Actual_Session_Length' in df_clean.columns:

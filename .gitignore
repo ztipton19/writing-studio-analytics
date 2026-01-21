@@ -5,6 +5,10 @@
 src/core/*.py.tmp*
 src/visualizations/*.py.tmp*
 
+# Blocked query logs (sensitive user queries)
+logs/
+*.log
+
 # Claude stuff?
 nul
 
@@ -218,5 +222,7 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
-src/visualizations/report_generator.py.tmp.24940.1768623176615
-writing_studio_report_2026-01-18_222319.pdf
+
+# Logs, reports, and test files
+writing_studio_report_*
+test_*.py

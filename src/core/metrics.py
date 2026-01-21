@@ -1,6 +1,7 @@
 # src/core/metrics.py
 
 import pandas as pd
+from src.core.location_metrics import calculate_location_metrics
 
 # ============================================================================
 # BOOKING BEHAVIOR METRICS
@@ -51,7 +52,7 @@ def calculate_booking_metrics(df):
         elif days < 8:
             return '4-7 Days Ahead'
         else:
-            return '1-2 Weeks Ahead'
+            return '7+ days ahead'
     
     categories = df['Booking_Lead_Time_Days'].apply(categorize_lead_time)
     category_counts = categories.value_counts()
@@ -762,7 +763,8 @@ def calculate_all_metrics(df):
         'tutors': calculate_tutor_metrics(df),
         'students': calculate_student_metrics(df),
         'semesters': calculate_semester_metrics(df),
-        'incentives': calculate_incentive_metrics(df)
+        'incentives': calculate_incentive_metrics(df),
+        'location': calculate_location_metrics(df)
     }
 
 
@@ -838,7 +840,8 @@ def generate_executive_summary(metrics):
     
     # Overall dataset overview
     attendance = metrics.get('attendance', {}).get('overall', {})
-    total_sessions = attendance.get('total_sessions', 'N/A')
+    location = metrics.get('location', {}).get('totals', {})
+    total_sessions = attendance.get('total_sessions', location.get('total_sessions', 'N/A'))
     completion_rate = attendance.get('completion_rate', 0)
     
     summary['overview'] = (
@@ -847,6 +850,17 @@ def generate_executive_summary(metrics):
         f"The analysis covers booking behavior, student satisfaction, "
         f"tutor performance, and session quality metrics."
     )
+    
+    # Location breakdown
+    if location:
+        cord_count = location.get('cord_count', 0)
+        cord_pct = location.get('cord_pct', 0)
+        zoom_count = location.get('zoom_count', 0)
+        zoom_pct = location.get('zoom_pct', 0)
+        
+        summary['key_findings'].append(
+            f"Total Sessions: {total_sessions:,} | In House: {cord_pct:.1f}% (CORD) | Online: {zoom_pct:.1f}% (ZOOM)"
+        )
     
     # Attendance and outcomes findings
     if attendance:
@@ -904,7 +918,7 @@ def generate_executive_summary(metrics):
         if overall_sat:
             mean_sat = overall_sat.get('mean', 0)
             summary['key_findings'].append(
-                f"Overall student satisfaction: {mean_sat:.2f}/5.00"
+                f"Overall student satisfaction: {mean_sat:.2f}/7.00"
             )
             
             if mean_sat < 4.0:
