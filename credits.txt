@@ -1,0 +1,7 @@
+Internal Credits & Terms:
+
+Model: Google Gemma
+
+License: Subject to the Gemma Terms of Use (see GEMMA_LICENSE.txt).
+
+Usage: This tool is for data analytics assistance. Users must adhere to University Academic Integrity policies. Do not use this tool to generate medical, legal, or financial advice.
