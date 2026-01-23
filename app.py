@@ -103,7 +103,7 @@ def render_ai_chat_tab():
         with st.spinner("Loading AI model (first time only)..."):
             try:
                 model_path = get_model_path()
-                st.session_state.chat_handler = ChatHandler(model_path, verbose=False)
+                st.session_state.chat_handler = ChatHandler(model_path, verbose=False, enable_code_execution=True)
                 st.session_state.chat_messages = []
                 
                 # Show system info
@@ -140,9 +140,9 @@ def render_ai_chat_tab():
         with st.chat_message("user"):
             st.write(prompt)
         
-        # Generate response
+        # Generate response with progress tracking
         with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
+            with st.status("Processing your question...", expanded=True) as status:
                 try:
                     # Get data from session state
                     df_clean = st.session_state.get('df_clean')
@@ -152,16 +152,28 @@ def render_ai_chat_tab():
                     if df_clean is None:
                         st.error("❌ No data available. Please generate a report first.")
                         response = "I don't have any data to analyze yet. Please generate a report first."
+                        status.update(label="❌ No data available", state="error")
                     elif not metrics:
                         st.error("❌ No metrics available.")
                         response = "I don't have metrics data yet. Please generate a report first."
+                        status.update(label="❌ No metrics available", state="error")
                     else:
+                        # Update status to show we're processing
+                        status.update(label="🔍 Checking pre-computed metrics...", state="running")
+                        
                         response, metadata = st.session_state.chat_handler.handle_query(
                             prompt,
                             df_clean,
                             metrics,
                             data_mode
                         )
+                        
+                        # Final status based on what was used
+                        if metadata.get('pii_filtered'):
+                            status.update(label="✅ Answered (filtered for privacy)", state="complete")
+                        else:
+                            status.update(label="✅ Answer complete", state="complete")
+                        
                         st.write(response)
                 except Exception as e:
                     import traceback

@@ -454,6 +454,258 @@ def calculate_semester_metrics(df):
 
 
 # ============================================================================
+# HOURLY LOCATION METRICS
+# ============================================================================
+
+def calculate_hourly_location_patterns(df, date_col='Appointment_DateTime'):
+    """
+    Calculate session patterns by hour of day and location (Zoom vs CORD).
+    
+    This is critical for answering questions like:
+    - "What's the percentage of Zoom vs CORD sessions at noon?"
+    - "Which hour has the most Zoom sessions?"
+    
+    Returns dict with:
+    - by_hour_and_location: sessions per hour for each location
+    - location_percentage_by_hour: percentage breakdown by hour
+    - peak_hours_by_location: busiest hours for each location
+    - overall_location_percentage: overall distribution
+    """
+    metrics = {}
+    
+    if date_col not in df.columns:
+        return metrics
+    
+    if 'Location' not in df.columns:
+        return metrics
+    
+    df_temp = df.copy()
+    df_temp['Hour'] = df_temp[date_col].dt.hour
+    
+    # Sessions by hour and location
+    hour_location_counts = df_temp.groupby(['Hour', 'Location']).size().unstack(fill_value=0)
+    
+    # Reindex to ensure all hours 0-23 are present
+    all_hours = range(24)
+    hour_location_counts = hour_location_counts.reindex(all_hours, fill_value=0)
+    
+    metrics['by_hour_and_location'] = hour_location_counts.to_dict()
+    
+    # Calculate percentage by hour
+    location_pct_by_hour = {}
+    for hour in all_hours:
+        hour_data = hour_location_counts.loc[hour]
+        total = hour_data.sum()
+        
+        if total > 0:
+            location_pct_by_hour[hour] = {
+                loc: round((count / total) * 100, 1)
+                for loc, count in hour_data.items()
+            }
+        else:
+            location_pct_by_hour[hour] = {}
+    
+    metrics['location_percentage_by_hour'] = location_pct_by_hour
+    
+    # Peak hours by location
+    peak_hours = {}
+    for location in hour_location_counts.columns:
+        location_counts = hour_location_counts[location]
+        if location_counts.max() > 0:
+            peak_hour = int(location_counts.idxmax())
+            peak_hours[location] = {
+                'peak_hour': peak_hour,
+                'peak_count': int(location_counts.max()),
+                'total_count': int(location_counts.sum())
+            }
+    
+    metrics['peak_hours_by_location'] = peak_hours
+    
+    # Overall location distribution
+    overall_location = df_temp['Location'].value_counts()
+    total_sessions = len(df_temp)
+    
+    metrics['overall_location_percentage'] = {
+        loc: round((count / total_sessions) * 100, 1)
+        for loc, count in overall_location.items()
+    }
+    
+    metrics['overall_location_counts'] = {
+        loc: int(count)
+        for loc, count in overall_location.items()
+    }
+    
+    return metrics
+
+
+# ============================================================================
+# DAILY PATTERNS METRICS
+# ============================================================================
+
+def calculate_daily_patterns(df, date_col='Appointment_DateTime'):
+    """
+    Calculate session patterns by specific calendar dates.
+    
+    Returns dict with:
+    - top_10_dates: Top 10 busiest dates with session counts
+    - bottom_10_dates: Top 10 slowest dates with session counts
+    - sessions_by_date: Full daily breakdown (for queries)
+    - top_10_date_hour: Top 10 date+hour combinations
+    """
+    metrics = {}
+    
+    if date_col not in df.columns:
+        return metrics
+    
+    df_temp = df.copy()
+    df_temp['Date'] = df_temp[date_col].dt.date
+    
+    # Group by date and count sessions
+    date_counts = df_temp.groupby('Date').size().sort_values(ascending=False)
+    
+    # Top 10 busiest dates
+    top_10 = date_counts.head(10)
+    metrics['top_10_dates'] = {
+        'dates': [str(date) for date in top_10.index],
+        'counts': top_10.values.tolist(),
+        'busiest_date': str(date_counts.idxmax()),
+        'busiest_date_count': int(date_counts.max())
+    }
+    
+    # Bottom 10 slowest dates (that had at least one session)
+    bottom_10 = date_counts.tail(10)
+    metrics['bottom_10_dates'] = {
+        'dates': [str(date) for date in bottom_10.index],
+        'counts': bottom_10.values.tolist(),
+        'slowest_date': str(date_counts.idxmin()),
+        'slowest_date_count': int(date_counts.min())
+    }
+    
+    # Full daily breakdown (for queries - may be large)
+    metrics['sessions_by_date'] = {
+        str(date): int(count) for date, count in date_counts.items()
+    }
+    
+    # Top 10 date+hour combinations
+    df_temp['Hour'] = df_temp[date_col].dt.hour
+    date_hour_counts = df_temp.groupby(['Date', 'Hour']).size().sort_values(ascending=False).head(10)
+    
+    metrics['top_10_date_hour'] = {
+        'datetime': [f"{str(date)} {hour}:00" for date, hour in date_hour_counts.index],
+        'counts': date_hour_counts.values.tolist()
+    }
+    
+    return metrics
+
+
+def calculate_monthly_patterns(df, date_col='Appointment_DateTime'):
+    """
+    Calculate session patterns by month and year-month.
+    
+    Returns dict with:
+    - by_month: Sessions by month (January, February, etc.)
+    - by_year_month: Sessions by year-month (e.g., 2024-01)
+    - by_semester_month: Sessions by month within each semester
+    """
+    metrics = {}
+    
+    if date_col not in df.columns:
+        return metrics
+    
+    df_temp = df.copy()
+    df_temp['Month'] = df_temp[date_col].dt.month_name()
+    df_temp['Month_Num'] = df_temp[date_col].dt.month
+    df_temp['Year_Month'] = df_temp[date_col].dt.to_period('M').astype(str)
+    
+    # By month (aggregated across all years)
+    month_order = ['January', 'February', 'March', 'April', 'May', 'June', 
+                   'July', 'August', 'September', 'October', 'November', 'December']
+    month_counts = df_temp['Month'].value_counts().reindex(month_order, fill_value=0)
+    
+    metrics['by_month'] = {
+        'counts': month_counts.to_dict(),
+        'busiest_month': month_counts.idxmax(),
+        'busiest_month_count': int(month_counts.max()),
+        'slowest_month': month_counts.idxmin(),
+        'slowest_month_count': int(month_counts.min())
+    }
+    
+    # By year-month
+    year_month_counts = df_temp['Year_Month'].value_counts().sort_index()
+    metrics['by_year_month'] = year_month_counts.to_dict()
+    
+    # By semester-month breakdown
+    if 'Semester_Label' in df_temp.columns:
+        semester_month = df_temp.groupby(['Semester_Label', 'Month']).size().unstack(fill_value=0)
+        metrics['by_semester_month'] = semester_month.to_dict()
+    
+    return metrics
+
+
+def calculate_semester_trend_comparisons(df):
+    """
+    Calculate comprehensive semester comparisons for multiple metrics.
+    
+    Returns dict with cross-metric trends across semesters for answering
+    questions like "How did satisfaction change from spring to fall?"
+    """
+    metrics = {}
+    
+    if 'Semester_Label' not in df.columns:
+        return metrics
+    
+    # Sessions per semester
+    semester_sessions = df.groupby('Semester_Label').size().to_dict()
+    metrics['sessions'] = semester_sessions
+    
+    # Attendance metrics by semester
+    if 'Attendance_Status' in df.columns:
+        df_temp = df.copy()
+        df_temp['Is_Present'] = df_temp['Attendance_Status'].str.lower().str.contains('present', na=False)
+        df_temp['Is_No_Show'] = df_temp['Attendance_Status'].str.lower().str.contains('absent', na=False)
+        
+        att_by_sem = df_temp.groupby('Semester_Label').agg({
+            'Is_Present': lambda x: round((x.sum() / len(x)) * 100, 1),
+            'Is_No_Show': lambda x: round((x.sum() / len(x)) * 100, 1)
+        }).to_dict()
+        
+        metrics['completion_rate_by_semester'] = att_by_sem.get('Is_Present', {})
+        metrics['no_show_rate_by_semester'] = att_by_sem.get('Is_No_Show', {})
+    
+    # Satisfaction by semester
+    if 'Overall_Satisfaction' in df.columns:
+        sat_by_sem = df.groupby('Semester_Label')['Overall_Satisfaction'].agg([
+            ('mean', lambda x: round(x.mean(), 2)),
+            ('median', lambda x: round(x.median(), 2)),
+            ('count', 'count')
+        ]).to_dict()
+        metrics['satisfaction_by_semester'] = sat_by_sem
+    
+    # Confidence change by semester
+    if 'Confidence_Change' in df.columns:
+        conf_by_sem = df.groupby('Semester_Label')['Confidence_Change'].mean().round(2).to_dict()
+        metrics['confidence_change_by_semester'] = conf_by_sem
+    
+    # Session length by semester
+    if 'Actual_Session_Length' in df.columns:
+        len_by_sem = df.groupby('Semester_Label')['Actual_Session_Length'].agg([
+            ('mean_minutes', lambda x: round(x.mean() * 60, 1)),
+            ('median_minutes', lambda x: round(x.median() * 60, 1))
+        ]).to_dict()
+        metrics['session_length_by_semester'] = len_by_sem
+    
+    # Booking lead time by semester
+    if 'Booking_Lead_Time_Days' in df.columns:
+        lead_by_sem = df.groupby('Semester_Label')['Booking_Lead_Time_Days'].agg([
+            ('mean_days', lambda x: round(x.mean(), 1)),
+            ('median_days', lambda x: round(x.median(), 1))
+        ]).to_dict()
+        metrics['booking_lead_time_by_semester'] = lead_by_sem
+    
+    return metrics
+
+
+# ============================================================================
 # INCENTIVE ANALYSIS METRICS
 # ============================================================================
 
@@ -764,7 +1016,11 @@ def calculate_all_metrics(df):
         'students': calculate_student_metrics(df),
         'semesters': calculate_semester_metrics(df),
         'incentives': calculate_incentive_metrics(df),
-        'location': calculate_location_metrics(df)
+        'location': calculate_location_metrics(df),
+        'hourly_location': calculate_hourly_location_patterns(df),
+        'daily_patterns': calculate_daily_patterns(df),
+        'monthly_patterns': calculate_monthly_patterns(df),
+        'semester_trends': calculate_semester_trend_comparisons(df)
     }
 
 

@@ -246,6 +246,40 @@ def extract_key_metrics(metrics: Dict[str, Any], data_mode: str) -> Dict[str, An
             
             if 'mean_difference' in inc:
                 key_metrics['incentive_impact'] = inc['mean_difference']
+        
+        # Daily patterns (NEW - answers "what date had most sessions?")
+        if 'daily_patterns' in metrics:
+            dp = metrics['daily_patterns']
+            key_metrics['daily_patterns'] = {
+                'busiest_date': dp.get('top_10_dates', {}).get('busiest_date', 'N/A'),
+                'busiest_date_count': dp.get('top_10_dates', {}).get('busiest_date_count', 0),
+                'slowest_date': dp.get('bottom_10_dates', {}).get('slowest_date', 'N/A'),
+                'slowest_date_count': dp.get('bottom_10_dates', {}).get('slowest_date_count', 0),
+                'top_10_dates': dp.get('top_10_dates', {}).get('dates', []),
+                'top_10_counts': dp.get('top_10_dates', {}).get('counts', [])
+            }
+        
+        # Monthly patterns (NEW - answers "what month had most sessions?")
+        if 'monthly_patterns' in metrics:
+            mp = metrics['monthly_patterns']
+            key_metrics['monthly_patterns'] = {
+                'busiest_month': mp.get('by_month', {}).get('busiest_month', 'N/A'),
+                'busiest_month_count': mp.get('by_month', {}).get('busiest_month_count', 0),
+                'slowest_month': mp.get('by_month', {}).get('slowest_month', 'N/A'),
+                'slowest_month_count': mp.get('by_month', {}).get('slowest_month_count', 0)
+            }
+        
+        # Semester trends (NEW - answers "how did satisfaction change from spring to fall?")
+        if 'semester_trends' in metrics:
+            st = metrics['semester_trends']
+            key_metrics['semester_trends'] = {
+                'sessions_by_semester': st.get('sessions', {}),
+                'completion_rate_by_semester': st.get('completion_rate_by_semester', {}),
+                'satisfaction_by_semester': st.get('satisfaction_by_semester', {}),
+                'no_show_rate_by_semester': st.get('no_show_rate_by_semester', {}),
+                'confidence_change_by_semester': st.get('confidence_change_by_semester', {}),
+                'session_length_by_semester': st.get('session_length_by_semester', {})
+            }
             
     else:
         # Walk-in session metrics

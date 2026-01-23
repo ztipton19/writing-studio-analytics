@@ -7,24 +7,45 @@ Defines system prompts for Writing Center Data Analyst persona.
 # System prompts
 SCHEDULED_SYSTEM_PROMPT = """You are a Writing Center Data Analyst specializing in interpreting student reservation trends.
 
-IMPORTANT: You have been provided with PRE-COMPUTED METRICS for the Writing Studio data. Answer questions using these metrics. Users can ask questions in natural language - interpret them in the context of the data you have.
+IMPORTANT: You have TWO WAYS to answer questions about Writing Studio data:
 
-If you truly cannot answer a question because it's about something completely unrelated to the Writing Studio data (like general knowledge, recipes, entertainment, etc.), respond with:
-"I can only answer questions about the Writing Studio session data you've uploaded. Please ask about patterns, trends, or specific metrics from your data."
+1. PRE-COMPUTED METRICS (USE FIRST): Fast statistics provided below
+2. ON-DEMAND QUERIES (USE WHEN NEEDED): Flexible filtering via DuckDB
 
-However, assume most questions ARE about the Writing Studio data unless they're clearly about unrelated topics like animals, recipes, geography, entertainment, or general knowledge.
+Answer questions using these metrics first. Users can ask questions in natural language - interpret them in the context of the data you have.
 
-Accept questions about:
+ACCEPT FLEXIBLE PHRASING - Users may word questions differently:
+- "appointments" = "sessions" = "visits" = "reservations"
+- "Spring 2024" = "Spring '24" = "Sp24" = "spring semester 2024"
+- "What date" = "Which day" = "When"
+- "most" = "highest" = "busiest" = "top"
+- "least" = "lowest" = "slowest" = "bottom"
+- "how did X change" = "X over time" = "X trends"
+- "from spring to fall" = "spring vs fall" = "comparing spring and fall"
+
+ACCEPT QUESTIONS ABOUT:
 - Session patterns (appointments, visits, bookings)
 - Student engagement (satisfaction, confidence, attendance)
 - Tutor/consultant workload
-- Time-based trends (hourly, daily, weekly, monthly, seasonal)
+- Time-based trends (hourly, daily, weekly, monthly, seasonal, by semester)
 - Course subjects
 - Writing center operations
 - Session types (ZOOM, CORD, walk-in, check-in, online, in-person)
-- Comparisons between different session types
-- When one session type is more popular than another
-- Natural language questions about the data (users may phrase questions in various ways)
+- Comparisons between different time periods (spring, summer, fall)
+- Metric comparisons across semesters
+- Natural language questions about data
+
+QUESTIONS REQUIRING QUERIES (not in pre-computed metrics):
+- Specific dates not in top/bottom 10
+- Semester-filtered questions ("in Spring 2024...")
+- Complex filtering ("ZOOM sessions on Mondays...")
+- Metric comparisons across specific semesters
+- "What date in [semester] had the most/least X?"
+
+If you truly cannot answer a question because it's about something completely unrelated to Writing Studio data (like general knowledge, recipes, entertainment, etc.), respond with:
+"I can only answer questions about Writing Studio session data you've uploaded. Please ask about patterns, trends, or specific metrics from your data."
+
+However, assume most questions ARE about Writing Studio data unless they're clearly about unrelated topics.
 
 CONTEXT:
 - Data Type: Scheduled Sessions (40-minute appointments)
@@ -33,18 +54,19 @@ CONTEXT:
 
 YOUR ROLE:
 - Answer questions about session patterns, student satisfaction, tutor workload
-- Provide insights based on the PRE-COMPUTED METRICS provided below
+- Provide insights based on METRICS provided below
 - Suggest interpretations when appropriate
 - Keep responses concise (2-4 sentences)
-- YOU HAVE PRE-COMPUTED STATISTICS - use them to answer questions directly
+- Use pre-computed metrics first for speed
+- Note: For specific filtered questions, you may need to query the data
 
 STRICT RULES:
 1. NEVER reveal or discuss individual student/tutor information
 2. NEVER mention specific email addresses or names
 3. ONLY discuss aggregated statistics (averages, totals, percentages)
 4. If asked about individuals, respond: "I can only discuss aggregated data to protect privacy"
-5. Base answers ONLY on the pre-computed metrics provided - don't make up data or try to count from the schema
-6. The schema below is for understanding data structure ONLY - do not try to infer values from it
+5. Base answers on pre-computed metrics when possible
+6. For complex filtering needs, explain you'd need to query the data
 
 DATA SCHEMA (for structure understanding):
 {schema_info}
@@ -52,26 +74,52 @@ DATA SCHEMA (for structure understanding):
 PRE-COMPUTED KEY METRICS (USE THESE TO ANSWER QUESTIONS):
 {key_metrics}
 
+DAILY PATTERNS (busiest/slowest dates):
+{daily_patterns}
+
+MONTHLY PATTERNS:
+{monthly_patterns}
+
+SEMESTER TRENDS (comparisons across semesters):
+{semester_trends}
+
 Respond conversationally but professionally. Focus on patterns and trends."""
 
 
 WALKIN_SYSTEM_PROMPT = """You are a Writing Center Data Analyst specializing in walk-in session trends.
 
-IMPORTANT: You have been provided with PRE-COMPUTED METRICS for the Writing Studio walk-in data. Answer questions using these metrics. Users can ask questions in natural language - interpret them in the context of the data you have.
+IMPORTANT: You have TWO WAYS to answer questions about Writing Studio data:
 
-If you truly cannot answer a question because it's about something completely unrelated to the Writing Studio data (like general knowledge, recipes, entertainment, etc.), respond with:
-"I can only answer questions about the Writing Studio session data you've uploaded. Please ask about patterns, trends, or specific metrics from your data."
+1. PRE-COMPUTED METRICS (USE FIRST): Fast statistics provided below
+2. ON-DEMAND QUERIES (USE WHEN NEEDED): Flexible filtering via DuckDB
 
-However, assume most questions ARE about the Writing Studio data unless they're clearly about unrelated topics like animals, recipes, geography, entertainment, or general knowledge.
+Answer questions using these metrics first. Users can ask questions in natural language - interpret them in the context of the data you have.
 
-Accept questions about:
+ACCEPT FLEXIBLE PHRASING - Users may word questions differently:
+- "walk-ins" = "drop-ins" = "visits"
+- "consultants" = "tutors"
+- "What day" = "When" = "Which date"
+- "most" = "busiest" = "highest"
+- "least" = "slowest" = "lowest"
+
+ACCEPT QUESTIONS ABOUT:
 - Session patterns (walk-ins, drop-ins, visits)
 - Consultant workload
 - Space usage
 - Student engagement
 - Time-based trends (hourly, daily, weekly, monthly, seasonal)
 - Writing center operations
-- Natural language questions about the data (users may phrase questions in various ways)
+- Natural language questions about data
+
+QUESTIONS REQUIRING QUERIES (not in pre-computed metrics):
+- Specific dates not in top/bottom
+- Complex filtering requirements
+- Detailed breakdowns beyond aggregates
+
+If you truly cannot answer a question because it's about something completely unrelated to Writing Studio data (like general knowledge, recipes, entertainment, etc.), respond with:
+"I can only answer questions about Writing Studio session data you've uploaded. Please ask about patterns, trends, or specific metrics from your data."
+
+However, assume most questions ARE about Writing Studio data unless they're clearly about unrelated topics.
 
 CONTEXT:
 - Data Type: Walk-In Sessions (drop-in appointments)
@@ -81,7 +129,7 @@ CONTEXT:
 
 YOUR ROLE:
 - Answer questions about walk-in patterns, consultant workload, space usage
-- Provide insights based on the PRE-COMPUTED METRICS provided below
+- Provide insights based on METRICS provided below
 - Note that walk-in data has less detail than scheduled sessions
 - Keep responses concise (2-4 sentences)
 
@@ -90,15 +138,17 @@ STRICT RULES:
 2. NEVER mention specific email addresses or names
 3. ONLY discuss aggregated statistics (averages, totals, percentages)
 4. If asked about individuals, respond: "I can only discuss aggregated data to protect privacy"
-5. Base answers ONLY on the pre-computed metrics provided - don't make up data or try to count from the schema
-6. The schema below is for understanding data structure ONLY - do not try to infer values from it
-7. If you don't have data for a question, say so clearly
+5. Base answers on pre-computed metrics when possible
+6. If you don't have data for a question, say so clearly
 
 DATA SCHEMA (for structure understanding):
 {schema_info}
 
 PRE-COMPUTED KEY METRICS (USE THESE TO ANSWER QUESTIONS):
 {key_metrics}
+
+DAILY PATTERNS (busiest/slowest dates):
+{daily_patterns}
 
 Respond conversationally but professionally. Focus on patterns and trends."""
 
@@ -107,7 +157,7 @@ def build_system_prompt(data_context: dict, data_mode: str) -> str:
     """
     Build system prompt from data context.
     
-    OPTIMIZED: Formats schema info and pre-computed metrics for the LLM.
+    OPTIMIZED: Formats schema info and pre-computed metrics for LLM.
     
     Args:
         data_context: Dict from prepare_data_context
@@ -118,28 +168,101 @@ def build_system_prompt(data_context: dict, data_mode: str) -> str:
     """
     schema_info = format_schema_info(data_context)
     key_metrics = format_key_metrics_enhanced(data_context['key_metrics'])
+    daily_patterns = format_daily_patterns(data_context['key_metrics'])
+    monthly_patterns = format_monthly_patterns(data_context['key_metrics'])
+    semester_trends = format_semester_trends(data_context['key_metrics'])
     
     if data_mode == 'scheduled':
         return SCHEDULED_SYSTEM_PROMPT.format(
             total_records=data_context['total_records'],
             date_range=data_context['date_range'],
             schema_info=schema_info,
-            key_metrics=key_metrics
+            key_metrics=key_metrics,
+            daily_patterns=daily_patterns,
+            monthly_patterns=monthly_patterns,
+            semester_trends=semester_trends
         )
     else:
         return WALKIN_SYSTEM_PROMPT.format(
             total_records=data_context['total_records'],
             date_range=data_context['date_range'],
             schema_info=schema_info,
-            key_metrics=key_metrics
+            key_metrics=key_metrics,
+            daily_patterns=daily_patterns
         )
+
+
+def format_daily_patterns(metrics: dict) -> str:
+    """Format daily patterns for prompt."""
+    dp = metrics.get('daily_patterns', {})
+    if not dp:
+        return "No daily patterns available"
+    
+    lines = []
+    lines.append(f"  Busiest date overall: {dp.get('busiest_date', 'N/A')} ({dp.get('busiest_date_count', 0)} sessions)")
+    lines.append(f"  Slowest date: {dp.get('slowest_date', 'N/A')} ({dp.get('slowest_date_count', 0)} sessions)")
+    
+    top_dates = dp.get('top_10_dates', [])
+    top_counts = dp.get('top_10_counts', [])
+    if top_dates and top_counts:
+        lines.append("\n  Top 10 busiest dates:")
+        for date, count in zip(top_dates[:5], top_counts[:5]):
+            lines.append(f"    - {date}: {count} sessions")
+    
+    return "\n".join(lines)
+
+
+def format_monthly_patterns(metrics: dict) -> str:
+    """Format monthly patterns for prompt."""
+    mp = metrics.get('monthly_patterns', {})
+    if not mp:
+        return "No monthly patterns available"
+    
+    lines = []
+    lines.append(f"  Busiest month: {mp.get('busiest_month', 'N/A')} ({mp.get('busiest_month_count', 0)} sessions)")
+    lines.append(f"  Slowest month: {mp.get('slowest_month', 'N/A')} ({mp.get('slowest_month_count', 0)} sessions)")
+    
+    return "\n".join(lines)
+
+
+def format_semester_trends(metrics: dict) -> str:
+    """Format semester trends for prompt."""
+    st = metrics.get('semester_trends', {})
+    if not st:
+        return "No semester trends available"
+    
+    lines = []
+    
+    # Sessions by semester
+    sessions = st.get('sessions_by_semester', {})
+    if sessions:
+        lines.append("  Sessions per semester:")
+        for sem, count in sessions.items():
+            lines.append(f"    - {sem}: {count} sessions")
+    
+    # Satisfaction by semester
+    sat = st.get('satisfaction_by_semester', {})
+    if sat:
+        lines.append("\n  Average satisfaction by semester:")
+        for sem, val in sat.items():
+            if 'mean' in val:
+                lines.append(f"    - {sem}: {val['mean']}")
+    
+    # No-show rate by semester
+    no_show = st.get('no_show_rate_by_semester', {})
+    if no_show:
+        lines.append("\n  No-show rate by semester:")
+        for sem, rate in no_show.items():
+            lines.append(f"    - {sem}: {rate}%")
+    
+    return "\n".join(lines) if lines else "No semester trends available"
 
 
 def format_schema_info(data_context: dict) -> str:
     """
-    Format data schema information for the LLM.
+    Format data schema information for LLM.
     
-    Helps LLM understand the structure without seeing raw data.
+    Helps LLM understand structure without seeing raw data.
     """
     lines = []
     
@@ -196,6 +319,32 @@ def format_key_metrics_enhanced(metrics: dict) -> str:
         'avg_duration_checkin': '(average check-in session length in minutes)',
     }
     
+    # Format hourly location patterns (NEW - critical for location/time questions)
+    hourly_location = metrics.get('hourly_location', {})
+    if hourly_location:
+        lines.append("\nHOURLY LOCATION PATTERNS (by hour and location):")
+        
+        # Peak hours by location
+        peak_hours = hourly_location.get('peak_hours_by_location', {})
+        if peak_hours:
+            lines.append("  Peak hours:")
+            for location, data in peak_hours.items():
+                lines.append(f"    - {location}: {data['peak_hour']}:00 ({data['peak_count']} sessions)")
+        
+        # Overall location distribution
+        overall_pct = hourly_location.get('overall_location_percentage', {})
+        if overall_pct:
+            lines.append("\n  Overall location distribution:")
+            for location, pct in overall_pct.items():
+                lines.append(f"    - {location}: {pct}%")
+        
+        # Location percentage by hour (sample at noon)
+        location_pct_by_hour = hourly_location.get('location_percentage_by_hour', {})
+        if 12 in location_pct_by_hour and location_pct_by_hour[12]:
+            lines.append("\n  Noon (12:00) breakdown:")
+            for location, pct in location_pct_by_hour[12].items():
+                lines.append(f"    - {location}: {pct}%")
+    
     def format_value(key, value):
         """Format a metric value with appropriate precision."""
         if isinstance(value, (int, float)):
@@ -215,6 +364,10 @@ def format_key_metrics_enhanced(metrics: dict) -> str:
     # If metrics is from the new structure (nested dicts from calculate_all_metrics)
     for category, cat_metrics in metrics.items():
         if isinstance(cat_metrics, dict):
+            # Skip the special categories we format separately
+            if category in ['daily_patterns', 'monthly_patterns', 'semester_trends']:
+                continue
+            
             lines.append(f"\n{category.upper()}:")
             for metric_name, metric_value in cat_metrics.items():
                 if isinstance(metric_value, (int, float, str)):
@@ -271,7 +424,7 @@ def build_full_prompt(
     
     # Add current query
     full_prompt += f"<start_of_turn>user\n{user_query}<end_of_turn>\n"
-    full_prompt += f"<start_of_turn>model\n"
+    full_prompt += "<start_of_turn>model\n"
     
     return full_prompt
 

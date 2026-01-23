@@ -208,7 +208,7 @@ def plot_sessions_by_day_of_week(df, date_col='Appointment_DateTime'):
                         ha='center', va='bottom', fontsize=10, fontweight='bold')
         
         # Add legend
-        ax.legend(loc='upper right')
+        ax.legend(loc='upper left')
         
     else:
         # Fallback to simple bar chart if Location column doesn't exist

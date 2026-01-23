@@ -120,7 +120,9 @@ class GemmaLLM:
         model = self.load_model()
         
         if stop is None:
-            stop = ["\n\n", "<end_of_turn>model\n"]
+            # Changed from "\n\n" to prevent premature response cutoff
+            # Using more specific end-of-sequence markers
+            stop = ["<end_of_turn>model\n", "```", "END_OF_RESPONSE"]
         
         response = model.create_chat_completion(
             messages=messages,

@@ -11,7 +11,7 @@ Orchestrates:
 - Conversation history
 """
 
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Tuple, Optional, Callable
 from .llm_engine import GemmaLLM
 from .data_prep import prepare_data_context, prepare_chart_context
 from .prompt_templates import build_system_prompt, build_full_prompt, format_query_with_data
@@ -32,14 +32,14 @@ class ChatHandler:
     - Conversation history management
     """
     
-    def __init__(self, model_path: str, verbose: bool = False, enable_code_execution: bool = False):
+    def __init__(self, model_path: str, verbose: bool = False, enable_code_execution: bool = True):
         """
         Initialize chat handler.
         
         Args:
             model_path: Path to Gemma 3 4B model file
             verbose: Enable verbose logging
-            enable_code_execution: Enable LLM code generation for dynamic queries
+            enable_code_execution: Enable LLM code generation for dynamic queries (default True)
         """
         self.llm = GemmaLLM(model_path, verbose=verbose)
         self.input_validator = InputValidator()

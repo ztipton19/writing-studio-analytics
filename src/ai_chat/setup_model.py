@@ -4,7 +4,6 @@ Model Setup Script for Gemma 3 4B
 Downloads and prepares the Gemma 3 4B Instruct GGUF model for local use.
 """
 
-import os
 import sys
 from pathlib import Path
 from huggingface_hub import hf_hub_download
@@ -82,7 +81,7 @@ def download_gemma_model(
                 local_dir=model_dir,
             )
             
-            print(f"✅ Download complete!")
+            print("✅ Download complete!")
             print(f"   Location: {downloaded_path}")
             print(f"   Size: {Path(downloaded_path).stat().st_size / (1024**3):.2f} GB")
             
@@ -124,8 +123,8 @@ def download_gemma_model(
                 print()
                 
                 raise Exception(
-                    f"Could not download Gemma 3 4B model. "
-                    f"Please try one of the alternative solutions above."
+                    "Could not download Gemma 3 4B model. "
+                    "Please try one of the alternative solutions above."
                 )
 
 
@@ -215,7 +214,7 @@ def check_system_requirements() -> dict:
     
     # Check for GPU support
     try:
-        import torch
+        import torch  # type: ignore
         if torch.cuda.is_available():
             info['gpu_available'] = True
             info['gpu_name'] = torch.cuda.get_device_name(0)
@@ -227,7 +226,7 @@ def check_system_requirements() -> dict:
     if sys.platform == 'darwin':
         info['gpu_available'] = True
         info['gpu_name'] = 'Apple Metal (MPS)'
-        print(f"✅ Apple Metal GPU available (macOS)")
+        print("✅ Apple Metal GPU available (macOS)")
     
     return info
 
@@ -275,7 +274,7 @@ def main():
     if info['gpu_available']:
         print(f"   GPU: {info.get('gpu_name', 'Available')}")
     else:
-        print(f"   GPU: Not detected (will use CPU)")
+        print("   GPU: Not detected (will use CPU)")
     print()
     
     if info['warnings']:
@@ -309,7 +308,7 @@ def main():
         print()
         print("Next steps:")
         print(f"1. Model saved to: {model_path}")
-        print(f"2. Update your code to use this model path")
+        print("2. Update your code to use this model path")
         print(f"3. Recommended max_ctx: {info['recommended_max_ctx']:,}")
         print()
         print("Example usage:")
