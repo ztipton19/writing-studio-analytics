@@ -556,13 +556,13 @@ with tab1:
                     status_text.text("📊 Step 3/4: Creating visualizations...")
                     progress_bar.progress(75)
 
-                    timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+                    timestamp = datetime.now().strftime('%Y-%m-%d-%H%M')
                     
                     if expected_mode == 'walkin':
-                        report_filename = f"walkin_report_{timestamp}.pdf"
+                        report_filename = f"WS_Analytics_WalkIns_{timestamp}.pdf"
                         report_path = generate_walkin_report(df_clean, cleaning_log, report_filename)
                     else:
-                        report_filename = f"writing_studio_report_{timestamp}.pdf"
+                        report_filename = f"WS_Analytics_Sessions_{timestamp}.pdf"
                         report_path = generate_full_report(df_clean, cleaning_log, report_filename)
 
                     # Step 4: Save CSV
