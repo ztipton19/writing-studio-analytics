@@ -299,21 +299,45 @@ def extract_key_metrics(metrics: Dict[str, Any], data_mode: str) -> Dict[str, An
                 'median_minutes': sl.get('median_minutes', 0)
             }
         
-        # Time patterns for walk-ins
+        # Time patterns for walk-ins (day of week and hour)
         if 'time_patterns' in metrics:
             tp = metrics['time_patterns']
             
             if 'by_day_of_week' in tp:
                 day = tp['by_day_of_week']
-                key_metrics['daily_patterns'] = {
-                    'busiest_day': day.get('busiest_day', 'N/A')
+                key_metrics['weekly_patterns'] = {
+                    'busiest_day': day.get('busiest_day', 'N/A'),
+                    'slowest_day': day.get('slowest_day', 'N/A')
                 }
             
             if 'by_hour' in tp:
                 hour = tp['by_hour']
                 key_metrics['hourly_patterns'] = {
-                    'peak_hour': hour.get('peak_hour', 0)
+                    'peak_hour': hour.get('peak_hour', 0),
+                    'slowest_hour': hour.get('slowest_hour', 0)
                 }
+        
+        # Daily patterns for walk-ins (NEW - answers "what date had most walk-ins?")
+        if 'daily_patterns' in metrics:
+            dp = metrics['daily_patterns']
+            key_metrics['daily_patterns'] = {
+                'busiest_date': dp.get('top_10_dates', {}).get('busiest_date', 'N/A'),
+                'busiest_date_count': dp.get('top_10_dates', {}).get('busiest_date_count', 0),
+                'slowest_date': dp.get('bottom_10_dates', {}).get('slowest_date', 'N/A'),
+                'slowest_date_count': dp.get('bottom_10_dates', {}).get('slowest_date_count', 0),
+                'top_10_dates': dp.get('top_10_dates', {}).get('dates', []),
+                'top_10_counts': dp.get('top_10_dates', {}).get('counts', [])
+            }
+        
+        # Monthly patterns for walk-ins (NEW - answers "what month had most walk-ins?")
+        if 'monthly_patterns' in metrics:
+            mp = metrics['monthly_patterns']
+            key_metrics['monthly_patterns'] = {
+                'busiest_month': mp.get('by_month', {}).get('busiest_month', 'N/A'),
+                'busiest_month_count': mp.get('by_month', {}).get('busiest_month_count', 0),
+                'slowest_month': mp.get('by_month', {}).get('slowest_month', 'N/A'),
+                'slowest_month_count': mp.get('by_month', {}).get('slowest_month_count', 0)
+            }
     
     return key_metrics
 

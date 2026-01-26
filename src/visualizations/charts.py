@@ -916,23 +916,44 @@ def plot_semester_metrics_comparison(df, context):
     attendance = df_plot.groupby('Semester_Label')['Attended'].apply(lambda x: (x.sum() / len(x)) * 100)
     attendance = attendance.reindex(sorted_semesters)
     
-    axes[0, 0].bar(range(len(attendance)), attendance.values, color=COLORS['success'], alpha=0.8)
+    bars1 = axes[0, 0].bar(range(len(attendance)), attendance.values, color=COLORS['success'], alpha=0.8)
     axes[0, 0].set_title('Attendance Rate (%)')
+    
+    # Add value labels
+    for i, (bar, val) in enumerate(zip(bars1, attendance.values)):
+        height = bar.get_height()
+        axes[0, 0].text(bar.get_x() + bar.get_width()/2., height,
+                        f'{val:.1f}%',
+                        ha='center', va='bottom', fontsize=9)
     
     # --- Subplot 2: Average Booking Lead Time ---
     lead_time = df.groupby('Semester_Label')['Booking_Lead_Time_Days'].mean()
     lead_time = lead_time.reindex(sorted_semesters)
     
-    axes[0, 1].bar(range(len(lead_time)), lead_time.values, color=COLORS['warning'], alpha=0.8)
+    bars2 = axes[0, 1].bar(range(len(lead_time)), lead_time.values, color=COLORS['warning'], alpha=0.8)
     axes[0, 1].set_title('Avg Booking Lead Time (Days)')
+    
+    # Add value labels
+    for i, (bar, val) in enumerate(zip(bars2, lead_time.values)):
+        height = bar.get_height()
+        axes[0, 1].text(bar.get_x() + bar.get_width()/2., height,
+                        f'{val:.1f}',
+                        ha='center', va='bottom', fontsize=9)
     
     # --- Subplot 3: Average Session Length ---
     session_len = df.groupby('Semester_Label')['Actual_Session_Length'].mean() * 60
     session_len = session_len.reindex(sorted_semesters)
     
-    axes[1, 0].bar(range(len(session_len)), session_len.values, color=COLORS['primary'], alpha=0.8)
+    bars3 = axes[1, 0].bar(range(len(session_len)), session_len.values, color=COLORS['primary'], alpha=0.8)
     axes[1, 0].axhline(y=40, color='red', linestyle='--', linewidth=1, label='Target (40m)')
     axes[1, 0].set_title('Avg Session Length (Minutes)')
+    
+    # Add value labels
+    for i, (bar, val) in enumerate(zip(bars3, session_len.values)):
+        height = bar.get_height()
+        axes[1, 0].text(bar.get_x() + bar.get_width()/2., height,
+                        f'{val:.0f}',
+                        ha='center', va='bottom', fontsize=9)
     
     # --- Subplot 4: Avg Satisfaction or Confidence Improvement ---
     if 'Overall_Satisfaction' in df.columns:
@@ -944,7 +965,14 @@ def plot_semester_metrics_comparison(df, context):
         axes[1, 1].set_title('Avg Confidence Improvement')
         axes[1, 1].axhline(y=0, color='red', linestyle='--', linewidth=1)
 
-    axes[1, 1].bar(range(len(metric_data)), metric_data.values, color=COLORS['secondary'], alpha=0.8)
+    bars4 = axes[1, 1].bar(range(len(metric_data)), metric_data.values, color=COLORS['secondary'], alpha=0.8)
+    
+    # Add value labels
+    for i, (bar, val) in enumerate(zip(bars4, metric_data.values)):
+        height = bar.get_height()
+        axes[1, 1].text(bar.get_x() + bar.get_width()/2., height,
+                        f'{val:.2f}',
+                        ha='center', va='bottom', fontsize=9)
 
     # Global formatting for all axes
     for ax in axes.flat:

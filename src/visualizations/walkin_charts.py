@@ -45,6 +45,53 @@ PALETTE = [COLORS['primary'], COLORS['secondary'], COLORS['success'],
 
 
 # ============================================================================
+# CHART 0: TIME SERIES - WALK-INS OVER TIME
+# ============================================================================
+
+def plot_walkins_over_time(df, date_col='Check_In_DateTime'):
+    """
+    Chart 0.1: Walk-ins over time (line chart with 7-day rolling average)
+    
+    Mirrors the session report's opening visualization.
+    Shows daily walk-in volume with smoothed trend line.
+    
+    Parameters:
+    - df: DataFrame with walk-in data
+    - date_col: Name of datetime column (default: 'Check_In_DateTime')
+    
+    Returns:
+    - matplotlib figure object
+    """
+    fig, ax = plt.subplots(figsize=PAGE_LANDSCAPE)
+
+    # Group by date
+    df_plot = df.copy()
+    df_plot['Date'] = df_plot[date_col].dt.date
+    daily_counts = df_plot.groupby('Date').size()
+
+    # Plot daily counts
+    ax.plot(daily_counts.index, daily_counts.values,
+            color=COLORS['primary'], linewidth=2, alpha=0.8)
+
+    # Add 7-day rolling average
+    rolling_avg = daily_counts.rolling(window=7, center=True).mean()
+    ax.plot(rolling_avg.index, rolling_avg.values,
+            color=COLORS['danger'], linewidth=2, linestyle='--',
+            label='7-day average', alpha=0.7)
+
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Number of Walk-In Sessions')
+    ax.set_title('Daily Walk-In Volume Over Time')
+    ax.legend()
+    ax.grid(False)
+
+    plt.xticks(rotation=45)
+    plt.tight_layout(rect=MARGIN_RECT)
+
+    return fig
+
+
+# ============================================================================
 # CHART 1: CONSULTANT WORKLOAD DISTRIBUTION
 # ============================================================================
 
@@ -784,8 +831,12 @@ def create_all_walkin_charts(df, metrics):
     
     print("\nGenerating walk-in charts...")
     
+    # Time series chart (walk-ins over time)
+    print("  [0/13] Walk-ins over time...")
+    charts['walkins_over_time'] = plot_walkins_over_time(df)
+    
     # Consultant workload charts
-    print("  [1/12] Consultant workload distribution...")
+    print("  [1/13] Consultant workload distribution...")
     charts['consultant_workload'] = create_consultant_workload_chart(
         metrics['consultant_workload']
     )

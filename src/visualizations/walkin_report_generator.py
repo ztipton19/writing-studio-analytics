@@ -196,11 +196,6 @@ def create_metadata_page(df, cleaning_log=None):
         ax.text(0.5, y, f"Peak Hour: {peak_time} ({peak_count:,} sessions)",
                 ha='center', fontsize=10, transform=ax.transAxes, family='monospace')
 
-        y -= 0.03
-        avg_per_hour = len(df) / len(hour_counts)
-        ax.text(0.5, y, f"Average per Hour: {avg_per_hour:.1f} sessions",
-                ha='center', fontsize=10, transform=ax.transAxes, family='monospace')
-
     # Day of week breakdown - centered
     if 'Check_In_DateTime' in df.columns:
         y -= 0.08
@@ -344,6 +339,13 @@ def generate_walkin_report(df, cleaning_log=None, output_path='walkin_report.pdf
         fig = create_executive_summary_page(summary)
         pdf.savefig(fig)
         plt.close(fig)
+        
+        # WALK-INS OVER TIME (Time Series with 7-day rolling average)
+        print("\n📈 Walk-Ins Over Time")
+        if 'walkins_over_time' in charts:
+            pdf.savefig(charts['walkins_over_time'])
+            plt.close(charts['walkins_over_time'])
+            print("   ✓ Walk-ins over time")
         
         # SECTION 1: CONSULTANT WORKLOAD
         print("\n👥 Section 1: Consultant Workload")

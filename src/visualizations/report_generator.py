@@ -358,59 +358,46 @@ def create_cover_page(df, context):
 
 def create_executive_summary_page(summary):
     """Create executive summary text page"""
-    from src.visualizations.charts import PAGE_PORTRAIT, MARGIN_RECT
-    fig, ax = plt.subplots(figsize=PAGE_PORTRAIT)
+    fig, ax = plt.subplots(figsize=(8.5, 11))
     ax.axis('off')
     
     # Title
     ax.text(0.5, 0.95, 'Executive Summary',
-            ha='center', va='top', fontsize=20, weight='bold',
-            transform=ax.transAxes)
+            ha='center', va='top', fontsize=20, weight='bold')
     
     # Overview
     y_pos = 0.88
-    ax.text(0.12, y_pos, 'Overview', fontsize=14, weight='bold',
-            transform=ax.transAxes)
+    ax.text(0.1, y_pos, 'Overview', fontsize=14, weight='bold')
     y_pos -= 0.03
-    ax.text(0.12, y_pos, summary['overview'], fontsize=11, wrap=True,
-            transform=ax.transAxes, ha='left')
-    
-    # Add extra space after overview for better visual separation
-    y_pos -= 0.05
+    ax.text(0.1, y_pos, summary['overview'], fontsize=11, wrap=True)
     
     # Key Findings
-    y_pos -= 0.03
-    ax.text(0.12, y_pos, 'Key Findings', fontsize=14, weight='bold',
-            transform=ax.transAxes, ha='left')
+    y_pos -= 0.08
+    ax.text(0.1, y_pos, 'Key Findings', fontsize=14, weight='bold')
     y_pos -= 0.03
     for finding in summary['key_findings']:
-        ax.text(0.14, y_pos, f"• {finding}", fontsize=10, wrap=True,
-                transform=ax.transAxes, ha='left')
+        ax.text(0.12, y_pos, f"• {finding}", fontsize=10, wrap=True)
         y_pos -= 0.04
     
     # Concerns (if any)
     if summary['concerns']:
         y_pos -= 0.03
-        ax.text(0.12, y_pos, 'Concerns', fontsize=14, weight='bold', 
-                color='#C73E1D', transform=ax.transAxes, ha='left')
+        ax.text(0.1, y_pos, 'Concerns', fontsize=14, weight='bold', color='#C73E1D')
         y_pos -= 0.03
         for concern in summary['concerns']:
-            ax.text(0.14, y_pos, f"• {concern}", fontsize=10, color='#C73E1D',
-                    wrap=True, transform=ax.transAxes, ha='left')
+            ax.text(0.12, y_pos, f"• {concern}", fontsize=10, color='#C73E1D')
             y_pos -= 0.04
-    
+
     # Recommendations (if any)
     if summary['recommendations']:
         y_pos -= 0.03
-        ax.text(0.12, y_pos, 'Recommendations', fontsize=14, weight='bold',
-                color='#06A77D', transform=ax.transAxes, ha='left')
+        ax.text(0.1, y_pos, 'Recommendations', fontsize=14, weight='bold', color='#06A77D')
         y_pos -= 0.03
         for rec in summary['recommendations']:
-            ax.text(0.14, y_pos, f"• {rec}", fontsize=10, color='#06A77D',
-                    wrap=True, transform=ax.transAxes, ha='left')
+            ax.text(0.12, y_pos, f"• {rec}", fontsize=10, color='#06A77D')
             y_pos -= 0.04
     
-    plt.tight_layout(rect=MARGIN_RECT)
+    plt.tight_layout()
     return fig
 
 

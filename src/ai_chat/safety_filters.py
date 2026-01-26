@@ -223,10 +223,20 @@ class InputValidator:
             if keyword in query_lower:
                 return False, f"off_topic: {keyword}"
 
-        # Check for harmful keywords
+        # Check for harmful keywords with word boundary protection for short keywords
+        # Short keywords (<=3 chars) need word boundaries to avoid false positives
+        # e.g., "con" should not match "confidence" or "consultant"
         for keyword in self.harmful_keywords:
-            if keyword in query_lower:
-                return False, f"inappropriate: {keyword}"
+            # Use word boundaries for short keywords to avoid false positives
+            if len(keyword) <= 3:
+                # Use word boundary regex for short keywords
+                pattern = r'\b' + re.escape(keyword) + r'\b'
+                if re.search(pattern, query_lower):
+                    return False, f"inappropriate: {keyword}"
+            else:
+                # Simple substring match for longer keywords
+                if keyword in query_lower:
+                    return False, f"inappropriate: {keyword}"
 
         # Check for jailbreak attempts
         for pattern in self.jailbreak_patterns:
