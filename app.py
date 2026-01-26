@@ -8,13 +8,19 @@ from datetime import datetime
 from src.core.data_cleaner import clean_data, detect_session_type
 from src.core.privacy import anonymize_with_codebook, lookup_in_codebook, get_codebook_info
 from src.core.metrics import calculate_all_metrics
+from src.core.walkin_metrics import calculate_all_metrics as calculate_walkin_metrics
 from src.visualizations.report_generator import generate_full_report
 
 
 def calculate_and_store_metrics(df_clean, data_mode):
     """Calculate metrics from cleaned DataFrame for AI Chat."""
     try:
-        metrics_dict = calculate_all_metrics(df_clean)
+        if data_mode == 'walkin':
+            # Use walk-in specific metrics
+            metrics_dict = calculate_walkin_metrics(df_clean)
+        else:
+            # Use scheduled session metrics
+            metrics_dict = calculate_all_metrics(df_clean)
         return metrics_dict
     except Exception as e:
         print(f"Error calculating metrics: {e}")
@@ -131,14 +137,11 @@ def render_ai_chat_tab():
     
     # Chat input
     if prompt := st.chat_input("Ask a question about your data..."):
-        # Add user message
+        # Add user message to history
         st.session_state.chat_messages.append({
             'role': 'user',
             'content': prompt
         })
-        
-        with st.chat_message("user"):
-            st.write(prompt)
         
         # Generate response with progress tracking
         with st.chat_message("assistant"):
@@ -180,13 +183,17 @@ def render_ai_chat_tab():
                     st.error(f"❌ Error: {str(e)}")
                     with st.expander("🔍 Error Details"):
                         st.code(traceback.format_exc())
-                    response = f"I encountered an error: {str(e)}. Please try again or check the error details above."
+                    response = f"I encountered an error: {str(e)}. Please try again."
+                    status.update(label="❌ Error occurred", state="error")
         
-        # Add assistant message
+        # Add assistant message to history
         st.session_state.chat_messages.append({
             'role': 'assistant',
             'content': response
         })
+        
+        # Rerun to display all messages above the input box
+        st.rerun()
     
     # Helpful suggestions
     with st.expander("💡 Example Questions"):

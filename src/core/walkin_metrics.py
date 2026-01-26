@@ -270,6 +270,110 @@ def calculate_temporal_patterns(df):
 
 
 # ============================================================================
+# DAILY PATTERNS METRICS
+# ============================================================================
+
+def calculate_daily_patterns(df, date_col='Check_In_DateTime'):
+    """
+    Calculate session patterns by specific calendar dates.
+    
+    Returns dict with:
+    - top_10_dates: Top 10 busiest dates with session counts
+    - bottom_10_dates: Top 10 slowest dates with session counts
+    - sessions_by_date: Full daily breakdown (for queries)
+    - top_10_date_hour: Top 10 date+hour combinations
+    """
+    metrics = {}
+    
+    if date_col not in df.columns:
+        return metrics
+    
+    df_temp = df.copy()
+    df_temp['Date'] = df_temp[date_col].dt.date
+    
+    # Group by date and count sessions
+    date_counts = df_temp.groupby('Date').size().sort_values(ascending=False)
+    
+    # Top 10 busiest dates
+    top_10 = date_counts.head(10)
+    metrics['top_10_dates'] = {
+        'dates': [str(date) for date in top_10.index],
+        'counts': top_10.values.tolist(),
+        'busiest_date': str(date_counts.idxmax()),
+        'busiest_date_count': int(date_counts.max())
+    }
+    
+    # Bottom 10 slowest dates (that had at least one session)
+    bottom_10 = date_counts.tail(10)
+    metrics['bottom_10_dates'] = {
+        'dates': [str(date) for date in bottom_10.index],
+        'counts': bottom_10.values.tolist(),
+        'slowest_date': str(date_counts.idxmin()),
+        'slowest_date_count': int(date_counts.min())
+    }
+    
+    # Full daily breakdown (for queries - may be large)
+    metrics['sessions_by_date'] = {
+        str(date): int(count) for date, count in date_counts.items()
+    }
+    
+    # Top 10 date+hour combinations
+    df_temp['Hour'] = df_temp[date_col].dt.hour
+    date_hour_counts = df_temp.groupby(['Date', 'Hour']).size().sort_values(ascending=False).head(10)
+    
+    metrics['top_10_date_hour'] = {
+        'datetime': [f"{str(date)} {hour}:00" for date, hour in date_hour_counts.index],
+        'counts': date_hour_counts.values.tolist()
+    }
+    
+    return metrics
+
+
+def calculate_monthly_patterns(df, date_col='Check_In_DateTime'):
+    """
+    Calculate session patterns by month and year-month.
+    
+    Returns dict with:
+    - by_month: Sessions by month (January, February, etc.)
+    - by_year_month: Sessions by year-month (e.g., 2024-01)
+    - by_semester_month: Sessions by month within each semester
+    """
+    metrics = {}
+    
+    if date_col not in df.columns:
+        return metrics
+    
+    df_temp = df.copy()
+    df_temp['Month'] = df_temp[date_col].dt.month_name()
+    df_temp['Month_Num'] = df_temp[date_col].dt.month
+    df_temp['Year_Month'] = df_temp[date_col].dt.to_period('M').astype(str)
+    
+    # By month (aggregated across all years)
+    month_order = ['January', 'February', 'March', 'April', 'May', 'June', 
+                   'July', 'August', 'September', 'October', 'November', 'December']
+    month_counts = df_temp['Month'].value_counts().reindex(month_order, fill_value=0)
+    
+    metrics['by_month'] = {
+        'counts': month_counts.to_dict(),
+        'busiest_month': month_counts.idxmax(),
+        'busiest_month_count': int(month_counts.max()),
+        'slowest_month': month_counts.idxmin(),
+        'slowest_month_count': int(month_counts.min())
+    }
+    
+    # By year-month
+    year_month_counts = df_temp['Year_Month'].value_counts().sort_index()
+    metrics['by_year_month'] = year_month_counts.to_dict()
+    
+    # By semester-month breakdown
+    if 'Semester_Label' in df_temp.columns:
+        semester_month = df_temp.groupby(['Semester_Label', 'Month']).size().unstack(fill_value=0)
+        metrics['by_semester_month'] = semester_month.to_dict()
+    
+    return metrics
+
+
+# ============================================================================
 # DURATION STATISTICS
 # ============================================================================
 
@@ -534,6 +638,12 @@ def calculate_all_metrics(df):
     
     print("Calculating temporal patterns...")
     metrics['temporal_patterns'] = calculate_temporal_patterns(df)
+    
+    print("Calculating daily patterns...")
+    metrics['daily_patterns'] = calculate_daily_patterns(df)
+    
+    print("Calculating monthly patterns...")
+    metrics['monthly_patterns'] = calculate_monthly_patterns(df)
     
     print("Calculating duration statistics...")
     metrics['duration_stats'] = calculate_duration_stats(df)
