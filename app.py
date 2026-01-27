@@ -37,6 +37,11 @@ except ImportError as e:
     AI_CHAT_AVAILABLE = False
     print(f"⚠️ AI Chat disabled: {e}")
 
+# Model download configuration
+MODEL_DOWNLOAD_URL = "https://ws-analytics-chatbot.s3.us-east-2.amazonaws.com/gemma-3-4b-it-q4_0.gguf"
+MODEL_FILENAME = "gemma-3-4b-it-q4_0.gguf"
+MODEL_DIR = "models"
+
 # Walk-in specific imports
 WALKIN_AVAILABLE = False
 try:
@@ -82,6 +87,66 @@ st.sidebar.markdown(
     "encrypted reverse-lookup capability.\n\n"
     "Created by Zachary Tipton (Graduate Assistant)"
 )
+
+
+# ============================================================================
+# AI MODEL DOWNLOAD HELPER
+# ============================================================================
+
+def _model_file_exists() -> bool:
+    """Check if the AI model file is present in the models directory."""
+    model_path = os.path.join(MODEL_DIR, MODEL_FILENAME)
+    return os.path.isfile(model_path)
+
+
+def render_model_download_ui():
+    """Show a user-friendly download interface when the AI model is missing."""
+    st.header("🤖 AI Chat Assistant")
+    st.info(
+        "The AI Chat feature requires a language model file (~3 GB) that isn't "
+        "included in the default install. You can download it below — this is a "
+        "one-time setup."
+    )
+
+    st.markdown(
+        f"**Model:** `{MODEL_FILENAME}`  \n"
+        f"**Destination:** `{os.path.abspath(MODEL_DIR)}`  \n"
+        f"**Size:** ~3 GB"
+    )
+
+    if st.button("Download AI Model"):
+        import requests
+        os.makedirs(MODEL_DIR, exist_ok=True)
+        dest_path = os.path.join(MODEL_DIR, MODEL_FILENAME)
+        try:
+            with requests.get(MODEL_DOWNLOAD_URL, stream=True, timeout=30) as r:
+                r.raise_for_status()
+                total = int(r.headers.get("content-length", 0))
+                progress_bar = st.progress(0, text="Starting download...")
+                downloaded = 0
+                with open(dest_path, "wb") as f:
+                    for chunk in r.iter_content(chunk_size=8 * 1024 * 1024):
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if total:
+                            pct = downloaded / total
+                            progress_bar.progress(
+                                pct,
+                                text=f"Downloading... {downloaded / (1024**3):.2f} / {total / (1024**3):.2f} GB"
+                            )
+                progress_bar.progress(1.0, text="Download complete!")
+            st.success("Model downloaded successfully! Reloading...")
+            st.rerun()
+        except Exception as e:
+            # Clean up partial download
+            if os.path.exists(dest_path):
+                os.remove(dest_path)
+            st.error(f"Download failed: {e}")
+            st.markdown(
+                "You can also download the file manually and place it in the "
+                f"`{os.path.abspath(MODEL_DIR)}` folder:\n\n"
+                f"[Direct download link]({MODEL_DOWNLOAD_URL})"
+            )
 
 
 # ============================================================================
@@ -247,11 +312,8 @@ def render_ai_chat_tab():
 # MAIN APP - TABS
 # ============================================================================
 
-# Determine number of tabs based on available features
-if AI_CHAT_AVAILABLE:
-    tab1, tab2, tab3 = st.tabs(["📊 Generate Report", "🔍 Codebook Lookup", "🤖 AI Chat Assistant"])
-else:
-    tab1, tab2 = st.tabs(["📊 Generate Report", "🔍 Codebook Lookup"])
+# Always show all three tabs — AI Chat tab handles its own missing-model state
+tab1, tab2, tab3 = st.tabs(["📊 Generate Report", "🔍 Codebook Lookup", "🤖 AI Chat Assistant"])
 
 
 # ============================================================================
@@ -852,8 +914,17 @@ with tab2:
 # TAB 3: AI CHAT ASSISTANT
 # ============================================================================
 
-if AI_CHAT_AVAILABLE:
-    with tab3:
+with tab3:
+    if AI_CHAT_AVAILABLE and _model_file_exists():
         render_ai_chat_tab()
-else:
-    pass
+    elif AI_CHAT_AVAILABLE and not _model_file_exists():
+        # Library installed but model file missing — offer download
+        render_model_download_ui()
+    else:
+        # Library not installed at all
+        st.header("🤖 AI Chat Assistant")
+        st.warning(
+            "The AI Chat feature requires the `llama-cpp-python` package, "
+            "which is not currently installed. Run `pip install llama-cpp-python` "
+            "and restart the app to enable this feature."
+        )

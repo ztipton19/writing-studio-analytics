@@ -225,3 +225,8 @@ __marimo__/
 # Logs, reports, and test files
 writing_studio_report_*
 test_*.py
+
+# Portable Python distribution (for builds)
+python/
+python-embed.zip
+get-pip.py

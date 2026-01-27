@@ -46,6 +46,20 @@ Supports **two distinct session types** from Penji:
 -   **Small Multiples**: Semester comparisons side-by-side
 -   **Custom Styling**: Professional color scheme and layout
 
+### 🤖 AI Chat Assistant
+
+-   **Natural Language Queries**: Ask questions about your data in plain English
+-   **Local-Only Inference**: Uses Gemma 3 4B model running entirely on your machine
+-   **Privacy-First**: No cloud APIs or external services - your data never leaves your computer
+-   **Code Execution**: Can run Python code to analyze data on-the-fly
+-   **Optional Feature**: Works perfectly without AI - model download is optional
+
+To use the AI Chat, download the model (~3 GB) from:
+```
+https://ws-analytics-chatbot.s3.us-east-2.amazonaws.com/gemma-3-4b-it-q4_0.gguf
+```
+Place it in the `models/` folder. The app includes a built-in downloader interface for convenience.
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -61,6 +75,13 @@ pip install -r requirements.txt
 
 ### Running the Application
 
+**Option 1: Windows (Recommended)**
+``` bash
+# Double-click launch.bat to start the application
+# The launcher automatically finds Python and starts Streamlit
+```
+
+**Option 2: Command Line**
 ``` bash
 # Start the Streamlit app
 streamlit run app.py
@@ -68,7 +89,7 @@ streamlit run app.py
 
 The app will open in your browser at `http://localhost:8501`
 
-## 💡 How to Use
+## � How to Use
 
 ### Step 1: Select Session Type
 
@@ -219,6 +240,45 @@ report_path = quick_report('penji_export.csv', 'report.pdf')
 **Issue: "Type mismatch detected"** - Check that you selected the correct session type - Verify your Penji export contains the expected columns - Export again if data structure seems incorrect
 
 **Issue: Charts not displaying** - Check that `matplotlib` and `seaborn` are installed - Verify data has required columns for specific charts - Check console for error messages
+
+## 🔧 For Future Developers
+
+### Updating Data Processing Logic
+
+If Penji changes their export format or adds/removes columns, you'll need to update these files:
+
+**For Scheduled Sessions:**
+- `src/core/data_cleaner.py` - Column mapping, data type conversions, outlier detection
+- `src/core/metrics.py` - Metric calculations, new analyses
+- `src/visualizations/charts.py` - Chart functions
+- `src/visualizations/report_generator.py` - PDF report sections
+
+**For Walk-In Sessions:**
+- `src/core/walkin_cleaner.py` - Column mapping, data type conversions, outlier detection
+- `src/core/walkin_metrics.py` - Metric calculations, new analyses
+- `src/visualizations/walkin_charts.py` - Chart functions
+- `src/visualizations/walkin_report_generator.py` - PDF report sections
+
+### Critical: Privacy System
+
+**NEVER remove or bypass the anonymization layer:**
+- `src/core/privacy.py` contains the PII detection and anonymization logic
+- Always anonymize before any analysis or reporting
+- The codebook system allows supervisor access while maintaining FERPA compliance
+
+### Adding New Features
+
+1. **New metrics:** Add to `metrics.py` or `walkin_metrics.py`, then update report generators
+2. **New charts:** Add to `charts.py` or `walkin_charts.py`, include in report generators
+3. **New data cleaning:** Update `data_cleaner.py` or `walkin_cleaner.py`, test with real Penji exports
+
+### Testing Changes
+
+1. Export fresh data from Penji (both session types if applicable)
+2. Test the full pipeline: upload → clean → anonymize → generate report
+3. Verify no PII leaks in anonymized data or reports
+4. Check codebook lookup functionality if enabled
+5. Test with both outlier removal on and off
 
 ## 📝 License
 
