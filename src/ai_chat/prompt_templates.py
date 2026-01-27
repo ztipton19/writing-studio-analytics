@@ -345,6 +345,35 @@ def format_key_metrics_enhanced(metrics: dict) -> str:
             for location, pct in location_pct_by_hour[12].items():
                 lines.append(f"    - {location}: {pct}%")
     
+    # Format attendance by location (NEW - critical for online vs in-person no-show questions)
+    attendance_by_location = metrics.get('attendance_by_location', {})
+    if attendance_by_location:
+        lines.append("\nATTENDANCE BY LOCATION (online vs in-person):")
+        
+        # By location breakdown
+        by_location = attendance_by_location.get('by_location', {})
+        if by_location:
+            lines.append("  Sessions by location:")
+            for location, data in by_location.items():
+                lines.append(f"    - {location}: {data.get('total_sessions', 0)} total")
+                lines.append(f"      Completed: {data.get('completed', 0)}")
+                lines.append(f"      No-shows: {data.get('no_show', 0)}")
+                lines.append(f"      Cancelled: {data.get('cancelled', 0)}")
+        
+        # No-show rate by location
+        no_show_rate = metrics.get('no_show_rate_by_location', {})
+        if no_show_rate:
+            lines.append("\n  No-show rates by location:")
+            for location, rate in no_show_rate.items():
+                lines.append(f"    - {location}: {rate}%")
+        
+        # Completion rate by location
+        completion_rate = metrics.get('completion_rate_by_location', {})
+        if completion_rate:
+            lines.append("\n  Completion rates by location:")
+            for location, rate in completion_rate.items():
+                lines.append(f"    - {location}: {rate}%")
+    
     def format_value(key, value):
         """Format a metric value with appropriate precision."""
         if isinstance(value, (int, float)):

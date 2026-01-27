@@ -6,8 +6,8 @@ src/core/*.py.tmp*
 src/visualizations/*.py.tmp*
 
 # Blocked query logs (sensitive user queries)
-logs/
-*.log
+#logs/
+#*.log
 
 # Claude stuff?
 nul
@@ -73,7 +73,6 @@ cover/
 *.pot
 
 # Django stuff:
-*.log
 local_settings.py
 db.sqlite3
 db.sqlite3-journal

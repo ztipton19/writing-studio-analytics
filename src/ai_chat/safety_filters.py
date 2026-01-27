@@ -29,12 +29,12 @@ class InputValidator:
         
         Args:
             log_blocked_queries: Whether to log blocked queries to file
-            log_file: Path to log file (defaults to logs/blocked_queries.log)
+            log_file: Path to log file (defaults to logs/queries.log)
         """
         # Configure logging
         self.log_blocked_queries = log_blocked_queries
         if log_file is None:
-            self.log_file = os.path.join(os.getcwd(), 'logs', 'blocked_queries.log')
+            self.log_file = os.path.join(os.getcwd(), 'logs', 'queries.log')
         else:
             self.log_file = log_file
         
@@ -82,7 +82,7 @@ class InputValidator:
         self.harmful_keywords = [
             # Violence/harm
             'kill', 'murder', 'suicide', 'bomb', 'weapon',
-            'assault', 'attack', 'hurt', 'harm', 'torture', 'shoot', 'stab', 'poison', 'abuse',
+            'assault', 'attack', 'torture', 'shoot', 'stab', 'poison', 'abuse',
             # Illegal activities
             'drug', 'illegal', 'hack', 'steal', 'fraud',
             'smuggle', 'trafficking', 'launder', 'blackmail', 'extort', 'bribe', 'counterfeit', 'forge',
@@ -94,11 +94,11 @@ class InputValidator:
             'nude', 'sex', 'porn', 'explicit',
             'nsfw', 'adult content', 'sexual', 'pornographic', 'erotic', 'lewd',
             # Self-harm
-            'self-harm', 'cutting', 'eating disorder', 'anorexia', 'bulimia',
+            'self-harm', 'eating disorder', 'anorexia', 'bulimia',
             # Hate speech
             'slur', 'racist', 'sexist', 'homophobic', 'transphobic', 'bigot',
             # Scams/fraud
-            'pyramid scheme', 'ponzi', 'scam', 'con', 'cheat'
+            'pyramid scheme', 'ponzi', 'scam', 'cheat'
         ]
 
         # Jailbreak attempts (trying to override system instructions) - expanded
@@ -202,72 +202,79 @@ class InputValidator:
 
     def is_on_topic(self, query: str) -> Tuple[bool, str]:
         """
-        Check if query is about the Writing Studio data.
+        Check if query is about the Writing Studio data using weighted scoring.
         
-        SIMPLIFIED: Uses blocklist-only approach. Queries are ALLOWED BY DEFAULT
-        unless they contain off-topic keywords, harmful content, or jailbreak attempts.
+        Uses a point-based system:
+        - +2 points for each data keyword match
+        - -3 points for each off-topic keyword match
+        - -5 points for each harmful keyword match
+        - Only blocks if final score is negative
         
-        This is more practical than requiring specific terms, as users can ask
-        questions in many different ways. The three-layer defense still works:
-        - Layer 1: Blocklist validation (blocks hippos, recipes, etc.)
-        - Layer 2: System prompt instructs LLM to refuse off-topic questions
-        - Layer 3: Response filtering catches any off-topic LLM responses
+        This allows legitimate queries with data context to pass even if they
+        contain some flagged terms, while still blocking obviously off-topic queries.
         
         Returns:
             (is_valid: bool, reason: str)
         """
         query_lower = query.lower()
-
-        # Check for off-topic keywords
+        score = 0
+        matched_terms = []
+        
+        # Add points for data-related keywords (+2 each)
+        for keyword in self.data_keywords:
+            if re.search(r'\b' + re.escape(keyword) + r'\b', query_lower):
+                score += 2
+                matched_terms.append(f"+2:{keyword}")
+        
+        # Subtract points for off-topic keywords (-3 each)
         for keyword in self.off_topic_keywords:
-            if keyword in query_lower:
-                return False, f"off_topic: {keyword}"
-
-        # Check for harmful keywords with word boundary protection for short keywords
-        # Short keywords (<=3 chars) need word boundaries to avoid false positives
-        # e.g., "con" should not match "confidence" or "consultant"
+            if re.search(r'\b' + re.escape(keyword) + r'\b', query_lower):
+                score -= 3
+                matched_terms.append(f"-3:off_topic:{keyword}")
+        
+        # Subtract points for harmful keywords (-5 each)
         for keyword in self.harmful_keywords:
-            # Use word boundaries for short keywords to avoid false positives
-            if len(keyword) <= 3:
-                # Use word boundary regex for short keywords
-                pattern = r'\b' + re.escape(keyword) + r'\b'
-                if re.search(pattern, query_lower):
-                    return False, f"inappropriate: {keyword}"
-            else:
-                # Simple substring match for longer keywords
-                if keyword in query_lower:
-                    return False, f"inappropriate: {keyword}"
-
-        # Check for jailbreak attempts
+            if re.search(r'\b' + re.escape(keyword) + r'\b', query_lower):
+                score -= 5
+                matched_terms.append(f"-5:harmful:{keyword}")
+        
+        # Check for jailbreak attempts (instant block)
         for pattern in self.jailbreak_patterns:
             if re.search(pattern, query_lower):
                 return False, "jailbreak_attempt"
-
-        # Default: ALLOW the query (unless explicitly blocked above)
+        
+        # Block only if score is negative
+        if score < 0:
+            return False, f"negative_score:{score}"
+        
         return True, "valid"
     
-    def log_blocked_query(self, query: str, reason: str):
+    def log_query(self, query: str, status: str = "ACCEPTED", reason: str = None):
         """
-        Log blocked query to file for review.
+        Log query to file for review (consolidated logging).
         
         Args:
-            query: The blocked query text
-            reason: Why it was blocked
+            query: The query text
+            status: "ACCEPTED", "REJECTED", or "ERROR"
+            reason: Why it was rejected or error details (optional)
         """
         if not self.log_blocked_queries:
             return
         
         try:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            log_entry = f"[{timestamp}] BLOCKED - {reason}\n"
-            log_entry += f"Query: {query}\n"
-            log_entry += "-" * 80 + "\n"
+            log_entry = f"[{timestamp}] QUERY\n"
+            log_entry += f"User: \"{query}\"\n"
+            log_entry += f"Status: {status}"
+            if reason:
+                log_entry += f"\nReason: {reason}"
+            log_entry += "\n" + "─" * 50 + "\n"
             
             with open(self.log_file, 'a', encoding='utf-8') as f:
                 f.write(log_entry)
         except Exception as e:
             # Silently fail on logging errors to not break the app
-            print(f"Warning: Failed to log blocked query: {e}")
+            print(f"Warning: Failed to log query: {e}")
 
     def get_rejection_message(self, reason: str) -> str:
         """
@@ -397,13 +404,29 @@ class ResponseFilter:
         This catches cases where the LLM goes off-topic and answers general
         knowledge questions instead of discussing the Writing Studio data.
         
+        Simplified approach: Only flag obvious off-topic patterns and responses
+        with zero data context. Rely on system prompt for most content moderation.
+        
         Returns:
             (is_generic: bool, reason: str)
         """
         response_lower = response.lower()
         
-        # Check for generic knowledge patterns
-        for pattern in self.generic_knowledge_patterns:
+        # Check for obvious generic knowledge patterns only
+        obvious_generic_patterns = [
+            # Animal/biology responses
+            r'\b(life expectancy|lifespan|years in the wild|years in captivity)\b',
+            r'\b(species|habitat|diet|behavior)\s+of\b',
+            r'\b(lions?|tigers?|elephants?|giraffes?|zebras?|hippopotamus|hippos?)\b',
+            # Entertainment responses
+            r'\b(won the|starring|directed by|released in)\b',
+            # Recipe/cooking responses
+            r'\b(ingredients|cook for|bake for|preheat)\b',
+            # Weather responses
+            r'\b(degrees|fahrenheit|celsius|forecast)\b',
+        ]
+        
+        for pattern in obvious_generic_patterns:
             if re.search(pattern, response_lower):
                 return True, f"Generic knowledge detected: {pattern}"
         
@@ -411,22 +434,10 @@ class ResponseFilter:
         # If a response is about Writing Studio data, it should contain at least one of these
         has_valid_term = any(term in response_lower for term in self.valid_data_terms)
         
-        # If response is longer than 100 chars and has no data terms, likely off-topic
-        if len(response) > 100 and not has_valid_term:
+        # Only flag if response is substantial (>150 chars) and has absolutely zero data context
+        # This allows brief contextual responses that may not have data terms
+        if len(response) > 150 and not has_valid_term:
             return True, "Response contains no Writing Studio data terms"
-        
-        # Check for encyclopedic-style responses (lists of facts without data context)
-        # These often start with phrases like "The average X is..."
-        encyclopedic_patterns = [
-            r'^the average (.*?) is (?:approximately|about|typically)',
-            r'^(.*?) typically (?:live|last|weigh|measure)',
-            r'^(.*?) are (?:found|located) in',
-            r'^the capital of (.*?) is',
-        ]
-        
-        for pattern in encyclopedic_patterns:
-            if re.search(pattern, response_lower, re.MULTILINE):
-                return True, f"Encyclopedic response detected: {pattern}"
         
         return False, "Not generic knowledge"
     

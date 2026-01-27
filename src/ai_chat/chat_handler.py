@@ -12,6 +12,8 @@ Orchestrates:
 """
 
 from typing import Dict, Any, Tuple, Optional, Callable
+import os
+from datetime import datetime
 from .llm_engine import GemmaLLM
 from .data_prep import prepare_data_context, prepare_chart_context
 from .prompt_templates import build_system_prompt, build_full_prompt, format_query_with_data
@@ -48,6 +50,9 @@ class ChatHandler:
         self.verbose = verbose
         self.enable_code_execution = enable_code_execution
         self.code_executor: Optional[CodeExecutor] = None
+        
+        # Configure logging (consolidated with InputValidator)
+        self.log_file = os.path.join(os.getcwd(), 'logs', 'queries.log')
         
         if verbose:
             print("🤖 ChatHandler initialized")
@@ -104,11 +109,19 @@ class ChatHandler:
         is_valid, reason = self.input_validator.is_on_topic(user_query)
         
         if not is_valid:
-            # Log blocked query for review
-            self.input_validator.log_blocked_query(user_query, reason)
+            # Log rejected query
+            self.input_validator.log_query(user_query, status="REJECTED", reason=reason)
             
-            # Return rejection message immediately (no LLM call)
+            # Log the rejection response
             rejection_msg = self.input_validator.get_rejection_message(reason)
+            self._log_response(
+                response=rejection_msg,
+                llm_called=False,
+                code_execution=False,
+                pii_filtered=False,
+                error=False
+            )
+            
             if self.verbose:
                 print(f"❌ Query rejected: {reason}")
             
@@ -117,6 +130,9 @@ class ChatHandler:
                 'reason': reason,
                 'llm_called': False
             }
+        
+        # Log accepted query
+        self.input_validator.log_query(user_query, status="ACCEPTED")
         
         if self.verbose:
             print(f"✅ Query accepted: {user_query[:50]}...")
@@ -148,6 +164,14 @@ class ChatHandler:
         # 6. Check if we should use code execution for this query
         use_code_exec = self.enable_code_execution and self.code_executor and self._should_use_code_execution(user_query)
         
+        # Log code execution decision for debugging
+        if self.verbose:
+            print(f"🔧 Code execution decision:")
+            print(f"  - Enabled: {self.enable_code_execution}")
+            print(f"  - Executor initialized: {self.code_executor is not None}")
+            print(f"  - Query has computation keywords: {self._should_use_code_execution(user_query)}")
+            print(f"  - Will use code execution: {use_code_exec}")
+        
         raw_response = ""
         
         try:
@@ -169,6 +193,18 @@ class ChatHandler:
                 )
         except Exception as e:
             error_msg = f"I encountered an error generating a response: {str(e)}"
+            
+            # Log error
+            self._log_response(
+                response=error_msg,
+                llm_called=True,
+                code_execution=use_code_exec,
+                pii_filtered=False,
+                error=True,
+                error_type=str(type(e).__name__),
+                error_details=str(e)
+            )
+            
             if self.verbose:
                 print(f"❌ Generation error: {str(e)}")
             
@@ -181,6 +217,15 @@ class ChatHandler:
         
         # 7. Filter response (PII check)
         safe_response = self.response_filter.filter_response(raw_response)
+        
+        # Log the successful response
+        self._log_response(
+            response=safe_response,
+            llm_called=True,
+            code_execution=use_code_exec,
+            pii_filtered=(raw_response != safe_response),
+            error=False
+        )
         
         # 8. Update conversation history
         self.conversation_history.append({
@@ -306,6 +351,55 @@ Focus on what the number means in context."""
         """Get conversation history."""
         return self.conversation_history.copy()
     
+    def _log_response(
+        self,
+        response: str,
+        llm_called: bool,
+        code_execution: bool,
+        pii_filtered: bool,
+        error: bool = False,
+        error_type: str = None,
+        error_details: str = None
+    ):
+        """
+        Log response to queries.log (consolidated logging).
+        
+        Args:
+            response: The response text
+            llm_called: Whether LLM was invoked
+            code_execution: Whether code execution was used
+            pii_filtered: Whether PII was filtered out
+            error: Whether an error occurred
+            error_type: Type of error (if applicable)
+            error_details: Error details (if applicable)
+        """
+        try:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            log_entry = f"[{timestamp}] RESPONSE\n"
+            
+            if error:
+                log_entry += f"Error: YES\n"
+                if error_type:
+                    log_entry += f"Error Type: {error_type}\n"
+                if error_details:
+                    log_entry += f"Error Details: {error_details}\n"
+            else:
+                log_entry += f"LLM Called: {llm_called}\n"
+                log_entry += f"Code Execution: {code_execution}\n"
+                log_entry += f"PII Filtered: {pii_filtered}\n"
+            
+            log_entry += f"Response: \"{response}\"\n"
+            log_entry += "=" * 50 + "\n"
+            
+            # Ensure logs directory exists
+            os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
+            
+            with open(self.log_file, 'a', encoding='utf-8') as f:
+                f.write(log_entry)
+        except Exception as e:
+            # Silently fail on logging errors to not break the app
+            print(f"Warning: Failed to log response: {e}")
+
     def query_with_data(
         self,
         user_query: str,

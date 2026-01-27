@@ -117,6 +117,73 @@ def calculate_time_patterns(df, date_col='Appointment_DateTime'):
 # ATTENDANCE & OUTCOMES METRICS
 # ============================================================================
 
+def calculate_attendance_by_location_metrics(df):
+    """
+    Calculate attendance outcomes by location (ZOOM vs CORD).
+    
+    This is critical for answering questions like:
+    - "What is the percentage of online no-shows compared to in-person no-shows?"
+    - "Are there more no-shows for Zoom or in-person appointments?"
+    
+    Returns dict with:
+    - by_location: breakdown of completed/no-show/cancelled by location
+    - no_show_rate_by_location: no-show percentages by location
+    - completion_rate_by_location: completion percentages by location
+    """
+    metrics = {}
+    
+    # Check if required columns exist
+    if 'Location' not in df.columns:
+        return metrics
+    
+    if 'Attendance_Status' not in df.columns:
+        return metrics
+    
+    if 'Status' not in df.columns:
+        return metrics
+    
+    # Create attendance status flags
+    df_temp = df.copy()
+    df_temp['Is_Present'] = df_temp['Attendance_Status'].str.lower().str.contains('present', na=False)
+    df_temp['Is_No_Show'] = df_temp['Attendance_Status'].str.lower().str.contains('absent', na=False)
+    df_temp['Is_Cancelled'] = df_temp['Status'].str.lower().str.contains('cancel', na=False)
+    
+    # Calculate metrics for each location
+    by_location = {}
+    no_show_rate_by_location = {}
+    completion_rate_by_location = {}
+    
+    locations = df_temp['Location'].unique()
+    
+    for location in locations:
+        loc_data = df_temp[df_temp['Location'] == location]
+        total = len(loc_data)
+        
+        if total == 0:
+            continue
+        
+        completed = int(loc_data['Is_Present'].sum())
+        no_show = int(loc_data['Is_No_Show'].sum())
+        cancelled = int(loc_data['Is_Cancelled'].sum())
+        
+        by_location[location] = {
+            'total_sessions': total,
+            'completed': completed,
+            'no_show': no_show,
+            'cancelled': cancelled
+        }
+        
+        # Calculate percentages
+        no_show_rate_by_location[location] = round((no_show / total) * 100, 1) if total > 0 else 0
+        completion_rate_by_location[location] = round((completed / total) * 100, 1) if total > 0 else 0
+    
+    metrics['by_location'] = by_location
+    metrics['no_show_rate_by_location'] = no_show_rate_by_location
+    metrics['completion_rate_by_location'] = completion_rate_by_location
+    
+    return metrics
+
+
 def calculate_attendance_metrics(df):
     """
     Calculate session outcome metrics.
@@ -1010,6 +1077,7 @@ def calculate_all_metrics(df):
         'booking': calculate_booking_metrics(df),
         'time_patterns': calculate_time_patterns(df),
         'attendance': calculate_attendance_metrics(df),
+        'attendance_by_location': calculate_attendance_by_location_metrics(df),
         'session_length': calculate_session_length_metrics(df),
         'satisfaction': calculate_satisfaction_metrics(df),
         'tutors': calculate_tutor_metrics(df),

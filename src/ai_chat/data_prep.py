@@ -234,6 +234,27 @@ def extract_key_metrics(metrics: Dict[str, Any], data_mode: str) -> Dict[str, An
                 'zoom_pct': loc.get('zoom_pct', 0)
             }
         
+        # Attendance by location metrics (NEW - for online vs in-person no-show questions)
+        if 'attendance_by_location' in metrics:
+            att_by_loc = metrics['attendance_by_location']
+            
+            if 'by_location' in att_by_loc:
+                key_metrics['attendance_by_location'] = {}
+                
+                for location, loc_data in att_by_loc['by_location'].items():
+                    key_metrics['attendance_by_location'][location] = {
+                        'total_sessions': loc_data.get('total_sessions', 0),
+                        'completed': loc_data.get('completed', 0),
+                        'no_show': loc_data.get('no_show', 0),
+                        'cancelled': loc_data.get('cancelled', 0)
+                    }
+            
+            if 'no_show_rate_by_location' in att_by_loc:
+                key_metrics['no_show_rate_by_location'] = att_by_loc['no_show_rate_by_location']
+            
+            if 'completion_rate_by_location' in att_by_loc:
+                key_metrics['completion_rate_by_location'] = att_by_loc['completion_rate_by_location']
+        
         # Incentive metrics
         if 'incentives' in metrics:
             inc = metrics['incentives']

@@ -112,6 +112,10 @@ def render_ai_chat_tab():
                 st.session_state.chat_handler = ChatHandler(model_path, verbose=False, enable_code_execution=True)
                 st.session_state.chat_messages = []
                 
+                # Initialize code executor with data if available
+                if 'df_clean' in st.session_state:
+                    st.session_state.chat_handler.set_data_for_code_execution(st.session_state['df_clean'])
+                
                 # Show system info
                 sys_info = st.session_state.chat_handler.check_system()
                 with st.expander("💻 System Information"):
@@ -128,6 +132,15 @@ def render_ai_chat_tab():
                 st.error(f"❌ Error loading AI model: {str(e)}")
                 st.info("💡 Make sure you've downloaded the model by running: `python src/ai_chat/setup_model.py`")
                 return
+    else:
+        # Chat handler exists - check if code executor needs data
+        if 'df_clean' in st.session_state:
+            try:
+                # Check if code executor is initialized
+                if st.session_state.chat_handler.code_executor is None:
+                    st.session_state.chat_handler.set_data_for_code_execution(st.session_state['df_clean'])
+            except Exception as e:
+                st.warning(f"⚠️ Could not initialize code executor: {e}")
     
     # Display chat history
     if 'chat_messages' in st.session_state:
