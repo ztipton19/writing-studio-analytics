@@ -1299,3 +1299,112 @@ def plot_incentive_breakdown(incentive_metrics):
     plt.tight_layout(rect=MARGIN_RECT)
 
     return fig
+
+
+# ============================================================================
+# SECTION 9: COURSE ENROLLMENT TABLE
+# ============================================================================
+
+def plot_course_table(df, courses_csv_path='courses.csv'):
+    """
+    Table page: Courses linked to Writing Studio visits.
+    Shows Subject Abbreviation, Course Number, and session count.
+    Only shows courses with at least 1 visit.
+    Sorted alphabetically by subject, N/A pinned to bottom.
+    """
+    if 'Course_Code' not in df.columns:
+        return None
+    
+    course_data = df['Course_Code'].dropna()
+    
+    if len(course_data) == 0:
+        return None
+    
+    # Load courses.csv for lookup
+    import os
+    code_to_info = {}
+    try:
+        courses_df = pd.read_csv(courses_csv_path)
+        for _, row in courses_df.iterrows():
+            abbrev = str(row['Subject Abbreviation']).strip()
+            number = str(row['Course Number']).strip()
+            code = abbrev + number
+            code_to_info[code] = {'subject': abbrev, 'number': number}
+    except FileNotFoundError:
+        alt_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'courses.csv')
+        try:
+            courses_df = pd.read_csv(alt_path)
+            for _, row in courses_df.iterrows():
+                abbrev = str(row['Subject Abbreviation']).strip()
+                number = str(row['Course Number']).strip()
+                code = abbrev + number
+                code_to_info[code] = {'subject': abbrev, 'number': number}
+        except FileNotFoundError:
+            pass
+    
+    # Count sessions per course code
+    counts = course_data.value_counts()
+    
+    # Build table rows
+    table_rows = []
+    for code, count in counts.items():
+        if code == 'N/A':
+            table_rows.append({'Subject': 'N/A', 'Course Number': '', 'Sessions': count, '_sort_last': True})
+        elif code in code_to_info:
+            info = code_to_info[code]
+            table_rows.append({'Subject': info['subject'], 'Course Number': info['number'], 'Sessions': count, '_sort_last': False})
+        else:
+            # Unknown code — still show it
+            table_rows.append({'Subject': code, 'Course Number': '', 'Sessions': count, '_sort_last': False})
+    
+    if not table_rows:
+        return None
+    
+    # Sort: alphabetical by subject, N/A last
+    table_rows.sort(key=lambda r: (r['_sort_last'], r['Subject'], r['Course Number']))
+    
+    # Build display data
+    cell_text = [[r['Subject'], r['Course Number'], str(r['Sessions'])] for r in table_rows]
+    col_labels = ['Subject', 'Course Number', 'Sessions']
+    
+    # Create figure
+    fig, ax = plt.subplots(figsize=PAGE_LANDSCAPE)
+    ax.axis('off')
+    ax.grid(False)
+    
+    ax.set_title('Course Enrollment Linked to Writing Studio Visits', fontsize=14, pad=20, fontweight='bold')
+    
+    # Create table
+    table = ax.table(
+        cellText=cell_text,
+        colLabels=col_labels,
+        loc='center',
+        cellLoc='center'
+    )
+    
+    # Style the table
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.scale(1, 1.5)  # Row height
+    
+    # Header styling
+    for j in range(len(col_labels)):
+        cell = table[0, j]
+        cell.set_facecolor(COLORS['primary'])
+        cell.set_text_props(color='white', fontweight='bold')
+    
+    # Alternate row shading
+    for i in range(1, len(cell_text) + 1):
+        for j in range(len(col_labels)):
+            cell = table[i, j]
+            if i % 2 == 0:
+                cell.set_facecolor('#f0f0f0')
+            else:
+                cell.set_facecolor('white')
+    
+    # Column widths
+    table.auto_set_column_width([0, 1, 2])
+    
+    plt.tight_layout(rect=MARGIN_RECT)
+    
+    return fig

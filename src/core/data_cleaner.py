@@ -112,7 +112,6 @@ def rename_columns(df):
         'Session Feedback From Student': 'Student_Feedback',
         
         # Pre-Session (Agenda)
-        'Agenda - For which course are you writing this document? (If not applicable, write "N/A")': 'Course_Subject',
         'Agenda - How confident do you feel about your writing assignment right now? (1="Not at all"; 5="Very")': 'Pre_Confidence',
         'Agenda - Is this your first appointment?': 'Is_First_Appointment',
         'Agenda - Please check one of the following boxes to help us determine the context of your visit.': 'Visit_Context',
@@ -246,6 +245,10 @@ def remove_useless_columns(df):
         'Kind',              # Always "1-on-1"
         'Session_Kind',      # Duplicate of above
 
+        # Obsolete free-text course field (being removed from intake form)
+        'Agenda - For which course are you writing this document? (If not applicable, write "N/A")',
+        'Course_Subject',  # In case it was already renamed
+
         # Redundant after datetime merge
         'Requested At Date',
         'Requested At Time',
@@ -338,7 +341,7 @@ def standardize_data_types(df):
     
     # Text columns (ensure string type, replace NaN with empty string for text processing)
     text_columns = [
-        'Document_Type', 'Course_Subject', 'Focus_Area',
+        'Document_Type', 'Focus_Area',
         'Student_Comments_For_Tutor', 'Student_Comments_Public',
         'Student_Issues', 'Tutor_Feedback', 'Student_Feedback',
         'Cancellation_Reason', 'Incentives_Offered'
@@ -591,7 +594,6 @@ def analyze_missing_values(df):
     }
     
     important_fields = {
-        'Course_Subject': 'Important but often skipped by students',
         'Pre_Confidence': 'Pre-session survey - not always completed',
         'Post_Confidence': 'Post-session survey - not always completed',
         'Focus_Area': 'Important for understanding session goals',
@@ -689,6 +691,65 @@ def analyze_missing_values(df):
 
 
 # ============================================================================
+# COURSE CLASSIFICATION HELPER
+# ============================================================================
+
+def classify_course_column(df, courses_csv_path='courses.csv'):
+    """
+    Separate the mixed Course column into:
+    - Course_Code: Real UofA course codes (e.g., AAAE3000V) and N/A
+    - The original Course column keeps all values (renamed to Document_Type later)
+    
+    Uses courses.csv to identify valid course codes.
+    """
+    import os
+    
+    df_classified = df.copy()
+    
+    if 'Course' not in df_classified.columns:
+        return df_classified
+    
+    # Build set of valid course codes from courses.csv
+    valid_codes = set()
+    try:
+        # Try relative to the project root
+        courses_df = pd.read_csv(courses_csv_path)
+        for _, row in courses_df.iterrows():
+            abbrev = str(row['Subject Abbreviation']).strip()
+            number = str(row['Course Number']).strip()
+            code = abbrev + number
+            valid_codes.add(code)
+    except FileNotFoundError:
+        # Try from src/core/ directory
+        alt_path = os.path.join(os.path.dirname(__file__), '..', '..', 'courses.csv')
+        try:
+            courses_df = pd.read_csv(alt_path)
+            for _, row in courses_df.iterrows():
+                abbrev = str(row['Subject Abbreviation']).strip()
+                number = str(row['Course Number']).strip()
+                code = abbrev + number
+                valid_codes.add(code)
+        except FileNotFoundError:
+            print("  ⚠️  courses.csv not found - skipping course classification")
+            return df_classified
+    
+    # Classify each Course value
+    def classify(value):
+        if pd.isna(value):
+            return np.nan
+        value_clean = str(value).strip()
+        if value_clean == 'N/A':
+            return 'N/A'
+        if value_clean in valid_codes:
+            return value_clean
+        return np.nan  # It's an old document type, not a course
+    
+    df_classified['Course_Code'] = df_classified['Course'].apply(classify)
+    
+    return df_classified
+
+
+# ============================================================================
 # MAIN CLEANING FUNCTION: SCHEDULED SESSIONS
 # ============================================================================
 
@@ -719,6 +780,19 @@ def clean_scheduled_sessions(df, remove_outliers_flag=True, log_actions=True):
     df_clean = clean_column_names(df)
     if log_actions:
         print("\n✓ Step 0: Cleaned column names (stripped whitespace)")
+
+    # Step 0.5: Recode XXXX to N/A in Course column
+    if 'Course' in df_clean.columns:
+        xxxx_count = (df_clean['Course'] == 'XXXX').sum()
+        df_clean['Course'] = df_clean['Course'].replace('XXXX', 'N/A')
+        if log_actions and xxxx_count > 0:
+            print(f"✓ Step 0.5: Recoded {xxxx_count} 'XXXX' values to 'N/A' in Course column")
+
+    # Step 0.7: Classify Course column (separate real courses from document types)
+    df_clean = classify_course_column(df_clean)
+    course_code_count = df_clean['Course_Code'].notna().sum()
+    if log_actions:
+        print(f"✓ Step 0.7: Classified courses ({course_code_count} real course codes found)")
 
     # Step 1: Merge date/time columns
     df_clean = merge_datetime_columns(df_clean)

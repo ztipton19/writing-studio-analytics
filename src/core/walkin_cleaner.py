@@ -11,6 +11,7 @@ Date: 2026-01-19
 """
 
 import pandas as pd
+import numpy as np
 from datetime import datetime
 
 # Import academic calendar utilities
@@ -215,6 +216,11 @@ def consolidate_courses(df):
         'Thesis or dissertation (Undergradaute/Graduate)': 'Thesis or dissertation',  # Typo in data
     })
     
+    # Rule 0: XXXX to N/A recode
+    course_mapping.update({
+        'XXXX': 'N/A',
+    })
+
     # Rule 4: Reflection paper variations (APPROVED: consolidate all)
     course_mapping.update({
         'Reflection paper': 'Reflection or response paper',
@@ -238,6 +244,35 @@ def consolidate_courses(df):
     
     # Additional cleaning: strip whitespace
     df_clean['Course'] = df_clean['Course'].str.strip()
+    
+    # Classify real course codes vs document types
+    import os
+    valid_codes = set()
+    try:
+        courses_path = os.path.join(os.path.dirname(__file__), '..', '..', 'courses.csv')
+        courses_df = pd.read_csv(courses_path)
+        for _, row in courses_df.iterrows():
+            abbrev = str(row['Subject Abbreviation']).strip()
+            number = str(row['Course Number']).strip()
+            code = abbrev + number
+            valid_codes.add(code)
+    except FileNotFoundError:
+        print("  ⚠️  courses.csv not found - skipping course classification")
+    
+    if valid_codes:
+        def classify(value):
+            if pd.isna(value):
+                return np.nan
+            value_clean = str(value).strip()
+            if value_clean == 'N/A':
+                return 'N/A'
+            if value_clean in valid_codes:
+                return value_clean
+            return np.nan  # It's an old document type, not a course
+        
+        df_clean['Course_Code'] = df_clean['Course'].apply(classify)
+        code_count = df_clean['Course_Code'].notna().sum()
+        print(f"  ✓ Course codes identified: {code_count}")
     
     # Summary
     final_unique = df_clean['Course'].nunique()
