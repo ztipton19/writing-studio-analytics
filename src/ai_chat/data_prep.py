@@ -301,6 +301,24 @@ def extract_key_metrics(metrics: Dict[str, Any], data_mode: str) -> Dict[str, An
                 'confidence_change_by_semester': st.get('confidence_change_by_semester', {}),
                 'session_length_by_semester': st.get('session_length_by_semester', {})
             }
+        
+        # Daily patterns by semester (NEW - answers "what was the busiest day in Spring 2022?")
+        if 'daily_patterns_by_semester' in metrics:
+            dps = metrics['daily_patterns_by_semester']
+            key_metrics['daily_patterns_by_semester'] = {
+                'available_semesters': dps.get('available_semesters', []),
+                'busiest_semester': dps.get('busiest_semester', None),
+                'by_semester': dps.get('by_semester', {})
+            }
+        
+        # Semester year comparisons (NEW - answers "how does Spring 2023 compare to Spring 2024?")
+        if 'semester_year_comparisons' in metrics:
+            syc = metrics['semester_year_comparisons']
+            key_metrics['semester_year_comparisons'] = {
+                'spring_comparisons': syc.get('spring_comparisons', {}),
+                'fall_comparisons': syc.get('fall_comparisons', {}),
+                'cross_semester_comparisons': syc.get('cross_semester_comparisons', {})
+            }
             
     else:
         # Walk-in session metrics

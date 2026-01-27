@@ -709,6 +709,288 @@ def calculate_monthly_patterns(df, date_col='Appointment_DateTime'):
     return metrics
 
 
+def calculate_daily_patterns_by_semester(df, date_col='Appointment_DateTime'):
+    """
+    Calculate daily patterns broken down by semester.
+    
+    This is critical for answering questions like:
+    - "What was the busiest day in Spring 2022?"
+    - "How does Spring 2023's busiest day compare to Spring 2024?"
+    
+    Handles small datasets gracefully - returns None for semesters with insufficient data.
+    
+    Returns dict with:
+    - by_semester: Dictionary keyed by semester label (e.g., "Spring 2022")
+      Each contains:
+        - busiest_date: Date string
+        - busiest_count: Number of sessions
+        - top_5_dates: List of top 5 dates with counts
+        - slowest_date: Date string
+        - slowest_count: Number of sessions
+        - total_sessions: Total sessions in that semester
+        - unique_dates: Number of unique dates in semester
+        - data_sufficiency: Whether there's enough data for meaningful analysis
+    - available_semesters: List of semesters with data
+    - busiest_semester: Which semester had the overall busiest day
+    """
+    metrics = {}
+    
+    if date_col not in df.columns:
+        return metrics
+    
+    if 'Semester_Label' not in df.columns:
+        return metrics
+    
+    df_temp = df.copy()
+    df_temp['Date'] = df_temp[date_col].dt.date
+    
+    # Get all unique semesters
+    semesters = df_temp['Semester_Label'].unique()
+    metrics['available_semesters'] = sorted(semesters.tolist())
+    
+    # Calculate daily patterns for each semester
+    by_semester = {}
+    busiest_day_overall = None
+    busiest_count_overall = 0
+    
+    for semester in semesters:
+        semester_data = df_temp[df_temp['Semester_Label'] == semester]
+        
+        # Handle empty or very small datasets
+        if len(semester_data) == 0:
+            by_semester[semester] = {
+                'total_sessions': 0,
+                'data_sufficiency': False,
+                'message': 'No data available'
+            }
+            continue
+        
+        # Get session counts per date
+        date_counts = semester_data.groupby('Date').size().sort_values(ascending=False)
+        
+        unique_dates = len(date_counts)
+        total_sessions = len(semester_data)
+        
+        # Check data sufficiency (at least 3 unique dates and 10 sessions)
+        sufficient_data = unique_dates >= 3 and total_sessions >= 10
+        
+        if not sufficient_data:
+            by_semester[semester] = {
+                'total_sessions': total_sessions,
+                'unique_dates': unique_dates,
+                'data_sufficiency': False,
+                'message': f'Limited data: {unique_dates} dates, {total_sessions} sessions'
+            }
+            
+            # Still include the busiest date even if limited
+            if len(date_counts) > 0:
+                busiest_date = str(date_counts.idxmax())
+                busiest_count = int(date_counts.max())
+                by_semester[semester]['busiest_date'] = busiest_date
+                by_semester[semester]['busiest_count'] = busiest_count
+                
+                # Track overall busiest even with limited data
+                if busiest_count > busiest_count_overall:
+                    busiest_count_overall = busiest_count
+                    busiest_day_overall = semester
+            continue
+        
+        # Extract top 5 and bottom 5 dates
+        top_5 = date_counts.head(5)
+        bottom_5 = date_counts.tail(5)
+        
+        busiest_date = str(date_counts.idxmax())
+        busiest_count = int(date_counts.max())
+        slowest_date = str(date_counts.idxmin())
+        slowest_count = int(date_counts.min())
+        
+        by_semester[semester] = {
+            'busiest_date': busiest_date,
+            'busiest_count': busiest_count,
+            'top_5_dates': {
+                'dates': [str(date) for date in top_5.index],
+                'counts': top_5.values.tolist()
+            },
+            'slowest_date': slowest_date,
+            'slowest_count': slowest_count,
+            'total_sessions': total_sessions,
+            'unique_dates': unique_dates,
+            'data_sufficiency': True
+        }
+        
+        # Track overall busiest semester
+        if busiest_count > busiest_count_overall:
+            busiest_count_overall = busiest_count
+            busiest_day_overall = semester
+    
+    metrics['by_semester'] = by_semester
+    metrics['busiest_semester'] = busiest_day_overall
+    
+    return metrics
+
+
+def calculate_semester_year_comparisons(df, date_col='Appointment_DateTime'):
+    """
+    Calculate year-over-year comparisons for semesters.
+    
+    This is critical for answering questions like:
+    - "How does Spring 2023 compare to Spring 2024?"
+    - "What was the difference between Fall 2022 and Fall 2023?"
+    
+    Handles small datasets gracefully - only compares semesters that exist.
+    
+    Returns dict with:
+    - spring_comparisons: Year-over-year for Spring semesters
+      Each comparison includes:
+        - busiest_day_counts: Busiest day counts for each year
+        - total_sessions: Total sessions per year
+        - growth_rates: Percentage change year-to-year
+        - data_available: List of Spring semesters with data
+    - fall_comparisons: Year-over-year for Fall semesters (same structure)
+    - cross_semester_comparisons: Spring vs Fall within same year
+    """
+    metrics = {}
+    
+    if date_col not in df.columns:
+        return metrics
+    
+    if 'Semester_Label' not in df.columns:
+        return metrics
+    
+    df_temp = df.copy()
+    df_temp['Date'] = df_temp[date_col].dt.date
+    df_temp['Year'] = df_temp[date_col].dt.year
+    
+    # Separate Spring and Fall semesters
+    spring_data = df_temp[df_temp['Semester_Label'].str.contains('Spring')]
+    fall_data = df_temp[df_temp['Semester_Label'].str.contains('Fall')]
+    
+    # Spring comparisons
+    if len(spring_data) > 0:
+        spring_metrics = _calculate_year_over_year_metrics(spring_data, 'Spring')
+        metrics['spring_comparisons'] = spring_metrics
+    else:
+        metrics['spring_comparisons'] = {'message': 'No Spring semester data available'}
+    
+    # Fall comparisons
+    if len(fall_data) > 0:
+        fall_metrics = _calculate_year_over_year_metrics(fall_data, 'Fall')
+        metrics['fall_comparisons'] = fall_metrics
+    else:
+        metrics['fall_comparisons'] = {'message': 'No Fall semester data available'}
+    
+    # Cross-semester comparisons (Spring vs Fall within same year)
+    cross_semester = {}
+    years = df_temp['Year'].unique()
+    
+    for year in sorted(years):
+        spring_year_data = df_temp[(df_temp['Year'] == year) & (df_temp['Semester_Label'].str.contains('Spring'))]
+        fall_year_data = df_temp[(df_temp['Year'] == year) & (df_temp['Semester_Label'].str.contains('Fall'))]
+        
+        if len(spring_year_data) > 0 and len(fall_year_data) > 0:
+            # Get busiest days for each semester
+            spring_dates = spring_year_data.groupby('Date').size().sort_values(ascending=False)
+            fall_dates = fall_year_data.groupby('Date').size().sort_values(ascending=False)
+            
+            spring_busiest = int(spring_dates.max()) if len(spring_dates) > 0 else 0
+            fall_busiest = int(fall_dates.max()) if len(fall_dates) > 0 else 0
+            
+            cross_semester[str(year)] = {
+                'spring_busiest_count': spring_busiest,
+                'fall_busiest_count': fall_busiest,
+                'difference': fall_busiest - spring_busiest,
+                'higher_semester': 'Fall' if fall_busiest > spring_busiest else 'Spring' if spring_busiest > fall_busiest else 'Equal',
+                'spring_total': len(spring_year_data),
+                'fall_total': len(fall_year_data),
+                'total_difference': len(fall_year_data) - len(spring_year_data)
+            }
+    
+    if cross_semester:
+        metrics['cross_semester_comparisons'] = cross_semester
+    else:
+        metrics['cross_semester_comparisons'] = {'message': 'No years with both Spring and Fall data'}
+    
+    return metrics
+
+
+def _calculate_year_over_year_metrics(df, semester_type):
+    """
+    Helper function to calculate year-over-year metrics for a semester type.
+    
+    Args:
+        df: DataFrame filtered to a specific semester type (Spring or Fall)
+        semester_type: 'Spring' or 'Fall'
+    
+    Returns:
+        dict with year-over-year comparison metrics
+    """
+    metrics = {}
+    
+    if len(df) == 0:
+        return {'message': f'No {semester_type} data available'}
+    
+    # Get years present
+    years = df['Year'].unique()
+    
+    if len(years) == 0:
+        return {'message': f'No {semester_type} data available'}
+    
+    metrics['data_available'] = sorted(years.tolist())
+    
+    # Calculate busiest day counts per year
+    busiest_counts = {}
+    total_sessions = {}
+    
+    for year in sorted(years):
+        year_data = df[df['Year'] == year]
+        
+        if len(year_data) == 0:
+            continue
+        
+        # Busiest day count
+        date_counts = year_data.groupby('Date').size()
+        if len(date_counts) > 0:
+            busiest_counts[int(year)] = int(date_counts.max())
+        
+        # Total sessions
+        total_sessions[int(year)] = len(year_data)
+    
+    metrics['busiest_day_counts'] = busiest_counts
+    metrics['total_sessions'] = total_sessions
+    
+    # Calculate growth rates
+    growth_rates = {}
+    sorted_years = sorted(busiest_counts.keys())
+    
+    for i in range(1, len(sorted_years)):
+        prev_year = sorted_years[i-1]
+        curr_year = sorted_years[i]
+        
+        prev_val = busiest_counts[prev_year]
+        curr_val = busiest_counts[curr_year]
+        
+        if prev_val > 0:
+            growth_pct = ((curr_val - prev_val) / prev_val) * 100
+            growth_rates[f"{prev_year} to {curr_year}"] = {
+                'percentage_change': round(growth_pct, 1),
+                'previous_value': prev_val,
+                'current_value': curr_val,
+                'absolute_change': curr_val - prev_val
+            }
+        else:
+            growth_rates[f"{prev_year} to {curr_year}"] = {
+                'percentage_change': None,
+                'message': 'Cannot calculate growth - previous year had 0 busiest day count',
+                'previous_value': prev_val,
+                'current_value': curr_val,
+                'absolute_change': curr_val - prev_val
+            }
+    
+    metrics['growth_rates'] = growth_rates
+    
+    return metrics
+
+
 def calculate_semester_trend_comparisons(df):
     """
     Calculate comprehensive semester comparisons for multiple metrics.
@@ -1088,6 +1370,8 @@ def calculate_all_metrics(df):
         'hourly_location': calculate_hourly_location_patterns(df),
         'daily_patterns': calculate_daily_patterns(df),
         'monthly_patterns': calculate_monthly_patterns(df),
+        'daily_patterns_by_semester': calculate_daily_patterns_by_semester(df),
+        'semester_year_comparisons': calculate_semester_year_comparisons(df),
         'semester_trends': calculate_semester_trend_comparisons(df)
     }
 

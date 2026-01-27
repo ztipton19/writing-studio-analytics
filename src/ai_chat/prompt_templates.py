@@ -83,6 +83,12 @@ MONTHLY PATTERNS:
 SEMESTER TRENDS (comparisons across semesters):
 {semester_trends}
 
+DAILY PATTERNS BY SEMESTER (busiest dates per semester):
+{daily_patterns_by_semester}
+
+YEAR-OVER-YEAR COMPARISONS (semester trends across years):
+{semester_year_comparisons}
+
 Respond conversationally but professionally. Focus on patterns and trends."""
 
 
@@ -171,6 +177,8 @@ def build_system_prompt(data_context: dict, data_mode: str) -> str:
     daily_patterns = format_daily_patterns(data_context['key_metrics'])
     monthly_patterns = format_monthly_patterns(data_context['key_metrics'])
     semester_trends = format_semester_trends(data_context['key_metrics'])
+    daily_patterns_by_semester = format_daily_patterns_by_semester(data_context['key_metrics'])
+    semester_year_comparisons = format_semester_year_comparisons(data_context['key_metrics'])
     
     if data_mode == 'scheduled':
         return SCHEDULED_SYSTEM_PROMPT.format(
@@ -180,7 +188,9 @@ def build_system_prompt(data_context: dict, data_mode: str) -> str:
             key_metrics=key_metrics,
             daily_patterns=daily_patterns,
             monthly_patterns=monthly_patterns,
-            semester_trends=semester_trends
+            semester_trends=semester_trends,
+            daily_patterns_by_semester=daily_patterns_by_semester,
+            semester_year_comparisons=semester_year_comparisons
         )
     else:
         return WALKIN_SYSTEM_PROMPT.format(
@@ -256,6 +266,116 @@ def format_semester_trends(metrics: dict) -> str:
             lines.append(f"    - {sem}: {rate}%")
     
     return "\n".join(lines) if lines else "No semester trends available"
+
+
+def format_daily_patterns_by_semester(metrics: dict) -> str:
+    """Format daily patterns by semester for prompt."""
+    dps = metrics.get('daily_patterns_by_semester', {})
+    if not dps:
+        return "No semester-specific daily patterns available"
+    
+    lines = []
+    
+    # Available semesters
+    available = dps.get('available_semesters', [])
+    if available:
+        lines.append("  Available semesters:")
+        for sem in available:
+            lines.append(f"    - {sem}")
+    
+    # Busiest semester
+    busiest = dps.get('busiest_semester')
+    if busiest:
+        lines.append(f"\n  Busiest semester overall: {busiest}")
+    
+    # Detailed breakdown by semester
+    by_semester = dps.get('by_semester', {})
+    if by_semester:
+        lines.append("\n  Busiest dates by semester:")
+        for sem, data in by_semester.items():
+            if data.get('data_sufficiency', False):
+                lines.append(f"    - {sem}:")
+                lines.append(f"      Busiest date: {data.get('busiest_date', 'N/A')} ({data.get('busiest_count', 0)} sessions)")
+                lines.append(f"      Total sessions: {data.get('total_sessions', 0)}")
+            else:
+                # Limited data
+                lines.append(f"    - {sem}:")
+                lines.append(f"      Limited data: {data.get('message', 'N/A')}")
+                if 'busiest_date' in data:
+                    lines.append(f"      Busiest date: {data.get('busiest_date', 'N/A')} ({data.get('busiest_count', 0)} sessions)")
+    
+    return "\n".join(lines) if lines else "No semester-specific daily patterns available"
+
+
+def format_semester_year_comparisons(metrics: dict) -> str:
+    """Format semester year-over-year comparisons for prompt."""
+    syc = metrics.get('semester_year_comparisons', {})
+    if not syc:
+        return "No year-over-year comparisons available"
+    
+    lines = []
+    
+    # Spring comparisons
+    spring = syc.get('spring_comparisons', {})
+    if spring and 'message' not in spring:
+        lines.append("  Spring semester year-over-year:")
+        
+        data_available = spring.get('data_available', [])
+        if data_available:
+            lines.append(f"    Years with data: {', '.join(str(y) for y in data_available)}")
+        
+        busiest_counts = spring.get('busiest_day_counts', {})
+        if busiest_counts:
+            lines.append("    Busiest day counts by year:")
+            for year, count in busiest_counts.items():
+                lines.append(f"      {year}: {count} sessions")
+        
+        growth_rates = spring.get('growth_rates', {})
+        if growth_rates:
+            lines.append("\n    Year-over-year growth:")
+            for period, data in growth_rates.items():
+                pct = data.get('percentage_change')
+                if pct is not None:
+                    lines.append(f"      {period}: {pct:+.1f}% ({data.get('previous_value', 0)} → {data.get('current_value', 0)})")
+                else:
+                    lines.append(f"      {period}: {data.get('message', 'N/A')}")
+    
+    # Fall comparisons
+    fall = syc.get('fall_comparisons', {})
+    if fall and 'message' not in fall:
+        lines.append("\n  Fall semester year-over-year:")
+        
+        data_available = fall.get('data_available', [])
+        if data_available:
+            lines.append(f"    Years with data: {', '.join(str(y) for y in data_available)}")
+        
+        busiest_counts = fall.get('busiest_day_counts', {})
+        if busiest_counts:
+            lines.append("    Busiest day counts by year:")
+            for year, count in busiest_counts.items():
+                lines.append(f"      {year}: {count} sessions")
+        
+        growth_rates = fall.get('growth_rates', {})
+        if growth_rates:
+            lines.append("\n    Year-over-year growth:")
+            for period, data in growth_rates.items():
+                pct = data.get('percentage_change')
+                if pct is not None:
+                    lines.append(f"      {period}: {pct:+.1f}% ({data.get('previous_value', 0)} → {data.get('current_value', 0)})")
+                else:
+                    lines.append(f"      {period}: {data.get('message', 'N/A')}")
+    
+    # Cross-semester comparisons
+    cross = syc.get('cross_semester_comparisons', {})
+    if cross and 'message' not in cross:
+        lines.append("\n  Spring vs Fall by year:")
+        for year, data in cross.items():
+            lines.append(f"    {year}:")
+            lines.append(f"      Spring busiest: {data.get('spring_busiest_count', 0)} ({data.get('spring_total', 0)} total)")
+            lines.append(f"      Fall busiest: {data.get('fall_busiest_count', 0)} ({data.get('fall_total', 0)} total)")
+            lines.append(f"      Higher: {data.get('higher_semester', 'Equal')}")
+    
+    return "\n".join(lines) if lines else "No year-over-year comparisons available"
 
 
 def format_schema_info(data_context: dict) -> str:
