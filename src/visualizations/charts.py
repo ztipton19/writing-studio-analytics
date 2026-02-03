@@ -664,7 +664,7 @@ def plot_writing_stages(df):
     if 'Writing_Stage' not in df.columns:
         return None
     
-    stages = df['Writing_Stage'].value_counts().head(10)
+    stages = df['Writing_Stage'].value_counts().head(10).sort_values(ascending=True)
     
     if len(stages) == 0:
         return None
@@ -684,7 +684,7 @@ def plot_writing_stages(df):
     for i, val in enumerate(stages.values):
         ax.text(val, i, f' {val}', va='center', fontsize=9)
 
-    plt.tight_layout(rect=MARGIN_RECT)
+    plt.tight_layout()
 
     return fig
 
