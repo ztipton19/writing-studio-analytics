@@ -1,0 +1,327 @@
+{
+  "scheduled": [
+    {
+      "label": "Student Email",
+      "target": "Student Email",
+      "source": "Student Email",
+      "category": "Identity",
+      "required": true
+    },
+    {
+      "label": "Tutor Email",
+      "target": "Tutor Email",
+      "source": "Tutor Email",
+      "category": "Identity",
+      "required": false
+    },
+    {
+      "label": "Session ID",
+      "target": "Unique ID",
+      "source": "Unique ID",
+      "category": "Core",
+      "required": true
+    },
+    {
+      "label": "Session Status",
+      "target": "Status",
+      "source": "Status",
+      "category": "Core",
+      "required": true
+    },
+    {
+      "label": "Course / Document Type",
+      "target": "Course",
+      "source": "Course",
+      "category": "Core",
+      "required": false
+    },
+    {
+      "label": "Location",
+      "target": "Location",
+      "source": "Location",
+      "category": "Core",
+      "required": false
+    },
+    {
+      "label": "Session Length",
+      "target": "Tutor Submitted Length",
+      "source": "Tutor Submitted Length",
+      "category": "Core",
+      "required": false
+    },
+    {
+      "label": "Attendance",
+      "target": "Student Attendance",
+      "source": "Student Attendance",
+      "category": "Core",
+      "required": false
+    },
+    {
+      "label": "Booking Date",
+      "target": "Requested At Date",
+      "source": "Requested At Date",
+      "category": "Dates",
+      "required": false
+    },
+    {
+      "label": "Booking Time",
+      "target": "Requested At Time",
+      "source": "Requested At Time",
+      "category": "Dates",
+      "required": false
+    },
+    {
+      "label": "Appointment Date",
+      "target": "Requested Start At Date",
+      "source": "Requested Start At Date",
+      "category": "Dates",
+      "required": false
+    },
+    {
+      "label": "Appointment Time",
+      "target": "Requested Start At Time",
+      "source": "Requested Start At Time",
+      "category": "Dates",
+      "required": false
+    },
+    {
+      "label": "Session Start Date",
+      "target": "Started At Date",
+      "source": "Started At Date",
+      "category": "Dates",
+      "required": false
+    },
+    {
+      "label": "Session Start Time",
+      "target": "Started At Time",
+      "source": "Started At Time",
+      "category": "Dates",
+      "required": false
+    },
+    {
+      "label": "Session End Date",
+      "target": "Ended At Date",
+      "source": "Ended At Date",
+      "category": "Dates",
+      "required": false
+    },
+    {
+      "label": "Session End Time",
+      "target": "Ended At Time",
+      "source": "Ended At Time",
+      "category": "Dates",
+      "required": false
+    },
+    {
+      "label": "Cancellation Date",
+      "target": "Cancelled At Date",
+      "source": "Cancelled At Date",
+      "category": "Dates",
+      "required": false
+    },
+    {
+      "label": "Cancellation Time",
+      "target": "Cancelled At Time",
+      "source": "Cancelled At Time",
+      "category": "Dates",
+      "required": false
+    },
+    {
+      "label": "Pre-Session Confidence",
+      "target": "Agenda - How confident do you feel about your writing assignment right now? (1=\"Not at all\"; 5=\"Very\")",
+      "source": "Agenda - How confident do you feel about your writing assignment right now? (1=\"Not at all\"; 5=\"Very\")",
+      "category": "Pre-Session Survey",
+      "required": false
+    },
+    {
+      "label": "First Appointment?",
+      "target": "Agenda - Is this your first appointment?",
+      "source": "Agenda - Is this your first appointment?",
+      "category": "Pre-Session Survey",
+      "required": false
+    },
+    {
+      "label": "Visit Context",
+      "target": "Agenda - Please check one of the following boxes to help us determine the context of your visit.",
+      "source": "Agenda - Please check one of the following boxes to help us determine the context of your visit.",
+      "category": "Pre-Session Survey",
+      "required": false
+    },
+    {
+      "label": "Writing Stage",
+      "target": "Agenda - Roughly speaking, what stage of the writing process are you in right now?",
+      "source": "Agenda - Roughly speaking, what stage of the writing process are you in right now?",
+      "category": "Pre-Session Survey",
+      "required": false
+    },
+    {
+      "label": "Focus Area",
+      "target": "Agenda - What would you like to focus on during this appointment?",
+      "source": "Agenda - What would you like to focus on during this appointment?",
+      "category": "Pre-Session Survey",
+      "required": false
+    },
+    {
+      "label": "Paper Due Date",
+      "target": "Agenda - When is your paper due?",
+      "source": "Agenda - When is your paper due?",
+      "category": "Pre-Session Survey",
+      "required": false
+    },
+    {
+      "label": "Post-Session Confidence",
+      "target": "Student - How confident do you feel about your writing assignment now that your meeting is over (1=\"Not at all\"; 5=\"Very\")?",
+      "source": "Student - How confident do you feel about your writing assignment now that your meeting is over (1=\"Not at all\"; 5=\"Very\")?",
+      "aliases": [
+        "Student - How confident do you feel about your writing assignment now that your meeting is over? (1=\"Not at all\"; 5=\"Very\")"
+      ],
+      "category": "Post-Session Feedback",
+      "required": false
+    },
+    {
+      "label": "Overall Satisfaction",
+      "target": "Student - How satisfied are you with the help you received at the Writing Studio (1=\"extremely dissatisfied,\" 7=\"extremely satisfied\")?",
+      "source": "Student - How satisfied are you with the help you received at the Writing Studio (1=\"extremely dissatisfied,\" 7=\"extremely satisfied\")?",
+      "aliases": [
+        "Student - On a scale of 1-7 (1=\"extremely dissatisfied,\" 7=\"extremely satisfied\"), how satisfied are you with the help you received at the Writing Studio?"
+      ],
+      "category": "Post-Session Feedback",
+      "required": false
+    },
+    {
+      "label": "Tutor Rapport",
+      "target": "Student - On a scale of 1-5 (1=\"not at all,\" 5=\"extremely well\"), how well did you get along with your tutor?",
+      "source": "Student - On a scale of 1-5 (1=\"not at all,\" 5=\"extremely well\"), how well did you get along with your tutor?",
+      "category": "Post-Session Feedback",
+      "required": false
+    },
+    {
+      "label": "Platform Ease",
+      "target": "Student - On a scale of 1-5 (1=\"not easy at all\", 5=\"extremely easy\"), how easy was it to use our website and scheduling software to schedule and attend your appointment?",
+      "source": "Student - On a scale of 1-5 (1=\"not easy at all\", 5=\"extremely easy\"), how easy was it to use our website and scheduling software to schedule and attend your appointment?",
+      "category": "Post-Session Feedback",
+      "required": false
+    },
+    {
+      "label": "Session Quality",
+      "target": "Student - On a scale of 1-5 (1=\"very poorly\", 5=\"very well\"), how well would you say your appointment went?",
+      "source": "Student - On a scale of 1-5 (1=\"very poorly\", 5=\"very well\"), how well would you say your appointment went?",
+      "category": "Post-Session Feedback",
+      "required": false
+    },
+    {
+      "label": "Incentives Offered",
+      "target": "Student - Were you offered any of the following incentives for today's visit? Please select any that apply.",
+      "source": "Student - Were you offered any of the following incentives for today's visit? Please select any that apply.",
+      "category": "Post-Session Feedback",
+      "required": false
+    },
+    {
+      "label": "Tutor Session Rating",
+      "target": "Tutor - Overall, how well would you say that the consultation went?",
+      "source": "Tutor - Overall, how well would you say that the consultation went?",
+      "category": "Tutor Feedback",
+      "required": false
+    }
+  ],
+  "walkin": [
+    {
+      "label": "Student Email",
+      "target": "Student Email",
+      "source": "Student Email",
+      "category": "Identity",
+      "required": true
+    },
+    {
+      "label": "Tutor Email",
+      "target": "Tutor Email",
+      "source": "Tutor Email",
+      "category": "Identity",
+      "required": false
+    },
+    {
+      "label": "Session ID",
+      "target": "Unique ID",
+      "source": "Unique ID",
+      "category": "Core",
+      "required": true
+    },
+    {
+      "label": "Session Status",
+      "target": "Status",
+      "source": "Status",
+      "category": "Core",
+      "required": true
+    },
+    {
+      "label": "Course / Document Type",
+      "target": "Course",
+      "source": "Course",
+      "category": "Core",
+      "required": false
+    },
+    {
+      "label": "Session Duration",
+      "target": "Duration Minutes",
+      "source": "Duration Minutes",
+      "category": "Core",
+      "required": false
+    },
+    {
+      "label": "Check-In Date",
+      "target": "Check In At Date",
+      "source": "Check In At Date",
+      "category": "Dates",
+      "required": true
+    },
+    {
+      "label": "Check-In Time",
+      "target": "Check In At Time",
+      "source": "Check In At Time",
+      "category": "Dates",
+      "required": true
+    },
+    {
+      "label": "Session Start Date",
+      "target": "Started At Date",
+      "source": "Started At Date",
+      "category": "Dates",
+      "required": false
+    },
+    {
+      "label": "Session Start Time",
+      "target": "Started At Time",
+      "source": "Started At Time",
+      "category": "Dates",
+      "required": false
+    },
+    {
+      "label": "Session End Date",
+      "target": "Ended At Date",
+      "source": "Ended At Date",
+      "category": "Dates",
+      "required": false
+    },
+    {
+      "label": "Session End Time",
+      "target": "Ended At Time",
+      "source": "Ended At Time",
+      "category": "Dates",
+      "required": false
+    },
+    {
+      "label": "Cancellation Date",
+      "target": "Cancelled At Date",
+      "source": "Cancelled At Date",
+      "category": "Dates",
+      "required": false
+    },
+    {
+      "label": "Cancellation Time",
+      "target": "Cancelled At Time",
+      "source": "Cancelled At Time",
+      "category": "Dates",
+      "required": false
+    }
+  ]
+}

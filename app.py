@@ -3,6 +3,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import json
 from datetime import datetime
 
 from src.core.data_cleaner import clean_data, detect_session_type
@@ -309,11 +310,79 @@ def render_ai_chat_tab():
 
 
 # ============================================================================
+# COLUMN MAPPING HELPERS
+# ============================================================================
+
+MAPPING_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'column_mapping.json')
+
+
+def load_column_mapping():
+    """Load column mapping config from JSON."""
+    try:
+        with open(MAPPING_PATH, 'r') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {"scheduled": [], "walkin": []}
+
+
+def save_column_mapping(mapping):
+    """Write updated column mapping back to JSON."""
+    with open(MAPPING_PATH, 'w') as f:
+        json.dump(mapping, f, indent=2)
+
+
+def validate_columns(df, session_type):
+    """
+    Check which expected columns are present in the uploaded CSV.
+    Returns list of dicts — each entry from the mapping plus 'found' and 'found_as'.
+    """
+    mapping = load_column_mapping()
+    entries = mapping.get(session_type, [])
+    results = []
+    for entry in entries:
+        source = entry['source']
+        aliases = entry.get('aliases', [])
+        if source in df.columns:
+            results.append({**entry, 'found': True, 'found_as': source})
+        else:
+            matched_alias = next((a for a in aliases if a in df.columns), None)
+            results.append({**entry, 'found': bool(matched_alias), 'found_as': matched_alias})
+    return results
+
+
+def normalize_columns(df, session_type):
+    """
+    Rename columns in the uploaded CSV so they match what the app code expects.
+    For each mapping entry: source → target.
+    Aliases are also handled: if source is missing but an alias is present,
+    the alias gets renamed to target instead.
+    This runs ONCE before anonymization/cleaning so all downstream code
+    works unchanged regardless of what Penji called the columns.
+    """
+    mapping = load_column_mapping()
+    entries = mapping.get(session_type, [])
+    rename_dict = {}
+    for entry in entries:
+        target = entry['target']
+        source = entry['source']
+        aliases = entry.get('aliases', [])
+        if source in df.columns:
+            if source != target:
+                rename_dict[source] = target
+        else:
+            for alias in aliases:
+                if alias in df.columns:
+                    if alias != target:
+                        rename_dict[alias] = target
+                    break
+    return df.rename(columns=rename_dict)
+
+
+# ============================================================================
 # MAIN APP - TABS
 # ============================================================================
 
-# Always show all three tabs — AI Chat tab handles its own missing-model state
-tab1, tab2, tab3 = st.tabs(["📊 Generate Report", "🔍 Codebook Lookup", "🤖 AI Chat Assistant"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Generate Report", "🔍 Codebook Lookup", "🤖 AI Chat Assistant", "🗺️ Column Mapping"])
 
 
 # ============================================================================
@@ -399,7 +468,27 @@ with tab1:
                     f"Please switch the radio button above or upload the correct file."
                 )
                 st.stop()
-            
+
+            # ============================================================
+            # COLUMN VALIDATION + NORMALIZE
+            # ============================================================
+
+            column_validation = validate_columns(df, expected_mode)
+            st.session_state['column_validation'] = column_validation
+            st.session_state['uploaded_columns'] = list(df.columns)
+            st.session_state['expected_mode'] = expected_mode
+
+            missing_cols = [r for r in column_validation if not r['found']]
+            if missing_cols:
+                st.warning(
+                    f"⚠️ {len(missing_cols)} column(s) not matched in your file. "
+                    f"The report will skip those sections. "
+                    f"See the **Column Mapping** tab to fix."
+                )
+
+            # Normalize: rename CSV columns → what the app expects internally
+            df = normalize_columns(df, expected_mode)
+
             # Show preview
             with st.expander("📋 Data Summary"):
                 col1, col2 = st.columns(2)
@@ -928,3 +1017,107 @@ with tab3:
             "which is not currently installed. Run `pip install llama-cpp-python` "
             "and restart the app to enable this feature."
         )
+
+
+# ============================================================================
+# TAB 4: COLUMN MAPPING
+# ============================================================================
+
+with tab4:
+    st.header("🗺️ Column Mapping")
+
+    # Toast if we just saved
+    if st.session_state.pop('mapping_just_saved', False):
+        st.success("✅ Column mapping updated! The next report will use the new column names.")
+
+    if 'column_validation' not in st.session_state:
+        st.info(
+            "📋 Upload a data file in the **Generate Report** tab first, "
+            "then come back here to check column connections."
+        )
+    else:
+        validation = st.session_state['column_validation']
+        session_type = st.session_state.get('expected_mode', 'scheduled')
+        uploaded_cols = st.session_state.get('uploaded_columns', [])
+
+        connected = [r for r in validation if r['found']]
+        missing = [r for r in validation if not r['found']]
+
+        # ── Summary ──────────────────────────────────────────────────────
+        if not missing:
+            st.success(f"✅ All {len(connected)} columns connected successfully.")
+        else:
+            st.warning(
+                f"⚠️ {len(missing)} column(s) not found in your file. "
+                f"The report will skip those sections."
+            )
+
+        # ── Missing columns: needs fixing ────────────────────────────────
+        if missing:
+            st.markdown("### Columns to fix")
+            st.caption(
+                "Pick the correct column from your uploaded file for each one below, "
+                "then click **Save Changes**."
+            )
+
+            changes = {}
+
+            # Group missing by category, preserving order
+            seen_cats = []
+            for r in missing:
+                if r['category'] not in seen_cats:
+                    seen_cats.append(r['category'])
+
+            for cat in seen_cats:
+                cat_items = [r for r in missing if r['category'] == cat]
+                st.markdown(f"**{cat}**")
+
+                for entry in cat_items:
+                    col1, col2 = st.columns([1, 2])
+
+                    with col1:
+                        req_badge = " *(required)*" if entry.get('required') else ""
+                        st.markdown(f"❌ **{entry['label']}**{req_badge}")
+                        # Show what we were looking for (truncate long names)
+                        source_display = entry['source']
+                        if len(source_display) > 55:
+                            source_display = source_display[:52] + "..."
+                        st.caption(f'Looking for: "{source_display}"')
+
+                    with col2:
+                        selected = st.selectbox(
+                            "Map to column in your file:",
+                            options=["— not mapped —"] + sorted(uploaded_cols),
+                            key=f"remap_{entry['target']}"
+                        )
+                        if selected != "— not mapped —":
+                            changes[entry['target']] = selected
+
+                st.markdown("")  # spacing between categories
+
+            # Save button — only active when user has picked at least one
+            if changes:
+                if st.button("💾 Save Changes", type="primary", use_container_width=True):
+                    full_mapping = load_column_mapping()
+                    for entry in full_mapping[session_type]:
+                        if entry['target'] in changes:
+                            entry['source'] = changes[entry['target']]
+                    save_column_mapping(full_mapping)
+                    st.session_state['mapping_just_saved'] = True
+                    st.rerun()
+            else:
+                st.info("Select a column from the dropdowns above to enable Save.")
+
+        # ── Connected columns: expandable detail ─────────────────────────
+        with st.expander(f"✅ {len(connected)} columns connected", expanded=False):
+            seen_cats = []
+            for r in connected:
+                if r['category'] not in seen_cats:
+                    seen_cats.append(r['category'])
+
+            for cat in seen_cats:
+                cat_items = [r for r in connected if r['category'] == cat]
+                st.markdown(f"**{cat}**")
+                for entry in cat_items:
+                    st.markdown(f"  ✅ **{entry['label']}** ← `{entry['found_as']}`")
+                st.markdown("")
