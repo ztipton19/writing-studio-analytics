@@ -230,3 +230,4 @@ test_*.py
 python/
 python-embed.zip
 get-pip.py
+logs/blocked_queries.log
