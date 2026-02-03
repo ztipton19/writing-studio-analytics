@@ -95,7 +95,9 @@ def merge_datetime_columns(df):
 def rename_columns(df):
     """
     Rename columns to be more concise and analysis-friendly.
-    Only renames columns that exist in the dataframe.
+    Only renames columns that exist in dataframe.
+    
+    Handles both old and new Penji column name formats for backward compatibility.
     """
     rename_map = {
         # Core Session Info
@@ -115,16 +117,28 @@ def rename_columns(df):
         'Agenda - How confident do you feel about your writing assignment right now? (1="Not at all"; 5="Very")': 'Pre_Confidence',
         'Agenda - Is this your first appointment?': 'Is_First_Appointment',
         'Agenda - Please check one of the following boxes to help us determine the context of your visit.': 'Visit_Context',
+        'Agenda - Please check one of the following boxes to help us determine the context of your visit.': 'Visit_Context',
         'Agenda - Roughly speaking, what stage of the writing process are you in right now?': 'Writing_Stage',
         'Agenda - What would you like to focus on during this appointment?': 'Focus_Area',
         'Agenda - When is your paper due?': 'Paper_Due_Date',
         
-        # Post-Session (Student Feedback)
+        # Post-Session (Student Feedback) - UPDATED COLUMN NAMES (Penji changed format)
+        
+        # NEW FORMAT (current Penji export)
+        'Student - How confident do you feel about your writing assignment now that your meeting is over (1="Not at all"; 5="Very")?': 'Post_Confidence',
+        'Student - How satisfied are you with the help you received at the Writing Studio (1="extremely dissatisfied," 7="extremely satisfied")?': 'Overall_Satisfaction',
+        
+        # OLD FORMAT (for backward compatibility)
         'Student - How confident do you feel about your writing assignment now that your meeting is over? (1="Not at all"; 5="Very")': 'Post_Confidence',
+        'Student - On a scale of 1-7 (1="extremely dissatisfied," 7="extremely satisfied"), how satisfied are you with the help you received at the Writing Studio?': 'Overall_Satisfaction',
+        
+        # These appear to still use old format
         'Student - On a scale of 1-5 (1="not at all," 5="extremely well"), how well did you get along with your tutor?': 'Tutor_Rapport',
         'Student - On a scale of 1-5 (1="not easy at all", 5="extremely easy"), how easy was it to use our website and scheduling software to schedule and attend your appointment?': 'Platform_Ease',
-        'Student - On a scale of 1-5 (1="very poorly", 5="very well"), how well would you say your your appointment went?': 'Session_Quality',
-        'Student - On a scale of 1-7 (1="extremely dissatisfied," 7="extremely satisfied"), how satisfied are you with the help you received at the Writing Studio?': 'Overall_Satisfaction',
+        
+        # Session_Quality - This column may be missing in some exports
+        # OLD FORMAT (may be removed by Penji)
+        'Student - On a scale of 1-5 (1="very poorly", 5="very well"), how well would you say your appointment went?': 'Session_Quality',
         
         # Tutor Feedback
         'Tutor - Overall, how well would you say that the consultation went?': 'Tutor_Session_Rating',
