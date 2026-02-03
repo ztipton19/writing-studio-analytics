@@ -246,6 +246,7 @@ def consolidate_courses(df):
     df_clean['Course'] = df_clean['Course'].str.strip()
     
     # Classify real course codes vs document types
+    # Note: Always creates Course_Code column for backward compatibility with older data
     import os
     valid_codes = set()
     try:
@@ -273,6 +274,9 @@ def consolidate_courses(df):
         df_clean['Course_Code'] = df_clean['Course'].apply(classify)
         code_count = df_clean['Course_Code'].notna().sum()
         print(f"  ✓ Course codes identified: {code_count}")
+    else:
+        # Create empty Course_Code column if no valid codes available
+        df_clean['Course_Code'] = np.nan
     
     # Summary
     final_unique = df_clean['Course'].nunique()

@@ -1311,10 +1311,14 @@ def plot_course_table(df, courses_csv_path='courses.csv'):
     Shows Subject Abbreviation, Course Number, and session count.
     Only shows courses with at least 1 visit.
     Sorted alphabetically by subject, N/A pinned to bottom.
+    
+    Note: Skips gracefully if no course data available (e.g., older exports)
     """
+    # Safety check: Course_Code column must exist
     if 'Course_Code' not in df.columns:
         return None
     
+    # Safety check: Must have non-null course data
     course_data = df['Course_Code'].dropna()
     
     if len(course_data) == 0:

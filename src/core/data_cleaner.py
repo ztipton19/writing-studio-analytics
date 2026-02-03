@@ -701,24 +701,32 @@ def classify_course_column(df, courses_csv_path='courses.csv'):
     - The original Course column keeps all values (renamed to Document_Type later)
     
     Uses courses.csv to identify valid course codes.
+    
+    Note: Always creates Course_Code column, even if Course column is missing
+    (handles older data that doesn't have course codes)
     """
     import os
     
     df_classified = df.copy()
     
     if 'Course' not in df_classified.columns:
+        # Create empty Course_Code column for backward compatibility
+        df_classified['Course_Code'] = np.nan
         return df_classified
     
     # Build set of valid course codes from courses.csv
     valid_codes = set()
+    courses_csv_found = False
+    
     try:
-        # Try relative to the project root
+        # Try relative to be project root
         courses_df = pd.read_csv(courses_csv_path)
         for _, row in courses_df.iterrows():
             abbrev = str(row['Subject Abbreviation']).strip()
             number = str(row['Course Number']).strip()
             code = abbrev + number
             valid_codes.add(code)
+        courses_csv_found = True
     except FileNotFoundError:
         # Try from src/core/ directory
         alt_path = os.path.join(os.path.dirname(__file__), '..', '..', 'courses.csv')
@@ -729,9 +737,14 @@ def classify_course_column(df, courses_csv_path='courses.csv'):
                 number = str(row['Course Number']).strip()
                 code = abbrev + number
                 valid_codes.add(code)
+            courses_csv_found = True
         except FileNotFoundError:
             print("  ⚠️  courses.csv not found - skipping course classification")
-            return df_classified
+    
+    # If no courses.csv found or no valid codes, create empty Course_Code column
+    if not courses_csv_found or not valid_codes:
+        df_classified['Course_Code'] = np.nan
+        return df_classified
     
     # Classify each Course value
     def classify(value):
@@ -790,7 +803,14 @@ def clean_scheduled_sessions(df, remove_outliers_flag=True, log_actions=True):
 
     # Step 0.7: Classify Course column (separate real courses from document types)
     df_clean = classify_course_column(df_clean)
-    course_code_count = df_clean['Course_Code'].notna().sum()
+    
+    # Safety check: Ensure Course_Code column always exists (for backward compatibility)
+    if 'Course_Code' not in df_clean.columns:
+        df_clean['Course_Code'] = np.nan
+        course_code_count = 0
+    else:
+        course_code_count = df_clean['Course_Code'].notna().sum()
+    
     if log_actions:
         print(f"✓ Step 0.7: Classified courses ({course_code_count} real course codes found)")
 
