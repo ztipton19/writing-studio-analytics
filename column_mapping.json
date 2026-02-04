@@ -136,7 +136,7 @@
     {
       "label": "First Appointment?",
       "target": "Agenda - Is this your first appointment?",
-      "source": "Agenda - Is this your first appointment?",
+      "source": "Agenda - Is this your first appointment? ",
       "category": "Pre-Session Survey",
       "required": false
     },
@@ -157,7 +157,7 @@
     {
       "label": "Focus Area",
       "target": "Agenda - What would you like to focus on during this appointment?",
-      "source": "Agenda - What would you like to focus on during this appointment?",
+      "source": "Agenda - What would you like to focus on during this appointment? ",
       "category": "Pre-Session Survey",
       "required": false
     },
@@ -205,7 +205,7 @@
     {
       "label": "Session Quality",
       "target": "Student - On a scale of 1-5 (1=\"very poorly\", 5=\"very well\"), how well would you say your appointment went?",
-      "source": "Student - On a scale of 1-5 (1=\"very poorly\", 5=\"very well\"), how well would you say your appointment went?",
+      "source": "Student - On a scale of 1-5 (1=\"very poorly\", 5=\"very well\"), how well would you say your your appointment went?",
       "category": "Post-Session Feedback",
       "required": false
     },
