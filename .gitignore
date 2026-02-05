@@ -49,6 +49,10 @@ MANIFEST
 *.manifest
 *.spec
 
+# PyQt executables
+WritingStudioAnalytics
+WritingStudioAnalytics.exe
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
