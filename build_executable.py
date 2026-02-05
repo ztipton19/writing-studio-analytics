@@ -87,10 +87,10 @@ def build_executable():
         f"--add-data=src:src",               # Bundle source code
         f"--add-data=courses.csv:.",           # Bundle course reference
         f"--add-data=models:models",           # Bundle AI models
-        "--hidden-import=matplotlib.backends.backend_qt5agg",
-        "--hidden-import=PyQt5.QtGui",
-        "--hidden-import=PyQt5.QtCore",
-        "--hidden-import=PyQt5.QtWidgets",
+        "--hidden-import=matplotlib.backends.backend_qtagg",
+        "--hidden-import=PyQt6.QtGui",
+        "--hidden-import=PyQt6.QtCore",
+        "--hidden-import=PyQt6.QtWidgets",
         "--hidden-import=llama_cpp",
         "--hidden-import=cryptography",
         "--clean",                             # Clean build cache

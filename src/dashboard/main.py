@@ -2,27 +2,27 @@
 
 # CRITICAL: Set matplotlib backend BEFORE any other imports
 import matplotlib
-matplotlib.use('Qt5Agg')
+matplotlib.use('Qt6Agg')
 
 import sys
 import os
 from pathlib import Path
 import pandas as pd
 
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout,
     QFileDialog, QMessageBox, QStatusBar, QMenuBar, QAction,
     QLabel, QToolBar, QPushButton, QDialog, QCheckBox, QLineEdit,
     QRadioButton, QButtonGroup, QProgressBar, QFormLayout, QGroupBox,
     QScrollArea, QTextEdit
 )
-from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
-from PyQt5.QtGui import QIcon, QFont, QPalette, QColor
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
+from PyQt6.QtGui import QIcon, QFont, QPalette, QColor
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 
 # Application-wide imports
 from src.core.data_cleaner import clean_data, detect_session_type
