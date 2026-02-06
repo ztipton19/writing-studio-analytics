@@ -2,7 +2,7 @@
 
 # CRITICAL: Set matplotlib backend BEFORE any other imports
 import matplotlib
-matplotlib.use('Qt6Agg')
+matplotlib.use('qtagg')
 
 import sys
 import os

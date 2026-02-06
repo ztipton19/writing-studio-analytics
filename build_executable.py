@@ -87,12 +87,19 @@ def build_executable():
         f"--add-data=src:src",               # Bundle source code
         f"--add-data=courses.csv:.",           # Bundle course reference
         f"--add-data=models:models",           # Bundle AI models
-        "--hidden-import=matplotlib.backends.backend_qtagg",
+        "--collect-all=PyQt6",                # Bundle all PyQt6 files (plugins, DLLs, etc.)
+        "--collect-binaries=PyQt6",           # Collect PyQt6 binaries
+        "--collect-data=PyQt6",               # Collect PyQt6 data files
         "--hidden-import=PyQt6.QtGui",
         "--hidden-import=PyQt6.QtCore",
         "--hidden-import=PyQt6.QtWidgets",
+        "--hidden-import=matplotlib.backends.backend_qtagg",
         "--hidden-import=llama_cpp",
         "--hidden-import=cryptography",
+        "--hidden-import=pandas",
+        "--hidden-import=numpy",
+        "--hidden-import=scipy",
+        "--hidden-import=seaborn",
         "--clean",                             # Clean build cache
         "--noconfirm",                         # Don't ask for confirmation
     ]
