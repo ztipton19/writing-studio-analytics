@@ -70,9 +70,6 @@ class InputValidator:
             # Creative Writing
             'joke', 'story', 'poem', 'essay about', 'write a poem',
             'write a story', 'creative writing',
-            # Technology (non-data related)
-            'iphone', 'android', 'phone', 'computer', 'laptop',
-            'how to code', 'programming language', 'software',
             # Weather-related terms (temperature, humidity, etc.)
             'temperature', 'forecast', 'humidity', 'wind speed',
             'rain', 'snow', 'sunny', 'cloudy', 'storm'
