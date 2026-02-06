@@ -11,13 +11,13 @@ import pandas as pd
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout,
-    QFileDialog, QMessageBox, QStatusBar, QMenuBar, QAction,
+    QFileDialog, QMessageBox, QStatusBar, QMenuBar,
     QLabel, QToolBar, QPushButton, QDialog, QCheckBox, QLineEdit,
     QRadioButton, QButtonGroup, QProgressBar, QFormLayout, QGroupBox,
     QScrollArea, QTextEdit
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
-from PyQt6.QtGui import QIcon, QFont, QPalette, QColor
+from PyQt6.QtGui import QIcon, QFont, QPalette, QColor, QAction
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))

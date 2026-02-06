@@ -88,6 +88,7 @@ def build_executable():
         f"--add-data=courses.csv:.",           # Bundle course reference
         f"--add-data=models:models",           # Bundle AI models
         "--collect-all=PyQt6",                # Bundle all PyQt6 files (plugins, DLLs, etc.)
+        "--collect-all=llama_cpp",            # Bundle all llama-cpp-python files (including lib/ with DLLs)
         "--collect-binaries=PyQt6",           # Collect PyQt6 binaries
         "--collect-data=PyQt6",               # Collect PyQt6 data files
         "--hidden-import=PyQt6.QtGui",
