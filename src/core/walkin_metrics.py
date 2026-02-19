@@ -1,4 +1,4 @@
-# src/analytics/walkin_metrics.py
+﻿# src/analytics/walkin_metrics.py
 
 """
 Walk-In Metrics Module
@@ -654,7 +654,7 @@ def calculate_all_metrics(df):
     print("Calculating course distribution...")
     metrics['course_distribution'] = calculate_course_distribution(df)
     
-    print("✓ All metrics calculated successfully")
+    print(" All metrics calculated successfully")
     
     return metrics
 
@@ -775,3 +775,5 @@ if __name__ == "__main__":
     print("  - calculate_gini_coefficient(values)")
     print("  - generate_executive_summary(metrics)")
     print("=" * 70)
+
+

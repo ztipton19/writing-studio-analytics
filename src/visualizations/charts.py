@@ -1,4 +1,4 @@
-# src/visualizations/charts.py
+﻿# src/visualizations/charts.py
 
 import pandas as pd
 import numpy as np
@@ -1122,7 +1122,7 @@ def plot_incentives_vs_tutor_rating(incentive_metrics):
     ax.set_xticklabels(categories, fontsize=12)
     ax.set_ylabel('Average Tutor Rating', fontsize=12)
     ax.set_ylim(0, 5.5)
-    ax.set_title('Tutor Session Ratings by Incentive Type\n(1=Didn\'t go well, 5=Went extremely well; error bars show ±1 SEM)',
+    ax.set_title('Tutor Session Ratings by Incentive Type\n(1=Didn\'t go well, 5=Went extremely well; error bars show 1 SEM)',
                  fontsize=14, pad=15)
     ax.axhline(y=4.0, color='gray', linestyle='--', alpha=0.3, label='Reference: 4.0')
     ax.grid(axis='y', alpha=0.2)
@@ -1210,7 +1210,7 @@ def plot_incentives_vs_satisfaction(incentive_metrics):
     ax.set_xticklabels(categories, fontsize=12)
     ax.set_ylabel('Average Student Satisfaction', fontsize=12)
     ax.set_ylim(0, 7.5)
-    ax.set_title('Student Satisfaction Ratings by Incentive Type\n(1=Extremely dissatisfied, 7=Extremely satisfied; error bars show ±1 SEM)',
+    ax.set_title('Student Satisfaction Ratings by Incentive Type\n(1=Extremely dissatisfied, 7=Extremely satisfied; error bars show 1 SEM)',
                  fontsize=14, pad=15)
     ax.axhline(y=6.0, color='gray', linestyle='--', alpha=0.3, label='Reference: 6.0')
     ax.grid(False)
@@ -1354,7 +1354,7 @@ def plot_course_table(df, courses_csv_path='courses.csv'):
             info = code_to_info[code]
             table_rows.append({'Subject': info['subject'], 'Course Number': info['number'], 'Sessions': count, '_sort_last': False})
         else:
-            # Unknown code — still show it
+            # Unknown code  still show it
             table_rows.append({'Subject': code, 'Course Number': '', 'Sessions': count, '_sort_last': False})
     
     if not table_rows:
@@ -1408,3 +1408,4 @@ def plot_course_table(df, courses_csv_path='courses.csv'):
     plt.tight_layout(rect=MARGIN_RECT)
     
     return fig
+

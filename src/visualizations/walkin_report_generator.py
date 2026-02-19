@@ -1,4 +1,4 @@
-# src/visualizations/walkin_report_generator.py
+﻿# src/visualizations/walkin_report_generator.py
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
@@ -70,7 +70,7 @@ def create_executive_summary_page(summary):
     ax.text(0.1, y_pos, 'Key Findings', fontsize=14, weight='bold')
     y_pos -= 0.03
     for finding in summary['key_findings']:
-        ax.text(0.12, y_pos, f"• {finding}", fontsize=10, wrap=True)
+        ax.text(0.12, y_pos, f" {finding}", fontsize=10, wrap=True)
         y_pos -= 0.025
 
     # Concerns (if any)
@@ -79,7 +79,7 @@ def create_executive_summary_page(summary):
         ax.text(0.1, y_pos, 'Concerns', fontsize=14, weight='bold')
         y_pos -= 0.03
         for concern in summary['concerns']:
-            ax.text(0.12, y_pos, f"• {concern}", fontsize=10)
+            ax.text(0.12, y_pos, f" {concern}", fontsize=10)
             y_pos -= 0.025
 
     # Recommendations (if any)
@@ -88,7 +88,7 @@ def create_executive_summary_page(summary):
         ax.text(0.1, y_pos, 'Recommendations', fontsize=14, weight='bold')
         y_pos -= 0.03
         for rec in summary['recommendations']:
-            ax.text(0.12, y_pos, f"• {rec}", fontsize=10)
+            ax.text(0.12, y_pos, f" {rec}", fontsize=10)
             y_pos -= 0.025
 
     plt.tight_layout()
@@ -111,7 +111,7 @@ def create_metadata_page(df, cleaning_log=None):
             transform=ax.transAxes)
 
     y -= 0.04
-    ax.text(0.5, y, '─' * 30, ha='center', fontsize=10, transform=ax.transAxes,
+    ax.text(0.5, y, '' * 30, ha='center', fontsize=10, transform=ax.transAxes,
             family='monospace')
 
     y -= 0.04
@@ -161,7 +161,7 @@ def create_metadata_page(df, cleaning_log=None):
                 transform=ax.transAxes)
 
         y -= 0.04
-        ax.text(0.5, y, '─' * 30, ha='center', fontsize=10, transform=ax.transAxes,
+        ax.text(0.5, y, '' * 30, ha='center', fontsize=10, transform=ax.transAxes,
                 family='monospace')
 
         y -= 0.04
@@ -188,7 +188,7 @@ def create_metadata_page(df, cleaning_log=None):
                 transform=ax.transAxes)
 
         y -= 0.04
-        ax.text(0.5, y, '─' * 30, ha='center', fontsize=10, transform=ax.transAxes,
+        ax.text(0.5, y, '' * 30, ha='center', fontsize=10, transform=ax.transAxes,
                 family='monospace')
 
         y -= 0.04
@@ -208,7 +208,7 @@ def create_metadata_page(df, cleaning_log=None):
                 transform=ax.transAxes)
 
         y -= 0.04
-        ax.text(0.5, y, '─' * 30, ha='center', fontsize=10, transform=ax.transAxes,
+        ax.text(0.5, y, '' * 30, ha='center', fontsize=10, transform=ax.transAxes,
                 family='monospace')
 
         y -= 0.04
@@ -224,7 +224,7 @@ def create_metadata_page(df, cleaning_log=None):
                 transform=ax.transAxes)
 
         y -= 0.04
-        ax.text(0.5, y, '─' * 30, ha='center', fontsize=10, transform=ax.transAxes,
+        ax.text(0.5, y, '' * 30, ha='center', fontsize=10, transform=ax.transAxes,
                 family='monospace')
 
         y -= 0.04
@@ -246,7 +246,7 @@ def create_metadata_page(df, cleaning_log=None):
                 transform=ax.transAxes)
 
         y -= 0.04
-        ax.text(0.5, y, '─' * 30, ha='center', fontsize=10, transform=ax.transAxes,
+        ax.text(0.5, y, '' * 30, ha='center', fontsize=10, transform=ax.transAxes,
                 family='monospace')
 
         y -= 0.04
@@ -282,31 +282,31 @@ def generate_walkin_report(df, cleaning_log=None, output_path='walkin_report.pdf
     - Path to generated PDF
     """
     
-    print("\n📊 Generating Walk-In Analytics Report...")
+    print("\n Generating Walk-In Analytics Report...")
     print("="*80)
     
     # Calculate all metrics
-    print("\n📊 Calculating metrics...")
+    print("\n Calculating metrics...")
     try:
         metrics = calculate_all_metrics(df)
     except Exception as e:
-        print(f"❌ Error calculating metrics: {str(e)}")
+        print(f" Error calculating metrics: {str(e)}")
         raise
     
     # Generate executive summary
-    print("📝 Generating executive summary...")
+    print(" Generating executive summary...")
     try:
         summary = generate_executive_summary(metrics)
     except Exception as e:
-        print(f"❌ Error generating executive summary: {str(e)}")
+        print(f" Error generating executive summary: {str(e)}")
         raise
     
     # Generate all charts
-    print("📈 Generating charts...")
+    print(" Generating charts...")
     try:
         charts = create_all_walkin_charts(df, metrics)
     except Exception as e:
-        print(f"❌ Error generating charts: {str(e)}")
+        print(f" Error generating charts: {str(e)}")
         import traceback
         traceback.print_exc()
         raise
@@ -323,111 +323,111 @@ def generate_walkin_report(df, cleaning_log=None, output_path='walkin_report.pdf
     with PdfPages(output_path) as pdf:
         
         # Cover Page
-        print("\n📄 Creating cover page...")
+        print("\n Creating cover page...")
         fig = create_cover_page(df, date_range)
         pdf.savefig(fig)
         plt.close(fig)
         
         # Metadata Page
-        print("📄 Creating metadata page...")
+        print(" Creating metadata page...")
         fig = create_metadata_page(df, cleaning_log)
         pdf.savefig(fig)
         plt.close(fig)
         
         # Executive Summary
-        print("📄 Creating executive summary...")
+        print(" Creating executive summary...")
         fig = create_executive_summary_page(summary)
         pdf.savefig(fig)
         plt.close(fig)
         
         # WALK-INS OVER TIME (Time Series with 7-day rolling average)
-        print("\n📈 Walk-Ins Over Time")
+        print("\n Walk-Ins Over Time")
         if 'walkins_over_time' in charts:
             pdf.savefig(charts['walkins_over_time'])
             plt.close(charts['walkins_over_time'])
-            print("   ✓ Walk-ins over time")
+            print("    Walk-ins over time")
         
         # SECTION 1: CONSULTANT WORKLOAD
-        print("\n👥 Section 1: Consultant Workload")
+        print("\n Section 1: Consultant Workload")
         
         if 'consultant_workload' in charts:
             pdf.savefig(charts['consultant_workload'])
             plt.close(charts['consultant_workload'])
-            print("   ✓ Workload distribution")
+            print("    Workload distribution")
         
         if 'consultant_hours' in charts:
             pdf.savefig(charts['consultant_hours'])
             plt.close(charts['consultant_hours'])
-            print("   ✓ Consultant hours")
+            print("    Consultant hours")
         
         # SECTION 2: TEMPORAL PATTERNS
-        print("\n⏰ Section 2: Temporal Patterns")
+        print("\n Section 2: Temporal Patterns")
         
         if 'sessions_by_day' in charts:
             pdf.savefig(charts['sessions_by_day'])
             plt.close(charts['sessions_by_day'])
-            print("   ✓ Sessions by day")
+            print("    Sessions by day")
         
         if 'sessions_heatmap' in charts:
             pdf.savefig(charts['sessions_heatmap'])
             plt.close(charts['sessions_heatmap'])
-            print("   ✓ Sessions heatmap")
+            print("    Sessions heatmap")
         
         # SECTION 3: DURATION ANALYSIS
-        print("\n⏱️  Section 3: Duration Analysis")
+        print("\n  Section 3: Duration Analysis")
         
         if 'completed_duration' in charts:
             pdf.savefig(charts['completed_duration'])
             plt.close(charts['completed_duration'])
-            print("   ✓ Completed sessions duration (Consultant Meetings)")
+            print("    Completed sessions duration (Consultant Meetings)")
         
         if 'checkin_duration' in charts:
             pdf.savefig(charts['checkin_duration'])
             plt.close(charts['checkin_duration'])
-            print("   ✓ Check-in sessions duration (Independent Space Usage)")
+            print("    Check-in sessions duration (Independent Space Usage)")
         
         if 'duration_by_course' in charts:
             pdf.savefig(charts['duration_by_course'])
             plt.close(charts['duration_by_course'])
-            print("   ✓ Duration by course")
+            print("    Duration by course")
         
         # SECTION 4: INDEPENDENT SPACE USAGE
-        print("\n🏢 Section 4: Independent Space Usage")
+        print("\n Section 4: Independent Space Usage")
         
         if 'checkin_usage' in charts:
             pdf.savefig(charts['checkin_usage'])
             plt.close(charts['checkin_usage'])
-            print("   ✓ Check-in usage")
+            print("    Check-in usage")
         
         if 'checkin_courses' in charts:
             pdf.savefig(charts['checkin_courses'])
             plt.close(charts['checkin_courses'])
-            print("   ✓ Check-in courses")
+            print("    Check-in courses")
         
         # SECTION 5: COURSE DISTRIBUTION
-        print("\n📚 Section 5: Course Distribution")
+        print("\n Section 5: Course Distribution")
         
         if 'course_distribution' in charts:
             pdf.savefig(charts['course_distribution'])
             plt.close(charts['course_distribution'])
-            print("   ✓ Course distribution")
+            print("    Course distribution")
         
         if 'top_courses_pie' in charts:
             pdf.savefig(charts['top_courses_pie'])
             plt.close(charts['top_courses_pie'])
-            print("   ✓ Top courses pie")
+            print("    Top courses pie")
         
         # SECTION 6: COURSE ENROLLMENT TABLE
-        print("\n📚 Section 6: Course Enrollment")
+        print("\n Section 6: Course Enrollment")
 
         import src.visualizations.charts as charts_module
         fig = charts_module.plot_course_table(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Course enrollment table")
+            print("    Course enrollment table")
         else:
-            print("   ⏭️  Skipped (no course code data)")
+            print("     Skipped (no course code data)")
         
         # Metadata
         d = pdf.infodict()
@@ -438,7 +438,7 @@ def generate_walkin_report(df, cleaning_log=None, output_path='walkin_report.pdf
         d['CreationDate'] = datetime.now()
     
     print("\n" + "="*80)
-    print(f"✅ Report generated: {output_path}")
+    print(f" Report generated: {output_path}")
     print(f"   Total pages: ~{3 + len(charts)}")
     print("="*80 + "\n")
     
@@ -452,3 +452,5 @@ if __name__ == "__main__":
     print("  from walkin_report_generator import generate_walkin_report")
     print("  generate_walkin_report(df_clean, 'report.pdf')")
     print("=" * 70)
+
+

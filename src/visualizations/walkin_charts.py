@@ -1,4 +1,4 @@
-# src/visualizations/walkin_charts.py
+﻿# src/visualizations/walkin_charts.py
 
 """
 Walk-In Charts Module
@@ -115,7 +115,7 @@ def create_consultant_workload_chart(metrics):
     """
 
     if 'error' in metrics:
-        print(f"⚠️  Cannot create workload chart: {metrics['message']}")
+        print(f"  Cannot create workload chart: {metrics['message']}")
         return None
 
     # Extract data
@@ -243,17 +243,35 @@ def create_sessions_by_hour_chart(metrics):
     """
     
     if 'by_hour' not in metrics:
-        print("⚠️  Cannot create hourly chart: missing hour data")
+        print("  Cannot create hourly chart: missing hour data")
         return None
     
     # Extract data
     hourly_data = metrics['by_hour']['distribution']
     peak_hour = metrics['by_hour']['peak_hour']
     peak_hours = metrics.get('peak_periods', {}).get('hours', [peak_hour])
-    
-    # Create full 24-hour range
-    hours = list(range(min(hourly_data.keys()), max(hourly_data.keys()) + 1))
-    sessions = [hourly_data.get(h, 0) for h in hours]
+
+    # Normalize keys to integer hours to handle float keys from some exports
+    normalized_hourly = {}
+    for raw_hour, count in hourly_data.items():
+        if raw_hour is None:
+            continue
+        try:
+            hour = int(raw_hour)
+        except (TypeError, ValueError):
+            continue
+        if 0 <= hour <= 23:
+            normalized_hourly[hour] = normalized_hourly.get(hour, 0) + count
+
+    if not normalized_hourly:
+        print("  Cannot create hourly chart: no valid hour values")
+        return None
+
+    peak_hours = [int(h) for h in peak_hours if h is not None]
+
+    # Create full hour range observed in the data
+    hours = list(range(min(normalized_hourly.keys()), max(normalized_hourly.keys()) + 1))
+    sessions = [normalized_hourly.get(h, 0) for h in hours]
     
     # Color bars (peak hours in orange, others in blue)
     colors_list = [COLORS['warning'] if h in peak_hours else COLORS['primary'] 
@@ -304,7 +322,7 @@ def create_sessions_by_day_chart(metrics):
     """
     
     if 'by_day' not in metrics:
-        print("⚠️  Cannot create daily chart: missing day data")
+        print("  Cannot create daily chart: missing day data")
         return None
     
     # Extract data
@@ -358,7 +376,7 @@ def create_sessions_heatmap(df):
     """
     
     if 'Day_of_Week' not in df.columns or 'Hour_of_Day' not in df.columns:
-        print("⚠️  Cannot create heatmap: missing Day_of_Week or Hour_of_Day columns")
+        print("  Cannot create heatmap: missing Day_of_Week or Hour_of_Day columns")
         return None
     
     # Create pivot table
@@ -380,7 +398,7 @@ def create_sessions_heatmap(df):
     # Labels and title
     ax.set_xlabel('Hour of Day')
     ax.set_ylabel('Day of Week')
-    ax.set_title('Walk-In Session Volume Heatmap (Day × Hour)', fontsize=14, pad=20)
+    ax.set_title('Walk-In Session Volume Heatmap (Day  Hour)', fontsize=14, pad=20)
     
     plt.tight_layout(rect=MARGIN_RECT)
     
@@ -413,11 +431,11 @@ def create_completed_duration_chart(metrics):
     """
     
     if 'error' in metrics:
-        print(f"⚠️  Cannot create completed duration chart: {metrics.get('message', 'Unknown error')}")
+        print(f"  Cannot create completed duration chart: {metrics.get('message', 'Unknown error')}")
         return None
     
     if 'by_status' not in metrics or 'Completed' not in metrics['by_status']:
-        print("⚠️  No Completed session data available")
+        print("  No Completed session data available")
         return None
     
     completed_data = metrics['by_status']['Completed']
@@ -495,11 +513,11 @@ def create_checkin_duration_chart(metrics):
     """
     
     if 'error' in metrics:
-        print(f"⚠️  Cannot create check-in duration chart: {metrics.get('message', 'Unknown error')}")
+        print(f"  Cannot create check-in duration chart: {metrics.get('message', 'Unknown error')}")
         return None
     
     if 'by_status' not in metrics or 'Check In' not in metrics['by_status']:
-        print("⚠️  No Check-In session data available")
+        print("  No Check-In session data available")
         return None
     
     checkin_data = metrics['by_status']['Check In']
@@ -592,7 +610,7 @@ def create_duration_by_course_chart(metrics):
         durations = [d['mean'] for _, d in sorted_courses]
         counts = [d['count'] for _, d in sorted_courses]
     except KeyError as e:
-        print(f"⚠️  Cannot create duration by course chart: missing key {e}")
+        print(f"  Cannot create duration by course chart: missing key {e}")
         return None
     
     # Create figure
@@ -637,7 +655,7 @@ def create_checkin_usage_chart(metrics):
     """
     
     if metrics.get('total_checkin_sessions', 0) == 0:
-        print("ℹ️  No check-in sessions to visualize")
+        print("  No check-in sessions to visualize")
         return None
     
     # Create figure (single subplot now)
@@ -728,7 +746,7 @@ def create_course_distribution_chart(metrics):
     """
     
     if 'error' in metrics:
-        print(f"⚠️  Cannot create course chart: {metrics['message']}")
+        print(f"  Cannot create course chart: {metrics['message']}")
         return None
     
     # Extract data
@@ -903,7 +921,7 @@ def create_all_walkin_charts(df, metrics):
     # Remove None values (charts that couldn't be created)
     charts = {k: v for k, v in charts.items() if v is not None}
     
-    print(f"\n✓ Generated {len(charts)} charts successfully")
+    print(f"\n Generated {len(charts)} charts successfully")
     
     return charts
 
@@ -926,3 +944,5 @@ if __name__ == "__main__":
     print("  - create_checkin_usage_chart(metrics)")
     print("  - create_course_distribution_chart(metrics)")
     print("=" * 70)
+
+

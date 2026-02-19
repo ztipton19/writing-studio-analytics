@@ -155,10 +155,10 @@ class ProcessingOptionsDialog(QDialog):
             self.password_valid_label.setText("")
             self.password_valid_label.setStyleSheet("")
         elif len(password) < 12:
-            self.password_valid_label.setText("âš ï¸ Password must be at least 12 characters")
+            self.password_valid_label.setText(" Password must be at least 12 characters")
             self.password_valid_label.setStyleSheet("color: #C73E1D; font-weight: bold;")
         else:
-            self.password_valid_label.setText("âœ“ Password length OK")
+            self.password_valid_label.setText(" Password length OK")
             self.password_valid_label.setStyleSheet("color: #06A77D; font-weight: bold;")
         
         # Password match validation
@@ -166,10 +166,10 @@ class ProcessingOptionsDialog(QDialog):
             self.match_label.setText("")
             self.match_label.setStyleSheet("")
         elif password != confirm:
-            self.match_label.setText("âš ï¸ Passwords do not match")
+            self.match_label.setText(" Passwords do not match")
             self.match_label.setStyleSheet("color: #C73E1D; font-weight: bold;")
         else:
-            self.match_label.setText("âœ“ Passwords match")
+            self.match_label.setText(" Passwords match")
             self.match_label.setStyleSheet("color: #06A77D; font-weight: bold;")
         
         # Enable process button only if valid
@@ -342,15 +342,15 @@ class CodebookLookupDialog(QDialog):
             return
         
         if anon_id.startswith('STU_'):
-            self.id_format_label.setText("âœ“ Student ID format")
+            self.id_format_label.setText(" Student ID format")
             self.id_format_label.setStyleSheet("font-size: 11px; color: #06A77D;")
             self.lookup_btn.setEnabled(True)
         elif anon_id.startswith('TUT_'):
-            self.id_format_label.setText("âœ“ Tutor ID format")
+            self.id_format_label.setText(" Tutor ID format")
             self.id_format_label.setStyleSheet("font-size: 11px; color: #06A77D;")
             self.lookup_btn.setEnabled(True)
         else:
-            self.id_format_label.setText("âš ï¸ Invalid format. Must start with STU_ or TUT_")
+            self.id_format_label.setText(" Invalid format. Must start with STU_ or TUT_")
             self.id_format_label.setStyleSheet("font-size: 11px; color: #C73E1D;")
             self.lookup_btn.setEnabled(False)
     
@@ -359,7 +359,7 @@ class CodebookLookupDialog(QDialog):
         password = self.password_field.text()
         
         if not password:
-            self.auth_status_label.setText("âš ï¸ Please enter a password")
+            self.auth_status_label.setText(" Please enter a password")
             self.auth_status_label.setStyleSheet("color: #C73E1D;")
             return
         
@@ -383,7 +383,7 @@ class CodebookLookupDialog(QDialog):
                 total_tutors=info.get('total_tutors', 0)
             )
             self.auth_status_label.setText(
-                f"âœ… Unlocked!\n"
+                f" Unlocked!\n"
                 f"Session Type: {info['session_type'].title()}\n"
                 f"Students: {info['total_students']:,} | Tutors: {info['total_tutors']:,}\n"
                 f"Date Range: {info['date_range']}"
@@ -402,7 +402,7 @@ class CodebookLookupDialog(QDialog):
             
         except Exception as e:
             audit_event("codebook_unlock_error", error=str(e))
-            self.auth_status_label.setText(f"âŒ Error: {str(e)}")
+            self.auth_status_label.setText(f" Error: {str(e)}")
             self.auth_status_label.setStyleSheet("color: #C73E1D; font-weight: bold;")
     
     def lookup_id(self):
@@ -410,12 +410,12 @@ class CodebookLookupDialog(QDialog):
         anon_id = self.id_input.text().strip().upper()
         
         if not self.codebook_unlocked:
-            self.result_label.setText("âŒ Codebook not unlocked")
+            self.result_label.setText(" Codebook not unlocked")
             self.result_label.setStyleSheet("color: #C73E1D; font-weight: bold;")
             return
         
         if not anon_id:
-            self.result_label.setText("âŒ Please enter an ID")
+            self.result_label.setText(" Please enter an ID")
             self.result_label.setStyleSheet("color: #C73E1D; font-weight: bold;")
             return
         
@@ -427,10 +427,10 @@ class CodebookLookupDialog(QDialog):
         audit_event(
             "codebook_lookup",
             id_type="STU" if anon_id.startswith("STU_") else ("TUT" if anon_id.startswith("TUT_") else "unknown"),
-            success=not result.startswith('âŒ')
+            success=not result.startswith('')
         )
         
-        if result.startswith('âŒ'):
+        if result.startswith(''):
             # Error
             self.result_label.setText(result)
             self.result_label.setStyleSheet("color: #C73E1D; font-weight: bold;")
@@ -444,7 +444,7 @@ class CodebookLookupDialog(QDialog):
     def copy_result(self):
         """Copy result to clipboard."""
         result = self.result_label.text()
-        if result and not result.startswith('âŒ'):
+        if result and not result.startswith(''):
             clipboard = QApplication.clipboard()
             clipboard.setText(result)
             
@@ -647,10 +647,10 @@ class AIChatTab(QWidget):
         welcome = """<b>AI Assistant:</b> Hello! I'm ready to help you analyze your Writing Studio data.
 
 I can help you with questions like:
-â€¢ "What's the average session length?"
-â€¢ "How many students visited this semester?"
-â€¢ "Which days are busiest?"
-â€¢ "What's the completion rate?"
+ "What's the average session length?"
+ "How many students visited this semester?"
+ "Which days are busiest?"
+ "What's the completion rate?"
 
 <b>Privacy Note:</b> I can only discuss aggregated data and statistics. I cannot reveal individual student or tutor information.
 
@@ -1600,3 +1600,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

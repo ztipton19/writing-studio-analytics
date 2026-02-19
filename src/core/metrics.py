@@ -1,4 +1,4 @@
-# src/core/metrics.py
+﻿# src/core/metrics.py
 
 import pandas as pd
 from src.core.location_metrics import calculate_location_metrics
@@ -104,7 +104,7 @@ def calculate_time_patterns(df, date_col='Appointment_DateTime'):
         'slowest_hour': int(hour_counts.idxmin())
     }
     
-    # Heatmap data (day × hour)
+    # Heatmap data (day  hour)
     heatmap = df_temp.groupby(['Day_of_Week', 'Hour']).size().unstack(fill_value=0)
     heatmap = heatmap.reindex(day_order[:5], fill_value=0)  # Weekdays only
     
@@ -1314,3 +1314,4 @@ def generate_executive_summary(metrics):
     summary['recommendations'] = unique_recs
     
     return summary
+

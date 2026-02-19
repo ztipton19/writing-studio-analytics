@@ -99,7 +99,7 @@ def clean_walkin_data(df):
     print("="*70)
     print(f"Original rows: {len(df)}")
     print(f"Cleaned rows: {len(df_clean)}")
-    print(f"Columns: {len(df.columns)} → {len(df_clean.columns)}")
+    print(f"Columns: {len(df.columns)} -> {len(df_clean.columns)}")
     if outlier_stats['removed_count'] > 0:
         print(f"Outliers removed: {outlier_stats['removed_count']} ({outlier_stats['removed_pct']:.1f}%)")
         print(f"Valid range: {outlier_stats['lower_bound']:.2f} - {outlier_stats['upper_bound']:.2f} minutes")
@@ -128,43 +128,69 @@ def parse_walkin_datetimes(df):
     Combines them into proper datetime objects.
     """
     df_clean = df.copy()
+
+    def _combine_datetime(date_series, time_series):
+        """Combine date/time series robustly across mixed dtypes."""
+        date_str = date_series.fillna('').astype(str).str.strip()
+        time_str = time_series.fillna('').astype(str).str.strip()
+        combined = (date_str + ' ' + time_str).str.strip()
+        return pd.to_datetime(combined, errors='coerce')
     
     # Parse Check In datetime
     if 'Check In At Date' in df.columns and 'Check In At Time' in df.columns:
-        df_clean['Check_In_DateTime'] = pd.to_datetime(
-            df_clean['Check In At Date'] + ' ' + df_clean['Check In At Time'],
-            errors='coerce'
+        df_clean['Check_In_DateTime'] = _combine_datetime(
+            df_clean['Check In At Date'],
+            df_clean['Check In At Time']
         )
         parsed = df_clean['Check_In_DateTime'].notna().sum()
-        print(f"  ✓ Parsed Check In DateTime: {parsed} records")
+        print(f"  [OK] Parsed Check In DateTime: {parsed} records")
     
     # Parse Started At datetime
     if 'Started At Date' in df.columns and 'Started At Time' in df.columns:
-        df_clean['Started_DateTime'] = pd.to_datetime(
-            df_clean['Started At Date'] + ' ' + df_clean['Started At Time'],
-            errors='coerce'
+        df_clean['Started_DateTime'] = _combine_datetime(
+            df_clean['Started At Date'],
+            df_clean['Started At Time']
         )
         parsed = df_clean['Started_DateTime'].notna().sum()
-        print(f"  ✓ Parsed Started DateTime: {parsed} records")
+        print(f"  [OK] Parsed Started DateTime: {parsed} records")
     
     # Parse Ended At datetime
     if 'Ended At Date' in df.columns and 'Ended At Time' in df.columns:
-        df_clean['Ended_DateTime'] = pd.to_datetime(
-            df_clean['Ended At Date'] + ' ' + df_clean['Ended At Time'],
-            errors='coerce'
+        df_clean['Ended_DateTime'] = _combine_datetime(
+            df_clean['Ended At Date'],
+            df_clean['Ended At Time']
         )
         parsed = df_clean['Ended_DateTime'].notna().sum()
-        print(f"  ✓ Parsed Ended DateTime: {parsed} records")
+        print(f"  [OK] Parsed Ended DateTime: {parsed} records")
     
     # Parse Cancelled At datetime
     if 'Cancelled At Date' in df.columns and 'Cancelled At Time' in df.columns:
-        df_clean['Cancelled_DateTime'] = pd.to_datetime(
-            df_clean['Cancelled At Date'] + ' ' + df_clean['Cancelled At Time'],
-            errors='coerce'
+        df_clean['Cancelled_DateTime'] = _combine_datetime(
+            df_clean['Cancelled At Date'],
+            df_clean['Cancelled At Time']
         )
         parsed = df_clean['Cancelled_DateTime'].notna().sum()
         if parsed > 0:
-            print(f"  ✓ Parsed Cancelled DateTime: {parsed} records")
+            print(f"  [OK] Parsed Cancelled DateTime: {parsed} records")
+
+    # Fallback for exports without explicit check-in timestamps
+    if 'Check_In_DateTime' not in df_clean.columns and 'Started_DateTime' in df_clean.columns:
+        df_clean['Check_In_DateTime'] = df_clean['Started_DateTime']
+        fallback_count = df_clean['Check_In_DateTime'].notna().sum()
+        if fallback_count > 0:
+            print(f"  [WARN] Missing check-in columns; using Started_DateTime for {fallback_count} records")
+
+    # Derive duration when missing but start/end timestamps exist
+    if (
+        'Duration Minutes' not in df_clean.columns
+        and 'Started_DateTime' in df_clean.columns
+        and 'Ended_DateTime' in df_clean.columns
+    ):
+        duration = (df_clean['Ended_DateTime'] - df_clean['Started_DateTime']).dt.total_seconds() / 60
+        df_clean['Duration Minutes'] = duration.where(duration >= 0)
+        derived_count = df_clean['Duration Minutes'].notna().sum()
+        if derived_count > 0:
+            print(f"  [OK] Derived Duration Minutes for {derived_count} records")
     
     return df_clean
 
@@ -178,17 +204,17 @@ def consolidate_courses(df):
     Consolidate course field variations into consistent categories.
     
     Applies 4 approved consolidation rules:
-    1. "Other topic not listed..." → "Other"
-    2. Duplicate text (e.g., "Speech outlineSpeech outline") → single text
-    3. Thesis/dissertation variations → "Thesis or dissertation"
-    4. Reflection paper variations → "Reflection or response paper"
+    1. "Other topic not listed..." -> "Other"
+    2. Duplicate text (e.g., "Speech outlineSpeech outline") -> single text
+    3. Thesis/dissertation variations -> "Thesis or dissertation"
+    4. Reflection paper variations -> "Reflection or response paper"
     
     Plus additional cleaning rules from analysis.
     """
     df_clean = df.copy()
     
     if 'Course' not in df.columns:
-        print("  ⚠️  No 'Course' column found - skipping consolidation")
+        print("  [WARN] No 'Course' column found - skipping consolidation")
         return df_clean
     
     # Track changes
@@ -257,7 +283,7 @@ def consolidate_courses(df):
             code = abbrev + number
             valid_codes.add(code)
     except FileNotFoundError:
-        print("  ⚠️  courses.csv not found - skipping course classification")
+        print("  [WARN] courses.csv not found - skipping course classification")
     
     if valid_codes:
         def classify(value):
@@ -272,13 +298,13 @@ def consolidate_courses(df):
         
         df_clean['Course_Code'] = df_clean['Course'].apply(classify)
         code_count = df_clean['Course_Code'].notna().sum()
-        print(f"  ✓ Course codes identified: {code_count}")
+        print(f"  [OK] Course codes identified: {code_count}")
     
     # Summary
     final_unique = df_clean['Course'].nunique()
     consolidated = original_unique - final_unique
     
-    print(f"  ✓ Course categories: {original_unique} → {final_unique} ({consolidated} consolidated)")
+    print(f"  [OK] Course categories: {original_unique} -> {final_unique} ({consolidated} consolidated)")
     
     return df_clean
 
@@ -319,14 +345,14 @@ def handle_duration_outliers(df, method='iqr'):
     }
     
     if 'Duration Minutes' not in df.columns:
-        print("  ⚠️  No 'Duration Minutes' column found - skipping outlier handling")
+        print("  [WARN] No 'Duration Minutes' column found - skipping outlier handling")
         return df_clean, stats
     
     original_count = len(df_clean)
     values = df_clean['Duration Minutes'].dropna()
     
     if len(values) == 0:
-        print("  ⚠️  No valid duration values - skipping outlier handling")
+        print("  [WARN] No valid duration values - skipping outlier handling")
         return df_clean, stats
     
     if method == 'iqr':
@@ -353,12 +379,12 @@ def handle_duration_outliers(df, method='iqr'):
         stats['final_count'] = len(df_clean)
         
         if removed_count > 0:
-            print(f"  ⚠️  Removed {removed_count} outliers ({stats['removed_pct']:.1f}%)")
+            print(f"  [WARN] Removed {removed_count} outliers ({stats['removed_pct']:.1f}%)")
             print(f"      Valid range: {stats['lower_bound']:.2f} - {stats['upper_bound']:.2f} minutes")
         else:
-            print(f"  ✓ No outliers found (all within {stats['lower_bound']:.2f}-{stats['upper_bound']:.2f} min)")
+            print(f"  [OK] No outliers found (all within {stats['lower_bound']:.2f}-{stats['upper_bound']:.2f} min)")
     else:
-        print(f"  ⚠️  Unknown method: {method} - skipping outlier handling")
+        print(f"  [WARN] Unknown method: {method} - skipping outlier handling")
     
     return df_clean, stats
 
@@ -385,19 +411,19 @@ def add_derived_fields(df):
     if add_semester_columns and 'Check_In_DateTime' in df_clean.columns:
         try:
             df_clean = add_semester_columns(df_clean, date_column='Check_In_DateTime')
-            print("  ✓ Added semester columns (Semester, Academic_Year, Semester_Label)")
+            print("  [OK] Added semester columns (Semester, Academic_Year, Semester_Label)")
         except Exception as e:
-            print(f"  ⚠️  Could not add semester columns: {e}")
+            print(f"  [WARN] Could not add semester columns: {e}")
     
     # Add day of week
     if 'Check_In_DateTime' in df_clean.columns:
         df_clean['Day_of_Week'] = df_clean['Check_In_DateTime'].dt.day_name()
-        print("  ✓ Added Day_of_Week")
+        print("  [OK] Added Day_of_Week")
     
     # Add hour of day
     if 'Check_In_DateTime' in df_clean.columns:
         df_clean['Hour_of_Day'] = df_clean['Check_In_DateTime'].dt.hour
-        print("  ✓ Added Hour_of_Day")
+        print("  [OK] Added Hour_of_Day")
     
     # Calculate wait time (check-in to start)
     if 'Check_In_DateTime' in df_clean.columns and 'Started_DateTime' in df_clean.columns:
@@ -407,7 +433,7 @@ def add_derived_fields(df):
         # Only show stats for positive wait times
         valid_waits = wait_time[wait_time > 0]
         if len(valid_waits) > 0:
-            print(f"  ✓ Added Wait_Time_Minutes (avg: {valid_waits.mean():.1f} min)")
+            print(f"  [OK] Added Wait_Time_Minutes (avg: {valid_waits.mean():.1f} min)")
     
     return df_clean
 
@@ -455,7 +481,7 @@ def drop_useless_columns(df):
             dropped.append(col)
     
     if dropped:
-        print(f"  ✓ Dropped {len(dropped)} useless columns")
+        print(f"  [OK] Dropped {len(dropped)} useless columns")
         for col in dropped[:5]:  # Show first 5
             print(f"      - {col}")
         if len(dropped) > 5:
@@ -542,11 +568,11 @@ def validate_data_quality(df):
     
     # Print summary
     if issues:
-        print(f"  ⚠️  Found {len(issues)} data quality issues:")
+        print(f"  [WARN] Found {len(issues)} data quality issues:")
         for issue in issues:
             print(f"      - {issue}")
     else:
-        print("  ✓ No data quality issues found")
+        print("  [OK] No data quality issues found")
     
     print("\n  Status distribution:")
     for status, count in report['status_distribution'].items():

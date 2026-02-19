@@ -438,7 +438,7 @@ def decrypt_codebook(filepath, password):
 
 def lookup_in_codebook(anon_id, codebook_path, password):
     """
-    Reverse-lookup: Anonymous ID â†’ Email/Name
+    Reverse-lookup: Anonymous ID  Email/Name
     
     Parameters:
     - anon_id: Anonymous ID (e.g., "STU_04521" or "TUT_0842")
@@ -520,3 +520,4 @@ def anonymize_data(df):
     """
     df_anon, _, log = anonymize_with_codebook(df, create_codebook=False)
     return df_anon
+

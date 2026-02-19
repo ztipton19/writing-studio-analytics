@@ -1,4 +1,4 @@
-"""
+﻿"""
 GemmaLLM class - Wrapper for Gemma 3 4B using llama-cpp-python.
 """
 
@@ -35,7 +35,7 @@ class GemmaLLM:
         self._model: Optional[Llama] = None
         
         if verbose:
-            print(f"🤖 GemmaLLM initialized: {Path(model_path).name}")
+            print(f" GemmaLLM initialized: {Path(model_path).name}")
     
     @staticmethod
     def _detect_optimal_threads() -> int:
@@ -78,13 +78,13 @@ class GemmaLLM:
     def load_model(self) -> Llama:
         if self._model is None:
             if self.verbose:
-                print("⏳ Loading model...")
+                print(" Loading model...")
             
             sys_info = self.check_system_requirements()
             if not sys_info['gpu_available']:
                 if self.n_gpu_layers != 0:
                     if self.verbose:
-                        print("⚠️ No GPU detected, CPU-only mode")
+                        print(" No GPU detected, CPU-only mode")
                     self.n_gpu_layers = 0
             
             self._model = Llama(
@@ -96,7 +96,7 @@ class GemmaLLM:
             )
             
             if self.verbose:
-                print("✅ Model loaded!")
+                print(" Model loaded!")
         
         return self._model
     
@@ -168,3 +168,5 @@ class GemmaLLM:
             top_k=top_k,
             stop=stop
         )
+
+

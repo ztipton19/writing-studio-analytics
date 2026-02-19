@@ -1,4 +1,4 @@
-"""
+﻿"""
 Model Setup Script for Gemma 3 4B
 
 Downloads and prepares the Gemma 3 4B Instruct GGUF model for local use.
@@ -61,12 +61,12 @@ def download_gemma_model(
     
     # Check if model already exists
     if local_path.exists() and not force_download:
-        print(f"✅ Model already exists: {local_path}")
+        print(f" Model already exists: {local_path}")
         print(f"   Size: {local_path.stat().st_size / (1024**3):.2f} GB")
         return str(local_path)
     
     # Try downloading from each repository
-    print(f"📥 Attempting to download Gemma 3 4B ({quantization})...")
+    print(f" Attempting to download Gemma 3 4B ({quantization})...")
     print(f"   Target file: {filename}")
     print()
     
@@ -81,7 +81,7 @@ def download_gemma_model(
                 local_dir=model_dir,
             )
             
-            print("✅ Download complete!")
+            print(" Download complete!")
             print(f"   Location: {downloaded_path}")
             print(f"   Size: {Path(downloaded_path).stat().st_size / (1024**3):.2f} GB")
             
@@ -89,13 +89,13 @@ def download_gemma_model(
             
         except Exception as e:
             error_msg = str(e)
-            print(f"⚠️  Failed: {error_msg[:100]}")
+            print(f"  Failed: {error_msg[:100]}")
             print()
             
             # If it's the last repo and all failed
             if i == len(repo_options):
                 print("=" * 60)
-                print("❌ Model download failed from all sources")
+                print(" Model download failed from all sources")
                 print("=" * 60)
                 print()
                 print("This may mean:")
@@ -210,7 +210,7 @@ def check_system_requirements() -> dict:
     else:
         info['recommended_quantization'] = 'Q5_K_M' if total_ram < 16 else 'Q8_0'
         info['recommended_max_ctx'] = 128000
-        print(f"✅ Good RAM ({total_ram:.1f}GB). Can use larger context window.")
+        print(f" Good RAM ({total_ram:.1f}GB). Can use larger context window.")
     
     # Check for GPU support
     try:
@@ -218,7 +218,7 @@ def check_system_requirements() -> dict:
         if torch.cuda.is_available():
             info['gpu_available'] = True
             info['gpu_name'] = torch.cuda.get_device_name(0)
-            print(f"✅ CUDA GPU detected: {info['gpu_name']}")
+            print(f" CUDA GPU detected: {info['gpu_name']}")
     except ImportError:
         pass
     
@@ -226,7 +226,7 @@ def check_system_requirements() -> dict:
     if sys.platform == 'darwin':
         info['gpu_available'] = True
         info['gpu_name'] = 'Apple Metal (MPS)'
-        print("✅ Apple Metal GPU available (macOS)")
+        print(" Apple Metal GPU available (macOS)")
     
     return info
 
@@ -268,7 +268,7 @@ def main():
     print()
     
     # Check system requirements
-    print("🔍 Checking system requirements...")
+    print(" Checking system requirements...")
     info = check_system_requirements()
     print(f"   Total RAM: {info['total_ram_gb']:.1f} GB")
     if info['gpu_available']:
@@ -278,7 +278,7 @@ def main():
     print()
     
     if info['warnings']:
-        print("⚠️  Warnings:")
+        print("  Warnings:")
         for warning in info['warnings']:
             print(f"   - {warning}")
         print()
@@ -288,7 +288,7 @@ def main():
         args.quantization = info['recommended_quantization']
     
     if args.check_only:
-        print("✅ System check complete.")
+        print(" System check complete.")
         print(f"   Recommended quantization: {args.quantization}")
         print(f"   Recommended max context: {info['recommended_max_ctx']:,} tokens")
         return
@@ -303,7 +303,7 @@ def main():
         
         print()
         print("=" * 60)
-        print("✅ Setup complete!")
+        print(" Setup complete!")
         print("=" * 60)
         print()
         print("Next steps:")
@@ -320,7 +320,7 @@ def main():
     except Exception as e:
         print()
         print("=" * 60)
-        print("❌ Setup failed!")
+        print(" Setup failed!")
         print("=" * 60)
         print(f"Error: {e}")
         sys.exit(1)
@@ -328,3 +328,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Main chat handler for AI Chat Assistant.
 
 Orchestrates:
@@ -60,9 +60,9 @@ class ChatHandler:
         self.code_execution_max_rows = code_execution_max_rows
         
         if verbose:
-            print("🤖 ChatHandler initialized")
+            print(" ChatHandler initialized")
             if enable_code_execution:
-                print("🔧 Code execution enabled for dynamic queries")
+                print(" Code execution enabled for dynamic queries")
     
     def check_system(self) -> Dict[str, Any]:
         """
@@ -90,7 +90,7 @@ class ChatHandler:
                 max_rows=self.code_execution_max_rows
             )
             if self.verbose:
-                print(f"📊 Code executor ready for {len(df_clean)} records")
+                print(f" Code executor ready for {len(df_clean)} records")
     
     def handle_query(
         self,
@@ -126,7 +126,7 @@ class ChatHandler:
             # Return rejection message immediately (no LLM call)
             rejection_msg = self.input_validator.get_rejection_message(reason)
             if self.verbose:
-                print(f"❌ Query rejected: {reason}")
+                print(f" Query rejected: {reason}")
             
             return rejection_msg, {
                 'rejected': True,
@@ -135,7 +135,7 @@ class ChatHandler:
             }
         
         if self.verbose:
-            print(f"✅ Query accepted: {user_query[:50]}...")
+            print(f" Query accepted: {user_query[:50]}...")
         
         # 1. Build data context
         data_context = prepare_data_context(df_clean, metrics, data_mode)
@@ -188,7 +188,7 @@ class ChatHandler:
             error_msg = f"I encountered an error generating a response: {str(e)}"
             audit_event("ai_query_executed", used_code_execution=bool(use_code_exec), success=False, error=str(e))
             if self.verbose:
-                print(f"❌ Generation error: {str(e)}")
+                print(f" Generation error: {str(e)}")
             
             return error_msg, {
                 'error': True,
@@ -221,8 +221,8 @@ class ChatHandler:
         
         if self.verbose:
             if metadata['pii_filtered']:
-                print("⚠️ Response filtered for PII")
-            print(f"✅ Response generated: {safe_response[:50]}...")
+                print(" Response filtered for PII")
+            print(f" Response generated: {safe_response[:50]}...")
         
         return safe_response, metadata
     
@@ -278,7 +278,7 @@ class ChatHandler:
             str: Formatted natural language response
         """
         if self.verbose:
-            print(f"🔧 Using code execution for: {user_query[:50]}...")
+            print(f" Using code execution for: {user_query[:50]}...")
         
         # 1. Generate code via LLM and execute
         success, result, error = self.code_executor.safe_execute_query(
@@ -291,7 +291,7 @@ class ChatHandler:
         if not success:
             # Fallback to standard LLM if code execution fails
             if self.verbose:
-                print(f"⚠️ Code execution failed, falling back to standard LLM: {error}")
+                print(f" Code execution failed, falling back to standard LLM: {error}")
             system_prompt = build_system_prompt(data_context, 'scheduled' if 'booking' in metrics else 'walkin')
             full_prompt = build_full_prompt(system_prompt, user_query, self.conversation_history)
             return self.llm.generate(full_prompt, max_tokens=1024, temperature=0.7, top_p=0.9)
@@ -309,8 +309,8 @@ Focus on what the number means in context."""
         formatted_response = self.llm.generate(format_prompt, max_tokens=256, temperature=0.5)
         
         if self.verbose:
-            print(f"✅ Code execution result: {result}")
-            print(f"✅ Formatted response: {formatted_response[:50]}...")
+            print(f" Code execution result: {result}")
+            print(f" Formatted response: {formatted_response[:50]}...")
         
         return formatted_response
     
@@ -318,7 +318,7 @@ Focus on what the number means in context."""
         """Clear conversation history."""
         self.conversation_history = []
         if self.verbose:
-            print("🧹 Conversation history cleared")
+            print(" Conversation history cleared")
     
     def get_history(self) -> list:
         """Get conversation history."""
@@ -379,3 +379,5 @@ Provide a concise, professional response."""
         )
         
         return response
+
+

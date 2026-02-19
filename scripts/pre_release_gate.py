@@ -23,6 +23,11 @@ def main() -> int:
     parser.add_argument("--scheduled-file", type=Path, help="Optional scheduled sample for smoke test")
     parser.add_argument("--walkin-file", type=Path, help="Optional walk-in sample for smoke test")
     parser.add_argument("--run-ai", action="store_true", help="Enable AI checks in smoke test")
+    parser.add_argument(
+        "--strict-ai",
+        action="store_true",
+        help="Fail gate if AI smoke checks fail (default: warn only)",
+    )
     parser.add_argument("--build", action="store_true", help="Build executable after checks")
     args = parser.parse_args()
 
@@ -39,6 +44,8 @@ def main() -> int:
             smoke_cmd += ["--walkin-file", str(args.walkin_file)]
         if args.run_ai:
             smoke_cmd += ["--run-ai"]
+        if args.strict_ai:
+            smoke_cmd += ["--strict-ai"]
         run(smoke_cmd, "Smoke Test")
 
     if args.build:

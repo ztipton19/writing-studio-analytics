@@ -1,4 +1,4 @@
-# src/visualizations/report_generator.py
+﻿# src/visualizations/report_generator.py
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
@@ -26,19 +26,19 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
     context = cleaning_log.get('context', {})
     
     # Calculate all metrics once
-    print("\n📊 Calculating metrics...")
+    print("\n Calculating metrics...")
     metrics = calculate_all_metrics(df)
     
     # Create PDF
     with PdfPages(output_path) as pdf:
         
-        print("📊 Generating Writing Studio Analytics Report...")
+        print(" Generating Writing Studio Analytics Report...")
         print("="*80)
         
         # ====================================================================
         # COVER PAGE
         # ====================================================================
-        print("\n📄 Creating cover page...")
+        print("\n Creating cover page...")
         fig = create_cover_page(df, context)
         if fig:
             pdf.savefig(fig)
@@ -47,7 +47,7 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         # ====================================================================
         # METADATA PAGE
         # ====================================================================
-        print("\n📄 Adding metadata page...")
+        print("\n Adding metadata page...")
         fig = create_metadata_page(df, cleaning_log)
         if fig:
             pdf.savefig(fig)
@@ -56,7 +56,7 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         # ====================================================================
         # SECTION 1: EXECUTIVE SUMMARY
         # ====================================================================
-        print("\n📊 Section 1: Executive Summary")
+        print("\n Section 1: Executive Summary")
         
         # Generate executive summary from metrics
         print("   Generating executive summary...")
@@ -65,75 +65,75 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Executive summary")
+            print("    Executive summary")
         
         # Sessions over time
         fig = charts.plot_sessions_over_time(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Sessions over time")
+            print("    Sessions over time")
 
          # Small multiples comparison
         fig = charts.plot_semester_metrics_comparison(df, context)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Metrics comparison")
+            print("    Metrics comparison")
         else:
-            print("\n⏭️  Section 7: Skipped (single semester data)")
+            print("\n  Section 7: Skipped (single semester data)")
         
         # ====================================================================
         # SECTION 2: BOOKING BEHAVIOR
         # ====================================================================
-        print("\n📅 Section 2: Booking Behavior")
+        print("\n Section 2: Booking Behavior")
         
         # Booking lead time donut
         fig = charts.plot_booking_lead_time_donut(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Booking lead time breakdown")
+            print("    Booking lead time breakdown")
         
         # Sessions by day of week
         fig = charts.plot_sessions_by_day_of_week(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Sessions by day of week")
+            print("    Sessions by day of week")
         
         # Heatmap
         fig = charts.plot_sessions_heatmap_day_time(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Day/time heatmap")
+            print("    Day/time heatmap")
         
         # ====================================================================
         # SECTION 3: ATTENDANCE & OUTCOMES
         # ====================================================================
-        print("\n✅ Section 3: Attendance & Outcomes")
+        print("\n Section 3: Attendance & Outcomes")
         
         # Session outcomes pie
         fig = charts.plot_session_outcomes_pie(context)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Session outcomes")
+            print("    Session outcomes")
         
         # No-show by day
         fig = charts.plot_no_show_by_day(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ No-show rate by day")
+            print("    No-show rate by day")
         
         # Trends over time
         fig = charts.plot_outcomes_over_time(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Outcome trends")
+            print("    Outcome trends")
 
         # ====================================================================
         # SECTION 7: SEMESTER COMPARISONS (only if multiple semesters)
@@ -141,137 +141,137 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         num_semesters = df['Semester_Label'].nunique() if 'Semester_Label' in df.columns else 0
 
         if num_semesters >= 2:
-            print("\n📊 Section 7: Semester Comparisons")
+            print("\n Section 7: Semester Comparisons")
 
             # Semester growth
             fig = charts.plot_semester_growth(df)
             if fig:
                 pdf.savefig(fig)
                 plt.close(fig)
-                print("   ✓ Semester growth")
+                print("    Semester growth")
 
 
         # ====================================================================
         # TOP ACTIVE STUDENTS
         # ====================================================================
-        print("\n⭐ Top Active Students")
+        print("\n Top Active Students")
 
         # Top 10 most active students
         fig = charts.plot_top_active_students(df, top_n=10)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Top 10 most active students")
+            print("    Top 10 most active students")
 
         # ====================================================================
         # SECTION 4: STUDENT SATISFACTION
         # ====================================================================
-        print("\n😊 Section 4: Student Satisfaction")
+        print("\n Section 4: Student Satisfaction")
         
         # Confidence comparison
         fig = charts.plot_confidence_comparison(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Pre vs post confidence")
+            print("    Pre vs post confidence")
         
         # Confidence change distribution
         fig = charts.plot_confidence_change_distribution(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Confidence change distribution")
+            print("    Confidence change distribution")
         
         # Satisfaction distribution
         fig = charts.plot_satisfaction_distribution(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Satisfaction distribution")
+            print("    Satisfaction distribution")
         
         # Satisfaction trends
         fig = charts.plot_satisfaction_trends(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Satisfaction trends")
+            print("    Satisfaction trends")
         
         # ====================================================================
         # SECTION 5: TUTOR ANALYTICS
         # ====================================================================
-        print("\n👥 Section 5: Tutor Analytics")
+        print("\n Section 5: Tutor Analytics")
         
         # Sessions per tutor
         fig = charts.plot_sessions_per_tutor(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Sessions per tutor")
+            print("    Sessions per tutor")
         
         # Workload balance
         fig = charts.plot_tutor_workload_balance(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Workload balance")
+            print("    Workload balance")
         
         # Session length by tutor
         fig = charts.plot_session_length_by_tutor(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Session length by tutor")
+            print("    Session length by tutor")
         
         # ====================================================================
         # SECTION 6: SESSION CONTENT
         # ====================================================================
-        print("\n📝 Section 6: Session Content")
+        print("\n Section 6: Session Content")
         
         # Writing stages
         fig = charts.plot_writing_stages(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Writing stages")
+            print("    Writing stages")
         
         # Focus areas
         fig = charts.plot_focus_areas(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Focus areas")
+            print("    Focus areas")
         
         # First-time vs returning
         fig = charts.plot_first_time_vs_returning(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ First-time vs returning")
+            print("    First-time vs returning")
 
         # Student retention trends over time
         fig = charts.plot_student_retention_trends(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Student retention trends")
+            print("    Student retention trends")
 
         # ====================================================================
         # SECTION 6.5: COURSE ENROLLMENT TABLE
         # ====================================================================
-        print("\n📚 Section 6.5: Course Enrollment")
+        print("\n Section 6.5: Course Enrollment")
 
         fig = charts.plot_course_table(df)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Course enrollment table")
+            print("    Course enrollment table")
         else:
-            print("   ⏭️  Skipped (no course code data)")
+            print("     Skipped (no course code data)")
 
         # ====================================================================
         # SECTION 7: INCENTIVE ANALYSIS
         # ====================================================================
-        print("\n🎯 Section 7: Incentive Analysis")
+        print("\n Section 7: Incentive Analysis")
 
         # Check if we have incentive data
         if 'Incentivized' in df.columns and df['Incentivized'].notna().sum() > 0:
@@ -284,35 +284,35 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
             if fig:
                 pdf.savefig(fig)
                 plt.close(fig)
-                print("   ✓ Incentive type distribution")
+                print("    Incentive type distribution")
 
             # Tutor ratings by incentive type (then show the analysis)
             fig = charts.plot_incentives_vs_tutor_rating(metrics_full.get('incentives', {}))
             if fig:
                 pdf.savefig(fig)
                 plt.close(fig)
-                print("   ✓ Tutor ratings by incentive type")
+                print("    Tutor ratings by incentive type")
 
             # Student satisfaction ratings by incentive type
             fig = charts.plot_incentives_vs_satisfaction(metrics_full.get('incentives', {}))
             if fig:
                 pdf.savefig(fig)
                 plt.close(fig)
-                print("   ✓ Student satisfaction by incentive type")
+                print("    Student satisfaction by incentive type")
         else:
-            print("   ⏭️  Skipped (no incentive data available)")
+            print("     Skipped (no incentive data available)")
 
         # ====================================================================
         # SECTION 8: DATA QUALITY
         # ====================================================================
-        print("\n📋 Section 8: Data Quality")
+        print("\n Section 8: Data Quality")
         
         # Survey response rates
         fig = charts.plot_survey_response_rates(context)
         if fig:
             pdf.savefig(fig)
             plt.close(fig)
-            print("   ✓ Survey response rates")
+            print("    Survey response rates")
         
         # Set PDF metadata
         d = pdf.infodict()
@@ -323,7 +323,7 @@ def generate_full_report(df, cleaning_log, output_path='report.pdf'):
         d['CreationDate'] = datetime.now()
     
     print("\n" + "="*80)
-    print(f"✅ Report generated successfully: {output_path}")
+    print(f" Report generated successfully: {output_path}")
     print("="*80 + "\n")
     
     return output_path
@@ -389,7 +389,7 @@ def create_executive_summary_page(summary):
     ax.text(0.1, y_pos, 'Key Findings', fontsize=14, weight='bold')
     y_pos -= 0.03
     for finding in summary['key_findings']:
-        ax.text(0.12, y_pos, f"• {finding}", fontsize=10, wrap=True)
+        ax.text(0.12, y_pos, f" {finding}", fontsize=10, wrap=True)
         y_pos -= 0.025
 
     # Concerns (if any)
@@ -398,7 +398,7 @@ def create_executive_summary_page(summary):
         ax.text(0.1, y_pos, 'Concerns', fontsize=14, weight='bold')
         y_pos -= 0.03
         for concern in summary['concerns']:
-            ax.text(0.12, y_pos, f"• {concern}", fontsize=10)
+            ax.text(0.12, y_pos, f" {concern}", fontsize=10)
             y_pos -= 0.025
 
     # Recommendations (if any)
@@ -407,7 +407,7 @@ def create_executive_summary_page(summary):
         ax.text(0.1, y_pos, 'Recommendations', fontsize=14, weight='bold')
         y_pos -= 0.03
         for rec in summary['recommendations']:
-            ax.text(0.12, y_pos, f"• {rec}", fontsize=10)
+            ax.text(0.12, y_pos, f" {rec}", fontsize=10)
             y_pos -= 0.025
 
     plt.tight_layout()
@@ -430,7 +430,7 @@ def create_metadata_page(df, cleaning_log):
             transform=ax.transAxes)
 
     y -= 0.04
-    ax.text(0.5, y, '─' * 30, ha='center', fontsize=10, transform=ax.transAxes,
+    ax.text(0.5, y, '' * 30, ha='center', fontsize=10, transform=ax.transAxes,
             family='monospace')
 
     y -= 0.04
@@ -473,7 +473,7 @@ def create_metadata_page(df, cleaning_log):
                 transform=ax.transAxes)
 
         y -= 0.04
-        ax.text(0.5, y, '─' * 30, ha='center', fontsize=10, transform=ax.transAxes,
+        ax.text(0.5, y, '' * 30, ha='center', fontsize=10, transform=ax.transAxes,
                 family='monospace')
 
         y -= 0.04
@@ -497,7 +497,7 @@ def create_metadata_page(df, cleaning_log):
                 transform=ax.transAxes)
 
         y -= 0.04
-        ax.text(0.5, y, '─' * 30, ha='center', fontsize=10, transform=ax.transAxes,
+        ax.text(0.5, y, '' * 30, ha='center', fontsize=10, transform=ax.transAxes,
                 family='monospace')
 
         for sem, count in semester_counts.items():
@@ -546,3 +546,5 @@ def quick_report(file_path, output_path='writing_studio_report.pdf'):
     report_path = generate_full_report(df_clean, log, output_path)
     
     return report_path
+
+

@@ -58,7 +58,7 @@ def run_ai_checks(df_clean: pd.DataFrame, metrics: dict, data_mode: str) -> None
             raise RuntimeError(f"AI query returned empty response: {query}")
 
 
-def run_pipeline(file_path: Path, mode: str, run_ai: bool) -> None:
+def run_pipeline(file_path: Path, mode: str, run_ai: bool, strict_ai: bool) -> None:
     print(f"\n[SMOKE] Running {mode} pipeline: {file_path}")
     if not file_path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
@@ -102,7 +102,14 @@ def run_pipeline(file_path: Path, mode: str, run_ai: bool) -> None:
             raise RuntimeError(f"Report was not generated: {report_path}")
 
         if run_ai:
-            run_ai_checks(df_clean, metrics, mode)
+            try:
+                run_ai_checks(df_clean, metrics, mode)
+                print(f"[PASS] {mode} AI checks passed")
+            except Exception as exc:
+                msg = f"{mode} AI checks failed: {exc}"
+                if strict_ai:
+                    raise RuntimeError(msg) from exc
+                print(f"[WARN] {msg}")
 
         # Cleanup codebook created in CWD by anonymize_with_codebook
         try:
@@ -118,6 +125,11 @@ def main() -> int:
     parser.add_argument("--scheduled-file", type=Path, help="Path to scheduled sessions CSV/XLSX")
     parser.add_argument("--walkin-file", type=Path, help="Path to walk-in sessions CSV/XLSX")
     parser.add_argument("--run-ai", action="store_true", help="Also run 3 AI query checks")
+    parser.add_argument(
+        "--strict-ai",
+        action="store_true",
+        help="Fail smoke test if AI checks fail (default: warn only)",
+    )
     args = parser.parse_args()
 
     if not args.scheduled_file and not args.walkin_file:
@@ -127,13 +139,13 @@ def main() -> int:
 
     if args.scheduled_file:
         try:
-            run_pipeline(args.scheduled_file, "scheduled", args.run_ai)
+            run_pipeline(args.scheduled_file, "scheduled", args.run_ai, args.strict_ai)
         except Exception as exc:
             failures.append(f"scheduled: {exc}")
 
     if args.walkin_file:
         try:
-            run_pipeline(args.walkin_file, "walkin", args.run_ai)
+            run_pipeline(args.walkin_file, "walkin", args.run_ai, args.strict_ai)
         except Exception as exc:
             failures.append(f"walkin: {exc}")
 

@@ -201,8 +201,8 @@ def simplify_location(df):
     Simplify location names to standard CORD and ZOOM labels.
     
     Converts:
-    - "Writing Studio - CORD 209 (building located next to Old Main)" â†’ "CORD"
-    - "Zoom Meeting - Online" â†’ "ZOOM"
+    - "Writing Studio - CORD 209 (building located next to Old Main)"  "CORD"
+    - "Zoom Meeting - Online"  "ZOOM"
     
     Returns: dataframe with simplified Location column
     """
@@ -515,11 +515,11 @@ def validate_data_quality(df):
         if len(valid_lengths) > 0:
             long_sessions = valid_lengths[valid_lengths > 3]
             if len(long_sessions) > 0:
-                issues.append(f"âš ï¸ Found {len(long_sessions)} sessions longer than 3 hours (possible data error)")
+                issues.append(f" Found {len(long_sessions)} sessions longer than 3 hours (possible data error)")
             
             short_sessions = valid_lengths[valid_lengths < 0.05]  # Less than 3 minutes
             if len(short_sessions) > 0:
-                issues.append(f"âš ï¸ Found {len(short_sessions)} sessions shorter than 3 minutes (possible data error)")
+                issues.append(f" Found {len(short_sessions)} sessions shorter than 3 minutes (possible data error)")
     
     # Check satisfaction scores are in valid ranges
     score_checks = [
@@ -538,13 +538,13 @@ def validate_data_quality(df):
             invalid = valid_scores[(valid_scores < min_val) | (valid_scores > max_val)]
             
             if len(invalid) > 0:
-                issues.append(f"âš ï¸ Found {len(invalid)} {col} scores outside {min_val}-{max_val} range")
+                issues.append(f" Found {len(invalid)} {col} scores outside {min_val}-{max_val} range")
     
     # Check for future appointments (might be scheduled sessions, not errors)
     if 'Appointment_DateTime' in df.columns:
         future_appts = df[df['Appointment_DateTime'] > pd.Timestamp.now()]
         if len(future_appts) > 0:
-            warnings_list.append(f"â„¹ï¸ Found {len(future_appts)} future appointments (likely scheduled sessions)")
+            warnings_list.append(f" Found {len(future_appts)} future appointments (likely scheduled sessions)")
     
     # Report on missing critical data (informational, not errors)
     critical_cols = ['Attendance_Status', 'Document_Type', 'Actual_Session_Length']
@@ -554,7 +554,7 @@ def validate_data_quality(df):
             missing_pct = (missing_count / len(df)) * 100
             
             if missing_pct > 20:
-                warnings_list.append(f"â„¹ï¸ {col}: {missing_pct:.1f}% missing data ({missing_count} rows)")
+                warnings_list.append(f" {col}: {missing_pct:.1f}% missing data ({missing_count} rows)")
     
     return issues, warnings_list
 
@@ -730,7 +730,7 @@ def classify_course_column(df, courses_csv_path='courses.csv'):
                 code = abbrev + number
                 valid_codes.add(code)
         except FileNotFoundError:
-            print("  âš ï¸  courses.csv not found - skipping course classification")
+            print("    courses.csv not found - skipping course classification")
             return df_classified
     
     # Classify each Course value
@@ -767,9 +767,9 @@ def clean_scheduled_sessions(df, remove_outliers_flag=True, log_actions=True):
     """
     if log_actions:
         print("\n" + "="*80)
-        print("ðŸ§¹ DATA CLEANING - SCHEDULED SESSIONS")
+        print(" DATA CLEANING - SCHEDULED SESSIONS")
         print("="*80)
-        print(f"\nOriginal dataset: {len(df):,} rows Ã— {len(df.columns)} columns")
+        print(f"\nOriginal dataset: {len(df):,} rows  {len(df.columns)} columns")
     
     cleaning_log = {
         'original_rows': len(df),
@@ -779,57 +779,57 @@ def clean_scheduled_sessions(df, remove_outliers_flag=True, log_actions=True):
     # Step 0: Clean column names (strip whitespace)
     df_clean = clean_column_names(df)
     if log_actions:
-        print("\nâœ“ Step 0: Cleaned column names (stripped whitespace)")
+        print("\n Step 0: Cleaned column names (stripped whitespace)")
 
     # Step 0.5: Recode XXXX to N/A in Course column
     if 'Course' in df_clean.columns:
         xxxx_count = (df_clean['Course'] == 'XXXX').sum()
         df_clean['Course'] = df_clean['Course'].replace('XXXX', 'N/A')
         if log_actions and xxxx_count > 0:
-            print(f"âœ“ Step 0.5: Recoded {xxxx_count} 'XXXX' values to 'N/A' in Course column")
+            print(f" Step 0.5: Recoded {xxxx_count} 'XXXX' values to 'N/A' in Course column")
 
     # Step 0.7: Classify Course column (separate real courses from document types)
     df_clean = classify_course_column(df_clean)
     course_code_count = df_clean['Course_Code'].notna().sum()
     if log_actions:
-        print(f"âœ“ Step 0.7: Classified courses ({course_code_count} real course codes found)")
+        print(f" Step 0.7: Classified courses ({course_code_count} real course codes found)")
 
     # Step 1: Merge date/time columns
     df_clean = merge_datetime_columns(df_clean)
     if log_actions:
-        print("âœ“ Step 1: Merged date/time columns into datetime objects")
+        print(" Step 1: Merged date/time columns into datetime objects")
     
     # Step 2: Rename columns
     df_clean, rename_count = rename_columns(df_clean)
     cleaning_log['renamed_columns'] = rename_count
     if log_actions:
-        print(f"âœ“ Step 2: Renamed {rename_count} columns for clarity")
+        print(f" Step 2: Renamed {rename_count} columns for clarity")
 
     # Step 2.5: Convert text ratings to numeric
     df_clean = convert_text_ratings_to_numeric(df_clean)
     if log_actions:
-        print("âœ“ Step 2.5: Converted text ratings to numeric values")
+        print(" Step 2.5: Converted text ratings to numeric values")
 
     # Step 3: Remove useless columns
     df_clean, removed_cols = remove_useless_columns(df_clean)
     cleaning_log['removed_columns'] = removed_cols
     if log_actions:
-        print(f"âœ“ Step 3: Removed {len(removed_cols)} unnecessary columns")
+        print(f" Step 3: Removed {len(removed_cols)} unnecessary columns")
     
     # Step 4: Standardize data types
     df_clean = standardize_data_types(df_clean)
     if log_actions:
-        print("âœ“ Step 4: Standardized data types (dates, numbers, categories, text)")
+        print(" Step 4: Standardized data types (dates, numbers, categories, text)")
     
     # Step 5: Create calculated fields
     df_clean = create_calculated_fields(df_clean)
     if log_actions:
-        print("âœ“ Step 5: Created calculated fields (lead time, confidence change, etc.)")
+        print(" Step 5: Created calculated fields (lead time, confidence change, etc.)")
     
     # Step 5.5: Simplify location names
     df_clean = simplify_location(df_clean)
     if log_actions:
-        print("âœ“ Step 5.5: Simplified location names (CORD/ZOOM)")
+        print(" Step 5.5: Simplified location names (CORD/ZOOM)")
     
     # Step 6: Remove outliers (optional)
     if remove_outliers_flag and 'Actual_Session_Length' in df_clean.columns:
@@ -837,15 +837,15 @@ def clean_scheduled_sessions(df, remove_outliers_flag=True, log_actions=True):
         cleaning_log['outliers_removed'] = outlier_stats
         
         if log_actions and outlier_stats['removed_count'] > 0:
-            print(f"\nâœ“ Step 6: Removed {outlier_stats['removed_count']} outliers ({outlier_stats['removed_pct']:.1f}%)")
+            print(f"\n Step 6: Removed {outlier_stats['removed_count']} outliers ({outlier_stats['removed_pct']:.1f}%)")
             print(f"   Valid range: {outlier_stats['lower_bound']:.2f} - {outlier_stats['upper_bound']:.2f} hours")
     elif log_actions:
-        print("âœ“ Step 6: Skipped outlier removal (disabled)")
+        print(" Step 6: Skipped outlier removal (disabled)")
     
     # Step 7: Escape Excel formulas
     df_clean = escape_excel_formulas(df_clean)
     if log_actions:
-        print("âœ“ Step 7: Escaped Excel formula characters (-, =)")
+        print(" Step 7: Escaped Excel formula characters (-, =)")
     
     # Step 8: Validate data quality
     issues, warnings_list = validate_data_quality(df_clean)
@@ -854,7 +854,7 @@ def clean_scheduled_sessions(df, remove_outliers_flag=True, log_actions=True):
     
     if log_actions:
         print("\n" + "="*80)
-        print("ðŸ“Š DATA QUALITY REPORT")
+        print(" DATA QUALITY REPORT")
         print("="*80)
         
         if issues:
@@ -866,7 +866,7 @@ def clean_scheduled_sessions(df, remove_outliers_flag=True, log_actions=True):
                 print(f"   {warning}")
         
         if not issues and not warnings_list:
-            print("   âœ… No data quality issues detected!")
+            print("    No data quality issues detected!")
     
     # Step 9: Analyze missing values
     missing_analysis = analyze_missing_values(df_clean)
@@ -878,7 +878,7 @@ def clean_scheduled_sessions(df, remove_outliers_flag=True, log_actions=True):
     
     if log_actions and missing_report:
         print("\n" + "="*80)
-        print("ðŸ“‹ MISSING VALUE REPORT")
+        print(" MISSING VALUE REPORT")
         print("="*80)
         
         # Separate by category
@@ -889,43 +889,43 @@ def clean_scheduled_sessions(df, remove_outliers_flag=True, log_actions=True):
         
         # Critical missing data
         if critical:
-            print("\nðŸ”´ CRITICAL MISSING DATA (should be filled):")
+            print("\n CRITICAL MISSING DATA (should be filled):")
             for col, stats in sorted(critical.items(), key=lambda x: x[1]['percentage'], reverse=True):
-                print(f"   âš ï¸ {col}: {stats['percentage']:.1f}% missing ({stats['count']:,} rows)")
-                print(f"      â†’ {stats['explanation']}")
+                print(f"    {col}: {stats['percentage']:.1f}% missing ({stats['count']:,} rows)")
+                print(f"       {stats['explanation']}")
         
         # Concerning missing data
         if concerning:
-            print("\nðŸŸ¡ IMPORTANT BUT OFTEN MISSING (affects analysis quality):")
+            print("\n IMPORTANT BUT OFTEN MISSING (affects analysis quality):")
             for col, stats in sorted(concerning.items(), key=lambda x: x[1]['percentage'], reverse=True):
                 print(f"   - {col}: {stats['percentage']:.1f}% missing ({stats['count']:,} rows)")
-                print(f"     â†’ {stats['explanation']}")
+                print(f"      {stats['explanation']}")
         
         # Expected missing data (with context)
         if expected:
-            print("\nâœ… EXPECTED MISSING DATA (not a problem):")
+            print("\n EXPECTED MISSING DATA (not a problem):")
             for col, stats in sorted(expected.items(), key=lambda x: x[1]['percentage'], reverse=True):
                 print(f"   - {col}: {stats['percentage']:.1f}% missing ({stats['count']:,} rows)")
-                print(f"     â†’ {stats['explanation']}")
+                print(f"      {stats['explanation']}")
         
         # Optional fields (only show if significant)
         if optional:
             high_missing_optional = {k: v for k, v in optional.items() if v['percentage'] > 50}
             if high_missing_optional:
-                print("\nâ„¹ï¸ OPTIONAL FIELDS (low priority):")
+                print("\n OPTIONAL FIELDS (low priority):")
                 for col, stats in sorted(high_missing_optional.items(), key=lambda x: x[1]['percentage'], reverse=True)[:5]:
                     print(f"   - {col}: {stats['percentage']:.1f}% missing")
         
         # Show context information
         if context:
             print("\n" + "="*80)
-            print("ðŸ“Š SESSION STATISTICS")
+            print(" SESSION STATISTICS")
             print("="*80)
             
             # Cancellation stats
             if 'cancellations' in context:
                 cancel_ctx = context['cancellations']
-                print("\nðŸ“… Session Outcomes:")
+                print("\n Session Outcomes:")
                 print(f"   Total sessions: {cancel_ctx['total_sessions']:,}")
                 print(f"   Completed: {cancel_ctx['completed']:,} ({cancel_ctx['completion_rate']:.1f}%)")
                 print(f"   Cancelled: {cancel_ctx['cancelled']:,} ({cancel_ctx['cancellation_rate']:.1f}%)")
@@ -934,15 +934,15 @@ def clean_scheduled_sessions(df, remove_outliers_flag=True, log_actions=True):
             # Student issues stats
             if 'student_issues' in context:
                 issues_ctx = context['student_issues']
-                print("\nðŸ’¬ Student Feedback:")
+                print("\n Student Feedback:")
                 print(f"   Sessions with issues reported: {issues_ctx['sessions_with_issues']:,} ({issues_ctx['issue_rate']:.1f}%)")
                 print(f"   Sessions without issues: {issues_ctx['sessions_without_issues']:,}")
-                print("   â†’ Low issue rate is a positive indicator!")
+                print("    Low issue rate is a positive indicator!")
             
             # Survey completion stats
             if 'surveys' in context:
                 survey_ctx = context['surveys']
-                print("\nðŸ“ Survey Completion Rates:")
+                print("\n Survey Completion Rates:")
                 print(f"   Pre-session survey: {survey_ctx['pre_survey_completion_rate']:.1f}%")
                 print(f"   Post-session survey: {survey_ctx['post_survey_completion_rate']:.1f}%")
                 print(f"   Both surveys completed: {survey_ctx['both_surveys_completion_rate']:.1f}%")
@@ -953,9 +953,9 @@ def clean_scheduled_sessions(df, remove_outliers_flag=True, log_actions=True):
     
     if log_actions:
         print("\n" + "="*80)
-        print("âœ… CLEANING COMPLETE")
+        print(" CLEANING COMPLETE")
         print("="*80)
-        print(f"   Final dataset: {len(df_clean):,} rows Ã— {len(df_clean.columns)} columns")
+        print(f"   Final dataset: {len(df_clean):,} rows  {len(df_clean.columns)} columns")
         print(f"   Removed: {cleaning_log['original_cols'] - cleaning_log['final_cols']} columns")
         if remove_outliers_flag and 'outliers_removed' in cleaning_log:
             print(f"   Removed: {cleaning_log['outliers_removed']['removed_count']} outlier rows")
@@ -1003,7 +1003,7 @@ def clean_data(df, mode='auto', remove_outliers=True, log_actions=True):
     if mode == 'auto':
         detected_mode = detect_session_type(df)
         if log_actions:
-            print(f"ðŸ” Auto-detected session type: {detected_mode}")
+            print(f" Auto-detected session type: {detected_mode}")
         mode = detected_mode
     
     # Dispatch to appropriate pipeline
@@ -1033,3 +1033,4 @@ def quick_clean(csv_path, mode='auto', remove_outliers=True):
     """
     df = pd.read_csv(csv_path)
     return clean_data(df, mode=mode, remove_outliers=remove_outliers, log_actions=True)
+
