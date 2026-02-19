@@ -42,60 +42,25 @@ class InputValidator:
         if self.log_blocked_queries:
             os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
         
-        # Off-topic keywords (non-data questions)
-        self.off_topic_keywords = [
-            # Food/Cooking
-            'recipe', 'cook', 'pizza', 'food', 'restaurant', 'bake',
-            # Animals/Science
-            'hippo', 'hippopotamus', 'lion', 'tiger', 'elephant', 'animal', 'pet',
-            'life expectancy', 'lifespan', 'habitat', 'species',
-            # General Knowledge
-            'capital of', 'country', 'continent', 'ocean',
-            'president of', 'prime minister', 'leader',
-            'invented', 'discovered', 'who invented',
-            'history', 'geography',
-            # Demographics/Population
-            'population', 'people live', 'how many people', 'residents', 'citizens',
-            # Entertainment
-            'game', 'movie', 'film', 'music', 'song', 'celebrity', 'actor', 'actress',
-            'tv show', 'television', 'album', 'band', 'artist',
-            # Sports
-            'football', 'basketball', 'baseball', 'soccer', 'hockey',
-            'super bowl', 'world cup', 'olympics', 'player', 'team',
-            # Personal/Relationship
-            'girlfriend', 'boyfriend', 'marry', 'date me', 'love',
-            # Finance
-            'weather', 'stock', 'cryptocurrency', 'bitcoin', 'price',
-            'investment', 'trading', 'currency',
-            # Creative Writing
-            'joke', 'story', 'poem', 'essay about', 'write a poem',
-            'write a story', 'creative writing',
-            # Weather-related terms (temperature, humidity, etc.)
-            'temperature', 'forecast', 'humidity', 'wind speed',
-            'rain', 'snow', 'sunny', 'cloudy', 'storm'
+        # Offensive content only - genuinely inappropriate material
+        # Philosophy: Let the LLM refuse off-topic questions via system prompt.
+        # Only block content that is explicitly offensive or harmful.
+        self.offensive_keywords = [
+            # Explicit sexual content
+            'porn', 'pornographic', 'nsfw', 'xxx', 'erotic',
+            # Extreme violence (specific acts, not general words)
+            'genocide', 'massacre', 'torture',
+            # Self-harm (specific harmful acts)
+            'self-harm', 'cutting', 'suicide methods',
+            # Note: Removed overly broad terms like 'drug', 'hack', 'abuse', 'attack'
+            # that have legitimate uses in academic/professional contexts
         ]
 
-        # Harmful/inappropriate keywords (expanded)
-        self.harmful_keywords = [
-            # Violence/harm
-            'kill', 'murder', 'suicide', 'bomb', 'weapon',
-            'assault', 'attack', 'hurt', 'harm', 'torture', 'shoot', 'stab', 'poison', 'abuse',
-            # Illegal activities
-            'drug', 'illegal', 'hack', 'steal', 'fraud',
-            'smuggle', 'trafficking', 'launder', 'blackmail', 'extort', 'bribe', 'counterfeit', 'forge',
-            # Drugs/substances
-            'cocaine', 'heroin', 'meth', 'marijuana', 'overdose', 'dealer',
-            # Hacking/cybercrime
-            'phishing', 'malware', 'ransomware', 'ddos', 'exploit', 'crack', 'pirate',
-            # Explicit/adult content
-            'nude', 'sex', 'porn', 'explicit',
-            'nsfw', 'adult content', 'sexual', 'pornographic', 'erotic', 'lewd',
-            # Self-harm
-            'self-harm', 'cutting', 'eating disorder', 'anorexia', 'bulimia',
-            # Hate speech
-            'slur', 'racist', 'sexist', 'homophobic', 'transphobic', 'bigot',
-            # Scams/fraud
-            'pyramid scheme', 'ponzi', 'scam', 'con', 'cheat'
+        # Hate speech patterns - specific slurs and discriminatory language
+        # (Use word boundaries to avoid false positives)
+        self.hate_speech_patterns = [
+            # Add specific slurs here if needed - keeping list minimal
+            # Most slurs are rare enough that we don't need exhaustive blocking
         ]
 
         # Jailbreak attempts (trying to override system instructions) - expanded
@@ -199,48 +164,36 @@ class InputValidator:
 
     def is_on_topic(self, query: str) -> Tuple[bool, str]:
         """
-        Check if query is about the Writing Studio data.
-        
-        SIMPLIFIED: Uses blocklist-only approach. Queries are ALLOWED BY DEFAULT
-        unless they contain off-topic keywords, harmful content, or jailbreak attempts.
-        
-        This is more practical than requiring specific terms, as users can ask
-        questions in many different ways. The three-layer defense still works:
-        - Layer 1: Blocklist validation (blocks hippos, recipes, etc.)
-        - Layer 2: System prompt instructs LLM to refuse off-topic questions
-        - Layer 3: Response filtering catches any off-topic LLM responses
-        
+        Check if query is safe and appropriate.
+
+        MINIMAL FILTERING: Queries are ALLOWED BY DEFAULT unless they contain:
+        1. Genuinely offensive content (explicit sexual, extreme violence, hate speech)
+        2. Jailbreak attempts (trying to override system instructions)
+
+        Philosophy: Trust the supervisor to ask appropriate questions. Let the LLM's
+        system prompt handle off-topic refusals. Only block truly problematic content.
+
         Returns:
             (is_valid: bool, reason: str)
         """
         query_lower = query.lower()
 
-        # Check for off-topic keywords
-        for keyword in self.off_topic_keywords:
+        # Check for offensive content (minimal list)
+        for keyword in self.offensive_keywords:
             if keyword in query_lower:
-                return False, f"off_topic: {keyword}"
+                return False, f"inappropriate: {keyword}"
 
-        # Check for harmful keywords with word boundary protection for short keywords
-        # Short keywords (<=3 chars) need word boundaries to avoid false positives
-        # e.g., "con" should not match "confidence" or "consultant"
-        for keyword in self.harmful_keywords:
-            # Use word boundaries for short keywords to avoid false positives
-            if len(keyword) <= 3:
-                # Use word boundary regex for short keywords
-                pattern = r'\b' + re.escape(keyword) + r'\b'
-                if re.search(pattern, query_lower):
-                    return False, f"inappropriate: {keyword}"
-            else:
-                # Simple substring match for longer keywords
-                if keyword in query_lower:
-                    return False, f"inappropriate: {keyword}"
+        # Check for hate speech patterns (word boundaries to avoid false positives)
+        for pattern in self.hate_speech_patterns:
+            if re.search(pattern, query_lower):
+                return False, "inappropriate: hate_speech"
 
-        # Check for jailbreak attempts
+        # Check for jailbreak attempts (important security layer)
         for pattern in self.jailbreak_patterns:
             if re.search(pattern, query_lower):
                 return False, "jailbreak_attempt"
 
-        # Default: ALLOW the query (unless explicitly blocked above)
+        # Default: ALLOW the query
         return True, "valid"
     
     def log_blocked_query(self, query: str, reason: str):
@@ -270,34 +223,15 @@ class InputValidator:
         """
         Get user-friendly rejection message.
         """
-        if reason.startswith("off_topic"):
+        if reason.startswith("inappropriate"):
             return (
-                "I'm a data analysis assistant for Writing Studio analytics. "
-                "I can only answer questions about the session data you've uploaded. "
-                "Please ask about patterns, trends, or insights in your data."
-            )
-        elif reason.startswith("inappropriate"):
-            return (
-                "I cannot respond to that type of query. "
-                "Please ask questions related to your session data."
+                "I cannot respond to that type of content. "
+                "Please keep questions appropriate and related to the data analysis."
             )
         elif reason == "jailbreak_attempt":
             return (
-                "I'm designed to only discuss your session data. "
+                "I'm designed to discuss your session data. "
                 "Please ask about the analytics in your report."
-            )
-        elif reason == "no_writing_studio_context":
-            return (
-                "I didn't detect any Writing Studio-specific terms in your question. "
-                "I can help with questions about sessions, appointments, students, consultants, "
-                "tutors, satisfaction ratings, courses, booking patterns, and trends. "
-                "Please ask something related to your Writing Studio data."
-            )
-        elif reason == "no_data_keywords":
-            return (
-                "I didn't detect any data-related terms in your question. "
-                "I can help with questions about sessions, students, consultants, "
-                "times, dates, courses, satisfaction, and trends. What would you like to know?"
             )
         else:
             return (
@@ -308,13 +242,15 @@ class InputValidator:
 
 class ResponseFilter:
     """
-    Filter LLM responses for PII leakage and generic knowledge.
-    
+    Filter LLM responses for PII leakage.
+
     Checks for:
     - Email addresses
     - Anonymous IDs (STU_xxxxx, TUT_xxxx)
-    - Suspicious patterns
-    - Generic knowledge (off-topic responses)
+    - Suspicious PII patterns
+
+    Note: Removed generic knowledge filtering - trust the LLM's system prompt
+    to handle off-topic questions. Only block PII leakage.
     """
     
     def __init__(self):
@@ -430,30 +366,19 @@ class ResponseFilter:
     def filter_response(self, response: str) -> str:
         """
         Filter response and return safe version.
-        
-        Checks for:
-        - PII leakage
-        - Generic knowledge (off-topic responses)
-        
+
+        Checks for PII leakage only. Trusts LLM to handle off-topic questions.
+
         If unsafe, returns error message.
         """
-        # Check PII first
+        # Check PII only - removed generic knowledge filtering
         is_safe, reason = self.is_safe(response)
-        
+
         if not is_safe:
             return (
                 "I apologize, but I cannot provide that response as it may contain "
                 "sensitive information. Please rephrase your question to focus on "
                 "aggregated data and trends."
             )
-        
-        # Check for generic knowledge
-        is_generic, generic_reason = self.contains_generic_knowledge(response)
-        
-        if is_generic:
-            return (
-                "I can only answer questions about the Writing Studio session data you've uploaded. "
-                "Please ask about patterns, trends, or specific metrics from your data."
-            )
-        
+
         return response

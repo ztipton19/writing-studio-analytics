@@ -4,7 +4,8 @@
       "Bash(dir:*)",
       "Bash(nul)",
       "Bash(python -c:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(python -m py_compile:*)"
     ],
     "deny": [],
     "ask": []

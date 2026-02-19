@@ -17,6 +17,7 @@ from .data_prep import prepare_data_context, prepare_chart_context
 from .prompt_templates import build_system_prompt, build_full_prompt, format_query_with_data
 from .safety_filters import InputValidator, ResponseFilter
 from .code_executor import CodeExecutor
+from src.utils.audit_logger import audit_event
 
 
 class ChatHandler:
@@ -32,7 +33,14 @@ class ChatHandler:
     - Conversation history management
     """
     
-    def __init__(self, model_path: str, verbose: bool = False, enable_code_execution: bool = True):
+    def __init__(
+        self,
+        model_path: str,
+        verbose: bool = False,
+        enable_code_execution: bool = True,
+        code_execution_timeout_seconds: float = 4.0,
+        code_execution_max_rows: int = 250000
+    ):
         """
         Initialize chat handler.
         
@@ -48,6 +56,8 @@ class ChatHandler:
         self.verbose = verbose
         self.enable_code_execution = enable_code_execution
         self.code_executor: Optional[CodeExecutor] = None
+        self.code_execution_timeout_seconds = code_execution_timeout_seconds
+        self.code_execution_max_rows = code_execution_max_rows
         
         if verbose:
             print("🤖 ChatHandler initialized")
@@ -73,7 +83,12 @@ class ChatHandler:
             df_clean: Cleaned DataFrame
         """
         if self.enable_code_execution:
-            self.code_executor = CodeExecutor(df_clean, verbose=self.verbose)
+            self.code_executor = CodeExecutor(
+                df_clean,
+                verbose=self.verbose,
+                execution_timeout_seconds=self.code_execution_timeout_seconds,
+                max_rows=self.code_execution_max_rows
+            )
             if self.verbose:
                 print(f"📊 Code executor ready for {len(df_clean)} records")
     
@@ -106,6 +121,7 @@ class ChatHandler:
         if not is_valid:
             # Log blocked query for review
             self.input_validator.log_blocked_query(user_query, reason)
+            audit_event("ai_query_blocked", reason=reason)
             
             # Return rejection message immediately (no LLM call)
             rejection_msg = self.input_validator.get_rejection_message(reason)
@@ -167,8 +183,10 @@ class ChatHandler:
                     temperature=0.7,
                     top_p=0.9
                 )
+            audit_event("ai_query_executed", used_code_execution=bool(use_code_exec), success=True)
         except Exception as e:
             error_msg = f"I encountered an error generating a response: {str(e)}"
+            audit_event("ai_query_executed", used_code_execution=bool(use_code_exec), success=False, error=str(e))
             if self.verbose:
                 print(f"❌ Generation error: {str(e)}")
             

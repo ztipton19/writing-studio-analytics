@@ -231,3 +231,5 @@ __marimo__/
 # Logs, reports, and test files
 writing_studio_report_*
 test_*.py
+!tests/
+!tests/test_*.py

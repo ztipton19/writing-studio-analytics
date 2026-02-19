@@ -37,6 +37,7 @@ from src.visualizations import walkin_charts
 from src.core.privacy import lookup_in_codebook, get_codebook_info
 from src.ai_chat.chat_handler import ChatHandler
 from src.ai_chat.setup_model import get_model_path, check_system_requirements
+from src.utils.audit_logger import audit_event
 
 
 class ProcessingOptionsDialog(QDialog):
@@ -1259,6 +1260,7 @@ class AnalyticsDashboard(QMainWindow):
         )
         
         if file_path:
+            audit_event("file_selected", file_path=file_path)
             try:
                 self.load_file(file_path)
             except Exception as e:
@@ -1284,8 +1286,10 @@ class AnalyticsDashboard(QMainWindow):
             
             # Step 2: Auto-detect session type
             data_mode = detect_session_type(df)
+            audit_event("mode_detected", file_path=file_path, mode=data_mode, rows=len(df), columns=len(df.columns))
             
             if data_mode == 'unknown':
+                audit_event("mode_detection_failed", file_path=file_path)
                 QMessageBox.warning(
                     self,
                     "Unknown Data Type",
@@ -1305,6 +1309,7 @@ class AnalyticsDashboard(QMainWindow):
                 self.status_bar.showMessage("Cancelled")
                 
         except Exception as e:
+            audit_event("file_load_error", file_path=file_path, error=str(e))
             QMessageBox.critical(
                 self,
                 "Error",
@@ -1320,6 +1325,13 @@ class AnalyticsDashboard(QMainWindow):
         progress.show()
         
         try:
+            audit_event(
+                "process_started",
+                mode=config.get('data_mode'),
+                create_codebook=config.get('create_codebook'),
+                remove_outliers=config.get('remove_outliers'),
+                input_rows=len(df)
+            )
             
             # Step 0: Starting
             progress.set_step(0, "Starting...")
@@ -1334,6 +1346,7 @@ class AnalyticsDashboard(QMainWindow):
                 session_type=config['data_mode']
             )
             self.codebook_path = codebook_path
+            audit_event("anonymize_complete", mode=config.get('data_mode'), codebook_created=bool(codebook_path))
             
             # Step 2: Clean
             progress.set_step(2, "Cleaning and processing data...")
@@ -1375,6 +1388,12 @@ class AnalyticsDashboard(QMainWindow):
                 f"Completion: {completion_rate:.1f}% | "
                 f"Mode: {config['data_mode'].title()}"
             )
+            audit_event(
+                "process_completed",
+                mode=config.get('data_mode'),
+                total_sessions=total_sessions,
+                completion_rate=completion_rate
+            )
             
             # Update tabs with charts
             self.update_tabs_with_data()
@@ -1399,6 +1418,7 @@ class AnalyticsDashboard(QMainWindow):
             )
                 
         except ValueError as e:
+            audit_event("process_configuration_error", error=str(e))
             QMessageBox.critical(
                 self,
                 "Configuration Error",
@@ -1408,6 +1428,7 @@ class AnalyticsDashboard(QMainWindow):
             self.status_bar.showMessage("Configuration error")
             
         except Exception as e:
+            audit_event("process_error", error=str(e))
             import traceback
             error_details = traceback.format_exc()
             
@@ -1474,8 +1495,10 @@ class AnalyticsDashboard(QMainWindow):
                 f"Filename: {report_filename}",
                 QMessageBox.Ok
             )
+            audit_event("export_pdf_success", path=report_path, sessions=len(self.df_clean), mode=self.data_mode)
             
         except Exception as e:
+            audit_event("export_pdf_error", error=str(e), mode=self.data_mode)
             QMessageBox.critical(
                 self,
                 "Export Error",
@@ -1496,6 +1519,7 @@ class AnalyticsDashboard(QMainWindow):
             return
         
         # Show codebook lookup dialog
+        audit_event("codebook_lookup_opened", has_codebook=bool(self.codebook_path))
         dialog = CodebookLookupDialog(self.codebook_path, self)
         dialog.exec_()
     

@@ -52,6 +52,7 @@ tzdata>=2025.3
 urllib3>=2.6.3
 watchdog>=6.0.0
 zipp>=3.23.0
+pytest>=8.0.0
 
 # AI Chat dependencies (Gemma 3 4B support)
 llama-cpp-python>=0.3.0
