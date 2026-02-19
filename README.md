@@ -48,6 +48,13 @@ This builds from `WritingStudioAnalytics.spec` and outputs:
 - If AI chat model is missing, use setup instructions in `docs/ai-chat-setup-guide.md`.
 - If packaging fails, use `docs/PYQT_PACKAGING_GUIDE.md` and `docs/PACKAGING_QUICKSTART.md`.
 
+## Handoff and Release
+
+- Canonical supervisor handoff: `docs/SUPERVISOR_HANDOFF_V2.md`
+- Release smoke test checklist: `docs/RELEASE_SMOKE_TEST_CHECKLIST.md`
+- Smoke test script: `scripts/release_smoke_test.py`
+- Pinned release dependencies: `requirements-release.txt`
+
 ## License
 
 MIT. See `LICENSE`.
