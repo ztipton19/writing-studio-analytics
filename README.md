@@ -50,11 +50,20 @@ This builds from `WritingStudioAnalytics.spec` and outputs:
 
 ## Handoff and Release
 
+**Status:** Production ready for supervisor handoff
+
+- **Final handoff checklist:** `docs/FINAL_HANDOFF_CHECKLIST.md` ⭐
 - Canonical supervisor handoff: `docs/SUPERVISOR_HANDOFF_V2.md`
 - Release smoke test checklist: `docs/RELEASE_SMOKE_TEST_CHECKLIST.md`
 - Smoke test script: `scripts/release_smoke_test.py`
 - Pre-release gate script: `scripts/pre_release_gate.py`
 - Pinned release dependencies: `requirements-release.txt`
+
+### Quick Verification
+```bash
+python -m pytest tests/ -v              # Run all tests (expect 9/9 passing)
+python build_executable.py              # Build standalone EXE
+```
 
 ## License
 
