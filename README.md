@@ -53,6 +53,7 @@ This builds from `WritingStudioAnalytics.spec` and outputs:
 - Canonical supervisor handoff: `docs/SUPERVISOR_HANDOFF_V2.md`
 - Release smoke test checklist: `docs/RELEASE_SMOKE_TEST_CHECKLIST.md`
 - Smoke test script: `scripts/release_smoke_test.py`
+- Pre-release gate script: `scripts/pre_release_gate.py`
 - Pinned release dependencies: `requirements-release.txt`
 
 ## License

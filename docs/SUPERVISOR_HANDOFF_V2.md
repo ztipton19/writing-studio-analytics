@@ -17,6 +17,7 @@ This is the canonical handoff guide for the EXE-based V2 release.
 2. Run smoke tests with real sample files:
    - `python scripts/release_smoke_test.py --scheduled-file <scheduled_export.xlsx> --walkin-file <walkin_export.xlsx>`
    - Optional AI checks: add `--run-ai`.
+   - Or run all checks together: `python scripts/pre_release_gate.py --scheduled-file <scheduled_export.xlsx> --walkin-file <walkin_export.xlsx> --run-ai`
 3. Build the executable:
    - `python build_executable.py`
 4. Verify output exists:
@@ -58,6 +59,9 @@ This is the canonical handoff guide for the EXE-based V2 release.
 3. AI failures:
    - Check model exists in `models/`.
    - Retry with simpler query phrasing.
+4. Audit trail:
+   - Windows log file: `%LOCALAPPDATA%\\WritingStudioAnalytics\\audit.log`
+   - Each line is JSON with timestamp + event metadata.
 
 ## Ownership Transfer Package
 

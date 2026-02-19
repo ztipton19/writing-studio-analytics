@@ -1,5 +1,8 @@
 # AI Chatbot Testing Summary
 
+> Note: This document reflects legacy V1 (Streamlit) testing context and is kept for historical reference.  
+> Current runtime for V2 is the desktop app: `python src/dashboard/main.py`.
+
 ## Date: January 20, 2026
 
 ## Testing Results

@@ -5,7 +5,11 @@
       "Bash(nul)",
       "Bash(python -c:*)",
       "Bash(findstr:*)",
-      "Bash(python -m py_compile:*)"
+      "Bash(python -m py_compile:*)",
+      "Bash(find:*)",
+      "Bash(python -m pytest --collect-only)",
+      "Bash(python -m pytest:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

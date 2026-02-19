@@ -52,17 +52,17 @@ You should see your model file with its size (e.g., 2.3GB).
 
 ### Step 4: Update Model Path (if needed)
 
-The app uses `get_model_path()` to find the model. If your filename differs from the expected name, update it in `app.py`:
+The app uses `get_model_path()` to find the model. If your filename differs from the expected name, update it in `src/dashboard/main.py`:
 
 ```python
-# In app.py, find the AI Chat tab initialization
+# In src/dashboard/main.py, find the AI Chat tab initialization
 MODEL_PATH = "models/your-actual-model-name.gguf"
 ```
 
 ### Step 5: Run the App
 
 ```bash
-streamlit run app.py
+python src/dashboard/main.py
 ```
 
 Navigate to the **"🤖 AI Chat Assistant"** tab and ask questions!
@@ -101,7 +101,7 @@ CMAKE_ARGS="-DLLAMA_CUBLAS=off" pip install llama-cpp-python
 
 ### In Streamlit App
 
-1. Start the app: `streamlit run app.py`
+1. Start the app: `python src/dashboard/main.py`
 2. Upload CSV and generate report
 3. Navigate to **"🤖 AI Chat Assistant"** tab
 4. Ask questions about your data!
@@ -318,7 +318,7 @@ CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python --no-cache-dir
 
 **Solutions**:
 1. Enable GPU acceleration (see Step 2 above)
-2. Reduce context window (in `app.py` or `llm_engine.py`, change `n_ctx=128000` to `n_ctx=4096`)
+2. Reduce context window (in `src/dashboard/main.py` or `llm_engine.py`, change `n_ctx=128000` to `n_ctx=4096`)
 3. Close other applications to free RAM
 4. Use smaller model (Phi-3-mini or Gemma 2 2B)
 

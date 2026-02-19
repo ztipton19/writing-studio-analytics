@@ -14,7 +14,7 @@ https://huggingface.co/google/gemma-3-4b-it-qat-q4_0-gguf/resolve/main/gemma-3-4
 2. The file will download (approximately 2.3 GB)
 3. Move to `models/` directory in your project
 4. Rename to `gemma-3-4b-it-q4_0.gguf` (if needed)
-5. Run the app: `streamlit run app.py`
+5. Run the app: `python src/dashboard/main.py`
 
 ## Alternative Models (No Authentication Required)
 
@@ -52,7 +52,7 @@ If you prefer not to use Gemma 3, these models work excellently:
 
 2. **Run the app:**
    ```bash
-   streamlit run app.py
+   python src/dashboard/main.py
    ```
 
 3. **Test AI Chat:**
