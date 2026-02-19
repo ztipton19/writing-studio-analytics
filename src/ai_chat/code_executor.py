@@ -14,6 +14,7 @@ import numpy as np
 import warnings
 from typing import Dict, Any, Tuple, Optional
 import traceback
+import ast
 
 
 class CodeExecutor:
@@ -94,6 +95,7 @@ result = None
         }
         
         try:
+            self._validate_generated_code(code)
             # Execute the code
             exec(code, {'__builtins__': {}}, local_vars)
             
@@ -126,6 +128,18 @@ result = None
             })
             
             return False, None, error_msg
+
+    def _validate_generated_code(self, code: str) -> None:
+        """Validate generated code before execution."""
+        if not code or len(code) > 4000:
+            raise ValueError("Generated code is empty or too large")
+
+        tree = ast.parse(code, mode='exec')
+        validator = _SafeCodeValidator()
+        validator.visit(tree)
+
+        if not validator.assigns_result:
+            raise ValueError("Generated code must assign a value to 'result'")
     
     def format_code_prompt(
         self,
@@ -243,14 +257,14 @@ def count_matching_rows(df: pd.DataFrame, condition: str) -> int:
     
     Args:
         df: DataFrame
-        condition: String condition (e.g., "df['column'] > value")
+        condition: Query condition (e.g., "`column` > 5")
         
     Returns:
         int: Count of matching rows
     """
     try:
-        return int(eval(f"len(df[{condition}])"))
-    except:
+        return int(len(df.query(condition, engine='python')))
+    except Exception:
         return 0
 
 
@@ -267,14 +281,14 @@ def calculate_percentage(df: pd.DataFrame, numerator_condition: str, denominator
         float: Percentage (0-100)
     """
     try:
-        numerator = len(df) if not numerator_condition else eval(f"len(df[{numerator_condition}])")
-        denominator = len(df) if not denominator_condition else eval(f"len(df[{denominator_condition}])")
+        numerator = len(df) if not numerator_condition else len(df.query(numerator_condition, engine='python'))
+        denominator = len(df) if not denominator_condition else len(df.query(denominator_condition, engine='python'))
         
         if denominator == 0:
             return 0.0
         
         return round((numerator / denominator) * 100, 1)
-    except:
+    except Exception:
         return 0.0
 
 
@@ -291,7 +305,7 @@ def get_distribution(df: pd.DataFrame, column: str) -> Dict[str, int]:
     """
     try:
         return df[column].value_counts().to_dict()
-    except:
+    except Exception:
         return {}
 
 
@@ -315,5 +329,84 @@ def get_column_stats(df: pd.DataFrame, column: str) -> Dict[str, float]:
             'max': float(col_data.max()),
             'std': float(col_data.std())
         }
-    except:
+    except Exception:
         return {}
+
+
+class _SafeCodeValidator(ast.NodeVisitor):
+    """AST validator for generated code to reduce risky execution patterns."""
+
+    _DISALLOWED_NODES = (
+        ast.Import, ast.ImportFrom, ast.With, ast.AsyncWith,
+        ast.Try, ast.Raise, ast.Assert, ast.Delete,
+        ast.Global, ast.Nonlocal, ast.Lambda,
+        ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef,
+        ast.While, ast.For, ast.AsyncFor, ast.Await, ast.Yield, ast.YieldFrom
+    )
+
+    _ALLOWED_BUILTIN_CALLS = {
+        'len', 'min', 'max', 'sum', 'abs', 'round', 'int', 'float',
+        'str', 'bool', 'list', 'dict', 'set', 'sorted'
+    }
+
+    _DISALLOWED_CALL_NAMES = {
+        'eval', 'exec', 'open', 'compile', 'input', '__import__',
+        'getattr', 'setattr', 'delattr', 'globals', 'locals', 'vars',
+        'help', 'dir', 'type', 'memoryview'
+    }
+
+    _SAFE_METHODS = {
+        'mean', 'median', 'mode', 'min', 'max', 'sum', 'std', 'var', 'nunique',
+        'value_counts', 'unique', 'count', 'size', 'shape', 'dropna', 'fillna',
+        'astype', 'round', 'sort_values', 'sort_index', 'groupby', 'agg',
+        'reset_index', 'rename', 'head', 'tail', 'copy', 'query', 'between',
+        'isin', 'to_dict', 'to_list', 'nlargest', 'nsmallest', 'idxmax', 'idxmin'
+    }
+
+    def __init__(self) -> None:
+        self.allowed_names = {'df', 'pd', 'np', 'result', 'True', 'False', 'None'}
+        self.assigns_result = False
+
+    def visit(self, node):
+        if isinstance(node, self._DISALLOWED_NODES):
+            raise ValueError(f"Disallowed syntax: {type(node).__name__}")
+        return super().visit(node)
+
+    def visit_Name(self, node: ast.Name) -> None:
+        if node.id.startswith('_'):
+            raise ValueError("Private names are not allowed")
+        if isinstance(node.ctx, ast.Load) and node.id not in self.allowed_names and node.id not in self._ALLOWED_BUILTIN_CALLS:
+            raise ValueError(f"Unknown name: {node.id}")
+
+    def visit_Attribute(self, node: ast.Attribute) -> None:
+        if node.attr.startswith('_'):
+            raise ValueError("Private attributes are not allowed")
+        self.generic_visit(node)
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        for target in node.targets:
+            if not isinstance(target, ast.Name):
+                raise ValueError("Only simple variable assignments are allowed")
+            if target.id.startswith('_'):
+                raise ValueError("Private assignment names are not allowed")
+            self.allowed_names.add(target.id)
+            if target.id == 'result':
+                self.assigns_result = True
+        self.generic_visit(node)
+
+    def visit_Call(self, node: ast.Call) -> None:
+        if isinstance(node.func, ast.Name):
+            name = node.func.id
+            if name in self._DISALLOWED_CALL_NAMES:
+                raise ValueError(f"Disallowed function call: {name}")
+            if name not in self._ALLOWED_BUILTIN_CALLS and name not in self.allowed_names:
+                raise ValueError(f"Function call not allowed: {name}")
+        elif isinstance(node.func, ast.Attribute):
+            attr = node.func.attr
+            if attr.startswith('_'):
+                raise ValueError("Private method calls are not allowed")
+            if attr not in self._SAFE_METHODS:
+                raise ValueError(f"Method call not allowed: {attr}")
+        else:
+            raise ValueError("Unsupported call type")
+        self.generic_visit(node)

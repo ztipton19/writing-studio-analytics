@@ -1,4 +1,4 @@
-# src/core/privacy.py
+﻿# src/core/privacy.py
 
 import pandas as pd
 import hashlib
@@ -7,6 +7,7 @@ from datetime import datetime
 import json
 import base64
 import os
+import secrets
 
 
 # ============================================================================
@@ -304,13 +305,14 @@ def save_encrypted_codebook(codebook, filepath, password):
             "Install with: pip install cryptography"
         )
     
-    # Derive encryption key from password
-    salt = b'writing_studio_analytics_2025'  # Fixed salt for consistency
+    # Derive encryption key from password using per-file random salt
+    salt = secrets.token_bytes(16)
+    iterations = 200000
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
         salt=salt,
-        iterations=100000  # High iteration count for security
+        iterations=iterations
     )
     key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
     
@@ -319,19 +321,28 @@ def save_encrypted_codebook(codebook, filepath, password):
     codebook_json = json.dumps(codebook, indent=2).encode()
     encrypted = fernet.encrypt(codebook_json)
     
-    # Save to file
+    # Save envelope (versioned format with KDF parameters)
+    envelope = {
+        'version': 2,
+        'kdf': {
+            'algorithm': 'PBKDF2HMAC-SHA256',
+            'iterations': iterations,
+            'salt_b64': base64.urlsafe_b64encode(salt).decode('utf-8')
+        },
+        'ciphertext_b64': base64.urlsafe_b64encode(encrypted).decode('utf-8')
+    }
     with open(filepath, 'wb') as f:
-        f.write(encrypted)
+        f.write(json.dumps(envelope, separators=(',', ':')).encode('utf-8'))
     
     # NEW: Display session type in output
     session_type = codebook['metadata'].get('session_type', 'unknown').title()
     
-    print(f"\n✅ Codebook encrypted and saved: {filepath}")
+    print(f"\n[OK] Codebook encrypted and saved: {filepath}")
     print(f"   Session Type: {session_type}")  # NEW
     print(f"   Students: {codebook['metadata']['total_students']}")
     print(f"   Tutors: {codebook['metadata']['total_tutors']}")
     print(f"   Date range: {codebook['metadata'].get('dataset_date_range', 'Unknown')}")
-    print("\n⚠️  IMPORTANT: Give codebook + password to supervisor ONLY!")
+    print("\n[IMPORTANT] Give codebook + password to supervisor ONLY!")
     print("   Do NOT commit to GitHub or share insecurely.")
 
 
@@ -356,24 +367,49 @@ def decrypt_codebook(filepath, password):
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"Codebook file not found: {filepath}")
     
-    # Derive decryption key from password
-    salt = b'writing_studio_analytics_2025'
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=salt,
-        iterations=100000
-    )
-    
     try:
-        key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
-        fernet = Fernet(key)
-        
-        # Read and decrypt
+        # Read codebook bytes
         with open(filepath, 'rb') as f:
-            encrypted = f.read()
-        
-        decrypted = fernet.decrypt(encrypted)
+            raw = f.read()
+
+        # Try new versioned JSON envelope first
+        try:
+            envelope = json.loads(raw.decode('utf-8'))
+            if isinstance(envelope, dict) and envelope.get('version') == 2:
+                kdf_info = envelope.get('kdf', {})
+                salt_b64 = kdf_info.get('salt_b64')
+                iterations = int(kdf_info.get('iterations', 200000))
+                if not salt_b64:
+                    raise ValueError("Invalid codebook format: missing salt")
+                salt = base64.urlsafe_b64decode(salt_b64.encode('utf-8'))
+
+                kdf = PBKDF2HMAC(
+                    algorithm=hashes.SHA256(),
+                    length=32,
+                    salt=salt,
+                    iterations=iterations
+                )
+                key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
+                fernet = Fernet(key)
+
+                ciphertext_b64 = envelope.get('ciphertext_b64', '')
+                encrypted = base64.urlsafe_b64decode(ciphertext_b64.encode('utf-8'))
+                decrypted = fernet.decrypt(encrypted)
+            else:
+                raise ValueError("Not v2 envelope")
+        except Exception:
+            # Backward compatibility: legacy raw Fernet token with fixed salt
+            legacy_salt = b'writing_studio_analytics_2025'
+            kdf = PBKDF2HMAC(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=legacy_salt,
+                iterations=100000
+            )
+            key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
+            fernet = Fernet(key)
+            decrypted = fernet.decrypt(raw)
+
         codebook = json.loads(decrypted)
         
         return codebook
@@ -382,18 +418,18 @@ def decrypt_codebook(filepath, password):
         # More specific error messages
         if 'Invalid' in str(e) or 'token' in str(e):
             raise ValueError(
-                "❌ INCORRECT PASSWORD\n"
+                "INCORRECT PASSWORD\n"
                 "The password you entered does not match the codebook encryption.\n"
                 "Please try again with the correct password."
             )
         elif 'JSON' in str(e):
             raise ValueError(
-                "❌ CORRUPTED CODEBOOK\n"
+                "CORRUPTED CODEBOOK\n"
                 "The codebook file appears to be corrupted or invalid.\n"
                 "You may need to regenerate the report."
             )
         else:
-            raise ValueError(f"❌ ERROR: {e}")
+            raise ValueError(f"ERROR: {e}")
 
 
 # ============================================================================
@@ -402,7 +438,7 @@ def decrypt_codebook(filepath, password):
 
 def lookup_in_codebook(anon_id, codebook_path, password):
     """
-    Reverse-lookup: Anonymous ID → Email/Name
+    Reverse-lookup: Anonymous ID â†’ Email/Name
     
     Parameters:
     - anon_id: Anonymous ID (e.g., "STU_04521" or "TUT_0842")
@@ -419,7 +455,7 @@ def lookup_in_codebook(anon_id, codebook_path, password):
         
         # Validate ID format
         if not (anon_id.startswith('STU_') or anon_id.startswith('TUT_')):
-            return "❌ Invalid ID format. Must start with 'STU_' or 'TUT_'"
+            return "Invalid ID format. Must start with 'STU_' or 'TUT_'"
         
         # Lookup in appropriate section
         if anon_id.startswith('STU_'):
@@ -427,24 +463,24 @@ def lookup_in_codebook(anon_id, codebook_path, password):
             if result:
                 return result
             else:
-                return f"❌ Student ID '{anon_id}' not found in codebook"
+                return f"Student ID '{anon_id}' not found in codebook"
         
         elif anon_id.startswith('TUT_'):
             result = codebook['tutors'].get(anon_id)
             if result:
                 return result
             else:
-                return f"❌ Tutor ID '{anon_id}' not found in codebook"
+                return f"Tutor ID '{anon_id}' not found in codebook"
     
     except ValueError as e:
         # Password error or corrupted file (already has nice error message)
         return str(e)
     
     except FileNotFoundError:
-        return f"❌ Codebook file not found: {codebook_path}"
+        return f"Codebook file not found: {codebook_path}"
     
     except Exception as e:
-        return f"❌ Unexpected error: {e}"
+        return f"Unexpected error: {e}"
 
 
 def get_codebook_info(codebook_path, password):
