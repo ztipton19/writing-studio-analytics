@@ -11,6 +11,18 @@ import traceback
 import warnings
 from typing import Any, Dict, Tuple
 
+# Critical for PyInstaller frozen executables
+# Must be called before any multiprocessing operations
+try:
+    from multiprocessing import freeze_support
+    # Always call freeze_support at module level to ensure it runs
+    # This is safe even when not frozen (no-op when not needed)
+    if __name__ != '__main__':
+        # Only call if we're being imported (not when run directly)
+        pass  # freeze_support is called in the actual main entry point
+except ImportError:
+    pass
+
 import numpy as np
 import pandas as pd
 

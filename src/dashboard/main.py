@@ -94,7 +94,7 @@ class ProcessingOptionsDialog(QDialog):
         password_layout = QFormLayout()
         
         self.password_field = QLineEdit()
-        self.password_field.setEchoMode(QLineEdit.Password)
+        self.password_field.setEchoMode(QLineEdit.EchoMode.Password)
         self.password_field.setPlaceholderText("Enter password (12+ characters)")
         self.password_field.textChanged.connect(self.validate_password)
         self.password_field.setEnabled(False)
@@ -104,7 +104,7 @@ class ProcessingOptionsDialog(QDialog):
         password_layout.addRow("", self.password_valid_label)
         
         self.confirm_field = QLineEdit()
-        self.confirm_field.setEchoMode(QLineEdit.Password)
+        self.confirm_field.setEchoMode(QLineEdit.EchoMode.Password)
         self.confirm_field.setPlaceholderText("Confirm password")
         self.confirm_field.textChanged.connect(self.validate_password)
         self.confirm_field.setEnabled(False)
@@ -194,7 +194,7 @@ class ProcessingOptionsDialog(QDialog):
                 self,
                 "Invalid Input",
                 "Please fix errors before proceeding.",
-                QMessageBox.Ok
+                QMessageBox.StandardButton.Ok
             )
             return
         
@@ -229,7 +229,7 @@ class ProgressDialog(QDialog):
         layout = QVBoxLayout()
         
         self.status_label = QLabel("Initializing...")
-        self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setFont(QFont("Arial", 12))
         
         self.progress_bar = QProgressBar()
@@ -267,7 +267,7 @@ class CodebookLookupDialog(QDialog):
         auth_layout = QFormLayout()
         
         self.password_field = QLineEdit()
-        self.password_field.setEchoMode(QLineEdit.Password)
+        self.password_field.setEchoMode(QLineEdit.EchoMode.Password)
         self.password_field.setPlaceholderText("Enter codebook password")
         self.password_field.setMaxLength(100)
         auth_layout.addRow("Password:", self.password_field)
@@ -427,10 +427,10 @@ class CodebookLookupDialog(QDialog):
         audit_event(
             "codebook_lookup",
             id_type="STU" if anon_id.startswith("STU_") else ("TUT" if anon_id.startswith("TUT_") else "unknown"),
-            success=not result.startswith('')
+            success=not result.startswith('❌') and not result.startswith('Invalid') and not result.startswith('Codebook')
         )
         
-        if result.startswith(''):
+        if result.startswith(('❌', 'Invalid', 'Error', 'Codebook')):
             # Error
             self.result_label.setText(result)
             self.result_label.setStyleSheet("color: #C73E1D; font-weight: bold;")
@@ -444,7 +444,7 @@ class CodebookLookupDialog(QDialog):
     def copy_result(self):
         """Copy result to clipboard."""
         result = self.result_label.text()
-        if result and not result.startswith(''):
+        if result and not result.startswith(('❌', 'Invalid', 'Error', 'Codebook', 'Please')):
             clipboard = QApplication.clipboard()
             clipboard.setText(result)
             
@@ -537,7 +537,7 @@ class AIChatTab(QWidget):
                 "<p>This will download ~2.3GB model file to the <code>models/</code> directory.</p>"
                 "<p>After downloading, reopen the application to use AI Chat.</p>"
             )
-            label.setAlignment(Qt.AlignCenter)
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(label)
             self.setLayout(layout)
             return
@@ -548,7 +548,7 @@ class AIChatTab(QWidget):
             "<p>Please wait while the AI model initializes.</p>"
             "<p>This may take 10-30 seconds on first load.</p>"
         )
-        self.loading_label.setAlignment(Qt.AlignCenter)
+        self.loading_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.loading_label.setStyleSheet("color: #666;")
         layout.addWidget(self.loading_label)
         
@@ -815,7 +815,7 @@ class AnalyticsDashboard(QMainWindow):
         # Optional title label
         if title:
             title_label = QLabel(f"<h3>{title}</h3>")
-            title_label.setAlignment(Qt.AlignCenter)
+            title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             title_label.setStyleSheet("margin-bottom: 10px;")
             layout.addWidget(title_label)
         
@@ -843,7 +843,7 @@ class AnalyticsDashboard(QMainWindow):
             "<p style='text-align: center; color: #666; font-size: 14px;'>"
             "Click <b>Open File</b> to load a Penji export and begin analysis."
         )
-        label.setAlignment(Qt.AlignCenter)
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(label)
         layout.addStretch()
         
@@ -1092,7 +1092,7 @@ class AnalyticsDashboard(QMainWindow):
                     "<p>Incentives data is not available for this dataset.</p>"
                     "<p>This tab only appears for scheduled sessions with Incentivized column.</p>"
                 )
-                label.setAlignment(Qt.AlignCenter)
+                label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 layout.addWidget(label)
         
         layout.addStretch()
@@ -1132,11 +1132,11 @@ class AnalyticsDashboard(QMainWindow):
             card_layout = QVBoxLayout()
             
             value_label = QLabel(f"<h2>{value}</h2>")
-            value_label.setAlignment(Qt.AlignCenter)
+            value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             value_label.setStyleSheet(f"color: {color}; font-weight: bold; font-size: 24px;")
             
             title_label = QLabel(title)
-            title_label.setAlignment(Qt.AlignCenter)
+            title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             title_label.setStyleSheet("font-size: 12px; color: #666;")
             
             card_layout.addWidget(value_label)
@@ -1178,7 +1178,7 @@ class AnalyticsDashboard(QMainWindow):
             ai_tab = QWidget()
             ai_layout = QVBoxLayout()
             ai_label = QLabel("<h2>AI Chat</h2><p>Load data to use AI Chat.</p>")
-            ai_label.setAlignment(Qt.AlignCenter)
+            ai_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             ai_layout.addWidget(ai_label)
             ai_tab.setLayout(ai_layout)
             self.tab_widget.addTab(ai_tab, "AI Chat")
@@ -1281,7 +1281,7 @@ class AnalyticsDashboard(QMainWindow):
                     self,
                     "Error Loading File",
                     f"Failed to load file:\n{str(e)}",
-                    QMessageBox.Ok
+                    QMessageBox.StandardButton.Ok
                 )
     
     def load_file(self, file_path):
@@ -1308,14 +1308,14 @@ class AnalyticsDashboard(QMainWindow):
                     "Unknown Data Type",
                     "Unable to detect session type. This file may not be a valid Penji export.\n\n"
                     "Supported formats: Scheduled 40-minute sessions or Walk-in sessions",
-                    QMessageBox.Ok
+                    QMessageBox.StandardButton.Ok
                 )
                 self.status_bar.showMessage("Failed to detect session type")
                 return
             
             # Show configuration dialog
             config_dialog = ProcessingOptionsDialog(data_mode, self)
-            if config_dialog.exec_() == QDialog.Accepted:
+            if config_dialog.exec() == QDialog.DialogCode.Accepted:
                 config = config_dialog.get_config()
                 self.process_data(df, config)
             else:
@@ -1327,7 +1327,7 @@ class AnalyticsDashboard(QMainWindow):
                 self,
                 "Error",
                 f"Failed to load file:\n{str(e)}",
-                QMessageBox.Ok
+                QMessageBox.StandardButton.Ok
             )
             self.status_bar.showMessage("Error loading file")
     
@@ -1427,7 +1427,7 @@ class AnalyticsDashboard(QMainWindow):
                 f"Session type: {config['data_mode'].title()}\n"
                 f"Completion rate: {completion_rate:.1f}%\n\n"
                 "View charts in the tabs above.",
-                QMessageBox.Ok
+                QMessageBox.StandardButton.Ok
             )
                 
         except ValueError as e:
@@ -1436,7 +1436,7 @@ class AnalyticsDashboard(QMainWindow):
                 self,
                 "Configuration Error",
                 str(e),
-                QMessageBox.Ok
+                QMessageBox.StandardButton.Ok
             )
             self.status_bar.showMessage("Configuration error")
             
@@ -1450,7 +1450,7 @@ class AnalyticsDashboard(QMainWindow):
                 "Processing Error",
                 f"Failed to process data:\n{str(e)}\n\n"
                 "See details below for more information.",
-                QMessageBox.Ok
+                QMessageBox.StandardButton.Ok
             )
             
             # Show detailed error in dialog
@@ -1458,8 +1458,8 @@ class AnalyticsDashboard(QMainWindow):
             details_dialog.setWindowTitle("Error Details")
             details_dialog.setText(str(e))
             details_dialog.setDetailedText(error_details)
-            details_dialog.setIcon(QMessageBox.Critical)
-            details_dialog.exec_()
+            details_dialog.setIcon(QMessageBox.Icon.Critical)
+            details_dialog.exec()
             
             self.status_bar.showMessage("Error processing data")
             
@@ -1475,7 +1475,7 @@ class AnalyticsDashboard(QMainWindow):
                 self,
                 "No Data",
                 "Please load a data file first.",
-                QMessageBox.Ok
+                QMessageBox.StandardButton.Ok
             )
             return
         
@@ -1506,7 +1506,7 @@ class AnalyticsDashboard(QMainWindow):
                 f"PDF report saved:\n{report_path}\n\n"
                 f"Sessions: {len(self.df_clean):,}\n"
                 f"Filename: {report_filename}",
-                QMessageBox.Ok
+                QMessageBox.StandardButton.Ok
             )
             audit_event("export_pdf_success", path=report_path, sessions=len(self.df_clean), mode=self.data_mode)
             
@@ -1516,7 +1516,7 @@ class AnalyticsDashboard(QMainWindow):
                 self,
                 "Export Error",
                 f"Failed to export PDF:\n{str(e)}",
-                QMessageBox.Ok
+                QMessageBox.StandardButton.Ok
             )
     
     def show_codebook_lookup(self):
@@ -1527,14 +1527,14 @@ class AnalyticsDashboard(QMainWindow):
                 "No Codebook",
                 "No codebook was created for this dataset.\n\n"
                 "To enable codebook lookup, reprocess data with 'Generate codebook' checked.",
-                QMessageBox.Ok
+                QMessageBox.StandardButton.Ok
             )
             return
         
         # Show codebook lookup dialog
         audit_event("codebook_lookup_opened", has_codebook=bool(self.codebook_path))
         dialog = CodebookLookupDialog(self.codebook_path, self)
-        dialog.exec_()
+        dialog.exec()
     
     def on_tab_changed(self, index):
         """Handle tab change event - triggers lazy loading for AI Chat."""
@@ -1569,6 +1569,11 @@ class AnalyticsDashboard(QMainWindow):
 
 def main():
     """Main entry point."""
+    # CRITICAL: Required for multiprocessing in PyInstaller frozen executables
+    # Must be called before any QApplication or multiprocessing operations
+    from multiprocessing import freeze_support
+    freeze_support()
+    
     app = QApplication(sys.argv)
     app.setApplicationName("Writing Studio Analytics")
     
@@ -1595,9 +1600,8 @@ def main():
     window = AnalyticsDashboard()
     window.show()
     
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":
     main()
-
