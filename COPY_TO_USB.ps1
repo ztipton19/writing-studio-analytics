@@ -37,12 +37,13 @@ if (-not (Test-Path "${USB_DRIVE_LETTER}:")) {
     exit 1
 }
 
-# Check free space (need at least 5GB)
+# Check free space (full package is typically ~6.6GB, so require at least 8GB free)
 $drive = Get-PSDrive -Name $USB_DRIVE_LETTER
 $freeGB = [math]::Round($drive.Free / 1GB, 2)
-if ($drive.Free -lt 5GB) {
+if ($drive.Free -lt 8GB) {
     Write-Host "[WARNING] Only $freeGB GB free on ${USB_DRIVE_LETTER}:" -ForegroundColor Yellow
-    Write-Host "Recommended: 8GB+ for full package" -ForegroundColor Yellow
+    Write-Host "Minimum recommended free space: 8GB (full package is usually ~6.6GB)." -ForegroundColor Yellow
+    Write-Host "Recommended USB capacity: 16GB+ for comfortable headroom." -ForegroundColor Yellow
     $continue = Read-Host "Continue anyway? (y/n)"
     if ($continue -ne "y") { exit 0 }
 }
@@ -88,7 +89,7 @@ if (Test-Path "$SOURCE_DIR\courses.csv") {
 }
 
 # Copy executable (large file - takes longest)
-Write-Host "[3/8] Copying executable (~3.5GB - this takes several minutes)..." -ForegroundColor Green
+Write-Host "[3/8] Copying executable (~3.45GB - this takes several minutes)..." -ForegroundColor Green
 $exeSrc = "$SOURCE_DIR\dist\WritingStudioAnalytics.exe"
 $exeDst = "$DEST_DIR\WritingStudioAnalytics.exe"
 

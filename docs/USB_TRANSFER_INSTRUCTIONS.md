@@ -4,7 +4,7 @@ This document walks you through transferring the Writing Studio Analytics projec
 
 ## Prerequisites
 
-- **USB Drive**: Minimum 8GB, recommended 16GB+ (the executable alone is ~3.5GB)
+- **USB Drive**: Minimum 8GB free space, recommended 16GB+ capacity (full package is ~6.6GB)
 - **Windows computer** for the transfer
 - **Internet connection** (only needed for initial portable Python setup if using that option)
 
@@ -148,7 +148,7 @@ Before handing off, verify:
 
 1. **File check** - Ensure these exist:
    - [ ] `START_PROGRAM.bat`
-   - [ ] `WritingStudioAnalytics.exe` (~3.5GB)
+   - [ ] `WritingStudioAnalytics.exe` (~3.45GB)
    - [ ] `README_FIRST.txt`
    - [ ] `models/gemma-3-4b-it-q4_0.gguf`
    - [ ] `SOURCE_CODE/src/dashboard/main.py`
@@ -196,11 +196,10 @@ Before handing off, verify:
 ### Size Breakdown
 | Component | Size |
 |-----------|------|
-| Executable | ~3.5GB |
-| AI Model | ~2.3GB (embedded in exe) |
-| Source Code | ~500KB |
-| Documentation | ~200KB |
-| **Total** | **~3.5GB** |
+| Executable | ~3.45GB |
+| AI Model (`models/gemma-3-4b-it-q4_0.gguf`) | ~3.16GB (stored separately) |
+| Source Code + Tests + Docs + Scripts | ~0.01GB |
+| **Total package (typical)** | **~6.6GB** |
 
 ---
 
@@ -211,7 +210,7 @@ Before handing off, verify:
 - Solution: Format USB as NTFS or exFAT
 
 ### Slow copy speed
-- Large file transfer (~3.5GB)
+- Large file transfer (~6.6GB package, with two very large files)
 - Expected: 5-15 minutes via USB 3.0
 - Longer via USB 2.0
 
@@ -226,8 +225,9 @@ Before handing off, verify:
 Before handing off the USB:
 
 - [ ] All files copied to USB
-- [ ] Executable is ~3.5GB
+- [ ] Executable is ~3.45GB
 - [ ] AI model file exists in models/ folder
+- [ ] Full package is about ~6.6GB total
 - [ ] START_PROGRAM.bat tested and works
 - [ ] README_FIRST.txt is present
 - [ ] Source code backup included
