@@ -12,7 +12,7 @@ Orchestrates:
 """
 
 from typing import Dict, Any, Tuple, Optional, Callable
-from .llm_engine import GemmaLLM
+from .llm_engine import LocalLLM
 from .data_prep import prepare_data_context, prepare_chart_context
 from .prompt_templates import build_system_prompt, build_full_prompt, format_query_with_data
 from .safety_filters import InputValidator, ResponseFilter
@@ -45,11 +45,12 @@ class ChatHandler:
         Initialize chat handler.
         
         Args:
-            model_path: Path to Gemma 3 4B model file
+            model_path: Path to GGUF model file (any compatible model)
             verbose: Enable verbose logging
             enable_code_execution: Enable LLM code generation for dynamic queries (default True)
         """
-        self.llm = GemmaLLM(model_path, verbose=verbose)
+        self.llm = LocalLLM(model_path, verbose=verbose)
+        self.model_path = model_path
         self.input_validator = InputValidator()
         self.response_filter = ResponseFilter()
         self.conversation_history = []

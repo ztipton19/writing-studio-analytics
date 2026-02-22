@@ -36,7 +36,11 @@ from src.visualizations import charts as scheduled_charts
 from src.visualizations import walkin_charts
 from src.core.privacy import lookup_in_codebook, get_codebook_info
 from src.ai_chat.chat_handler import ChatHandler
-from src.ai_chat.setup_model import get_model_path, check_system_requirements
+from src.ai_chat.model_manager import (
+    ModelRegistry, ModelConfigManager, ModelInfo,
+    get_available_models, get_model_path as get_any_model_path
+)
+from src.ai_chat.setup_model import check_system_requirements
 from src.utils.audit_logger import audit_event
 
 
@@ -89,7 +93,7 @@ class ProcessingOptionsDialog(QDialog):
         options_group.setLayout(options_layout)
         layout.addWidget(options_group)
         
-        # Password fields (initially disabled)
+        # Password fields (state follows create_codebook checkbox)
         self.password_group = QGroupBox("Codebook Password")
         password_layout = QFormLayout()
         
@@ -97,7 +101,6 @@ class ProcessingOptionsDialog(QDialog):
         self.password_field.setEchoMode(QLineEdit.EchoMode.Password)
         self.password_field.setPlaceholderText("Enter password (12+ characters)")
         self.password_field.textChanged.connect(self.validate_password)
-        self.password_field.setEnabled(False)
         password_layout.addRow("Password:", self.password_field)
         
         self.password_valid_label = QLabel("")
@@ -107,7 +110,6 @@ class ProcessingOptionsDialog(QDialog):
         self.confirm_field.setEchoMode(QLineEdit.EchoMode.Password)
         self.confirm_field.setPlaceholderText("Confirm password")
         self.confirm_field.textChanged.connect(self.validate_password)
-        self.confirm_field.setEnabled(False)
         password_layout.addRow("Confirm:", self.confirm_field)
         
         self.match_label = QLabel("")
@@ -134,9 +136,14 @@ class ProcessingOptionsDialog(QDialog):
         layout.addLayout(button_layout)
         self.setLayout(layout)
         
+        # Sync password widgets with current checkbox state on first paint.
+        self.toggle_password_fields(self.create_codebook_cb.isChecked())
+        
     def toggle_password_fields(self, checked):
         """Enable/disable password fields based on codebook checkbox."""
         self.password_group.setEnabled(checked)
+        self.password_field.setEnabled(checked)
+        self.confirm_field.setEnabled(checked)
         if not checked:
             # Clear password fields
             self.password_field.clear()
@@ -468,12 +475,13 @@ class ModelLoadingThread(QThread):
     model_loaded = pyqtSignal(object)  # Signal emitted when model loads (ChatHandler)
     loading_failed = pyqtSignal(str)    # Signal emitted if loading fails
     
-    def __init__(self, model_path, df_clean, metrics, data_mode):
+    def __init__(self, model_path, df_clean, metrics, data_mode, model_info=None):
         super().__init__()
         self.model_path = model_path
         self.df_clean = df_clean
         self.metrics = metrics
         self.data_mode = data_mode
+        self.model_info = model_info  # Optional ModelInfo for display
     
     def run(self):
         """Load model in background thread."""
@@ -497,7 +505,7 @@ class ModelLoadingThread(QThread):
 
 
 class AIChatTab(QWidget):
-    """AI Chat tab with lazy model loading."""
+    """AI Chat tab with lazy model loading and model selector."""
     
     def __init__(self, df_clean, metrics, data_mode, parent=None):
         super().__init__(parent)
@@ -506,55 +514,103 @@ class AIChatTab(QWidget):
         self.data_mode = data_mode
         self.chat_handler = None
         self.model_loaded = False
+        self.current_model_info = None
         
-        # Check if model file exists
-        self.model_exists = self._check_model_file()
+        # Model management
+        self.model_registry = ModelRegistry()
+        self.model_config_manager = ModelConfigManager()
         
         self.init_ui()
-    
-    def _check_model_file(self):
-        """Check if model file exists."""
-        try:
-            model_path = get_model_path()
-            return Path(model_path).exists()
-        except FileNotFoundError:
-            return False
     
     def init_ui(self):
         """Initialize chat interface."""
         layout = QVBoxLayout()
         
-        if not self.model_exists:
-            # Model not found - show download instructions
+        # Check for available models
+        available_models = self.model_registry.get_available_models()
+        
+        if not available_models:
+            # No models found - show download instructions
             label = QLabel(
                 "<h2>AI Model Not Found</h2>"
-                "<p>The AI model file is not installed.</p>"
-                "<p><b>To install the model:</b></p>"
+                "<p>No GGUF model files found in the <code>models/</code> directory.</p>"
+                "<p><b>To install a model:</b></p>"
                 "<ul>"
                 "<li>Open a terminal</li>"
-                "<li>Run: <code>python src/ai_chat/setup_model.py</code></li>"
+                "<li>Run: <code>python -m src.ai_chat.setup_model</code></li>"
                 "</ul>"
-                "<p>This will download ~2.3GB model file to the <code>models/</code> directory.</p>"
-                "<p>After downloading, reopen the application to use AI Chat.</p>"
+                "<p>Or download any GGUF model and place it in the <code>models/</code> folder.</p>"
+                "<p><b>Available models to download:</b></p>"
+                "<ul>"
+                "<li><code>python -m src.ai_chat.setup_model --model gemma</code> - Gemma 3 4B (~2.5GB)</li>"
+                "<li><code>python -m src.ai_chat.setup_model --model phi3</code> - Phi-3 Mini (~2.3GB)</li>"
+                "<li><code>python -m src.ai_chat.setup_model --model llama2</code> - Llama 2 7B (~4.4GB)</li>"
+                "</ul>"
             )
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            label.setWordWrap(True)
             layout.addWidget(label)
             self.setLayout(layout)
             return
         
-        # Model exists - show loading state initially
+        # Model selector section (shown before model loads)
+        self.model_selector_container = QWidget()
+        selector_layout = QVBoxLayout()
+        
+        # Model selector label and combo
+        selector_header = QLabel("<b>Select AI Model:</b>")
+        selector_layout.addWidget(selector_header)
+        
+        selector_row = QHBoxLayout()
+        self.model_combo = QComboBox()
+        self.model_combo.setMinimumWidth(300)
+        self._populate_model_combo(available_models)
+        self.model_combo.currentIndexChanged.connect(self._on_model_selected)
+        selector_row.addWidget(self.model_combo, stretch=1)
+        
+        # Load button
+        self.load_model_btn = QPushButton("Load Model")
+        self.load_model_btn.clicked.connect(self._on_load_model_clicked)
+        selector_row.addWidget(self.load_model_btn)
+        
+        # Refresh button
+        refresh_btn = QPushButton("Refresh")
+        refresh_btn.setToolTip("Rescan models folder for new models")
+        refresh_btn.clicked.connect(self._refresh_models)
+        selector_row.addWidget(refresh_btn)
+        
+        selector_layout.addLayout(selector_row)
+        
+        # Model info label
+        self.model_info_label = QLabel()
+        self.model_info_label.setStyleSheet("color: #666; font-size: 11px;")
+        self._update_model_info_label()
+        selector_layout.addWidget(self.model_info_label)
+        
+        self.model_selector_container.setLayout(selector_layout)
+        layout.addWidget(self.model_selector_container)
+        
+        # Loading state (initially hidden)
         self.loading_label = QLabel(
-            "<h2>Loading AI Model...</h2>"
-            "<p>Please wait while the AI model initializes.</p>"
+            "<h3>Loading AI Model...</h3>"
+            "<p>Please wait while the model initializes.</p>"
             "<p>This may take 10-30 seconds on first load.</p>"
         )
         self.loading_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.loading_label.setStyleSheet("color: #666;")
+        self.loading_label.setVisible(False)
         layout.addWidget(self.loading_label)
         
         # Create chat interface (initially hidden)
         self.chat_container = QWidget()
         chat_layout = QVBoxLayout()
+        
+        # Model info header (shown when model is loaded)
+        self.loaded_model_header = QLabel()
+        self.loaded_model_header.setStyleSheet(
+            "background-color: #e8f5e9; padding: 8px; border-radius: 4px;"
+        )
+        chat_layout.addWidget(self.loaded_model_header)
         
         # Chat history display
         self.chat_display = QTextEdit()
@@ -588,47 +644,155 @@ class AIChatTab(QWidget):
         input_container.setLayout(input_layout)
         chat_layout.addWidget(input_container)
         
-        # Clear button
+        # Clear button row
+        clear_row = QHBoxLayout()
         self.clear_btn = QPushButton("Clear Chat History")
         self.clear_btn.clicked.connect(self.clear_chat)
         self.clear_btn.setEnabled(False)
-        chat_layout.addWidget(self.clear_btn)
+        clear_row.addWidget(self.clear_btn)
+        
+        # Switch model button
+        self.switch_model_btn = QPushButton("Switch Model")
+        self.switch_model_btn.setToolTip("Unload current model and select a different one")
+        self.switch_model_btn.clicked.connect(self._on_switch_model)
+        self.switch_model_btn.setEnabled(False)
+        clear_row.addWidget(self.switch_model_btn)
+        
+        clear_row.addStretch()
+        chat_layout.addLayout(clear_row)
         
         self.chat_container.setLayout(chat_layout)
         self.chat_container.setVisible(False)
         layout.addWidget(self.chat_container)
         
-        self.setLayout(layout)
+        # Add stretch to push everything up
+        layout.addStretch()
         
-        # Start model loading when widget is shown (lazy loading)
-        # We'll trigger this from the tab widget's currentChanged signal
+        self.setLayout(layout)
+    
+    def _populate_model_combo(self, models):
+        """Populate the model selector combo box."""
+        self.model_combo.clear()
+        
+        # Get saved model preference
+        saved_filename = self.model_config_manager.get_selected_model_filename()
+        saved_index = 0
+        
+        for i, model in enumerate(models):
+            # Display format: "Model Name (Size GB)"
+            display_text = f"{model.name} ({model.size_gb} GB)"
+            self.model_combo.addItem(display_text, userData=model)
+            
+            # Check if this is the saved model
+            if model.filename == saved_filename:
+                saved_index = i
+        
+        # Select saved model if it exists
+        if saved_filename and saved_index > 0:
+            self.model_combo.setCurrentIndex(saved_index)
+    
+    def _on_model_selected(self, index):
+        """Handle model selection change."""
+        self._update_model_info_label()
+    
+    def _update_model_info_label(self):
+        """Update the model info label based on selection."""
+        model = self.model_combo.currentData()
+        if model:
+            self.model_info_label.setText(
+                f"File: {model.filename} | Path: {model.path}"
+            )
+        else:
+            self.model_info_label.setText("")
+    
+    def _on_load_model_clicked(self):
+        """Handle Load Model button click."""
+        model = self.model_combo.currentData()
+        if not model:
+            return
+        
+        # Save selection
+        self.model_config_manager.save_selected_model(model)
+        self.current_model_info = model
+        
+        # Start loading
+        self._start_model_loading(model.path, model)
+    
+    def _refresh_models(self):
+        """Refresh the model list from the models directory."""
+        self.model_registry.refresh()
+        models = self.model_registry.get_available_models()
+        
+        if not models:
+            QMessageBox.warning(
+                self,
+                "No Models Found",
+                "No GGUF model files found in the models/ directory.\n\n"
+                "Run: python -m src.ai_chat.setup_model"
+            )
+            return
+        
+        self._populate_model_combo(models)
+        QMessageBox.information(
+            self,
+            "Models Refreshed",
+            f"Found {len(models)} model(s) in models/ directory."
+        )
+    
+    def _on_switch_model(self):
+        """Handle Switch Model button click - unload and show selector."""
+        # Clear chat handler
+        self.chat_handler = None
+        self.model_loaded = False
+        
+        # Hide chat interface, show selector
+        self.chat_container.setVisible(False)
+        self.model_selector_container.setVisible(True)
+        self.loading_label.setVisible(False)
+        
+        # Enable load button
+        self.load_model_btn.setEnabled(True)
+        
+        # Refresh models list
+        self._refresh_models()
     
     def start_model_loading(self):
-        """Start loading the model in background thread."""
+        """Start loading the model in background thread (for auto-load on tab switch)."""
         if self.model_loaded:
             return  # Already loaded
         
-        try:
-            model_path = get_model_path()
-            
-            # Create and start loading thread
-            self.loading_thread = ModelLoadingThread(
-                model_path,
-                self.df_clean,
-                self.metrics,
-                self.data_mode
-            )
-            self.loading_thread.model_loaded.connect(self.on_model_loaded)
-            self.loading_thread.loading_failed.connect(self.on_loading_failed)
-            self.loading_thread.start()
-            
-        except FileNotFoundError as e:
-            self.loading_label.setText(
-                f"<h2>Model File Not Found</h2>"
-                f"<p>{str(e)}</p>"
-                f"<p>Please download the model using:</p>"
-                f"<p><code>python src/ai_chat/setup_model.py</code></p>"
-            )
+        # Get the model to load
+        model = self.model_combo.currentData()
+        if not model:
+            # No models available
+            return
+        
+        # Auto-load the selected/saved model
+        self._start_model_loading(model.path, model)
+    
+    def _start_model_loading(self, model_path, model_info=None):
+        """Start loading the specified model in background thread."""
+        # Show loading state
+        self.model_selector_container.setVisible(False)
+        self.loading_label.setVisible(True)
+        self.loading_label.setText(
+            f"<h3>Loading AI Model...</h3>"
+            f"<p>Loading: {model_info.name if model_info else Path(model_path).name}</p>"
+            f"<p>Please wait while the model initializes.</p>"
+            f"<p>This may take 10-30 seconds on first load.</p>"
+        )
+        
+        # Create and start loading thread
+        self.loading_thread = ModelLoadingThread(
+            model_path,
+            self.df_clean,
+            self.metrics,
+            self.data_mode,
+            model_info
+        )
+        self.loading_thread.model_loaded.connect(self.on_model_loaded)
+        self.loading_thread.loading_failed.connect(self.on_loading_failed)
+        self.loading_thread.start()
     
     def on_model_loaded(self, handler):
         """Called when model loads successfully."""
@@ -639,9 +803,21 @@ class AIChatTab(QWidget):
         self.loading_label.setVisible(False)
         self.chat_container.setVisible(True)
         
+        # Update model header
+        if self.current_model_info:
+            self.loaded_model_header.setText(
+                f"<b>Model:</b> {self.current_model_info.name} | "
+                f"<b>Size:</b> {self.current_model_info.size_gb} GB"
+            )
+        else:
+            self.loaded_model_header.setText(
+                f"<b>Model:</b> {Path(handler.model_path).name}"
+            )
+        
         # Enable input
         self.send_btn.setEnabled(True)
         self.clear_btn.setEnabled(True)
+        self.switch_model_btn.setEnabled(True)
         
         # Show welcome message
         welcome = """<b>AI Assistant:</b> Hello! I'm ready to help you analyze your Writing Studio data.
@@ -1074,16 +1250,18 @@ class AnalyticsDashboard(QMainWindow):
         if self.df_clean is not None:
             # Only show incentives charts for scheduled sessions with Incentivized column
             if self.data_mode == 'scheduled' and 'Incentivized' in self.df_clean.columns:
-                fig1 = scheduled_charts.plot_incentive_breakdown(self.df_clean)
-                if fig1:
+                incentive_metrics = self.metrics.get('incentives', {}) if isinstance(self.metrics, dict) else {}
+
+                fig1 = scheduled_charts.plot_incentive_breakdown(incentive_metrics)
+                if fig1 is not None:
                     self.add_chart_to_layout(layout, fig1, "Incentive Breakdown")
                 
-                fig2 = scheduled_charts.plot_incentives_vs_tutor_rating(self.df_clean)
-                if fig2:
+                fig2 = scheduled_charts.plot_incentives_vs_tutor_rating(incentive_metrics)
+                if fig2 is not None:
                     self.add_chart_to_layout(layout, fig2, "Incentives vs Tutor Rating")
                 
-                fig3 = scheduled_charts.plot_incentives_vs_satisfaction(self.df_clean)
-                if fig3:
+                fig3 = scheduled_charts.plot_incentives_vs_satisfaction(incentive_metrics)
+                if fig3 is not None:
                     self.add_chart_to_layout(layout, fig3, "Incentives vs Satisfaction")
             else:
                 # Show message if no incentives data
@@ -1204,7 +1382,6 @@ class AnalyticsDashboard(QMainWindow):
         export_action.setShortcut("Ctrl+E")
         export_action.setStatusTip("Export full report as PDF")
         export_action.triggered.connect(self.export_pdf)
-        export_action.setEnabled(False)  # Disable until data is loaded
         self.export_action = export_action
         file_menu.addAction(export_action)
         
@@ -1251,7 +1428,6 @@ class AnalyticsDashboard(QMainWindow):
         # Export PDF button
         self.export_btn = QPushButton("Export PDF")
         self.export_btn.clicked.connect(self.export_pdf)
-        self.export_btn.setEnabled(False)  # Disable until data is loaded
         toolbar.addWidget(self.export_btn)
         
     def create_status_bar(self):

@@ -1,12 +1,22 @@
 ﻿"""
-Model Setup Script for Gemma 3 4B
+Model Setup Script for Local LLM Models
 
-Downloads and prepares the Gemma 3 4B Instruct GGUF model for local use.
+Downloads and prepares GGUF models for local use.
+Supports any GGUF model from Hugging Face.
+
+Usage:
+    python -m src.ai_chat.setup_model              # Download default model
+    python -m src.ai_chat.setup_model --list       # List available models
+    python -m src.ai_chat.setup_model --model phi3 # Download specific model
 """
 
 import sys
 from pathlib import Path
+from typing import List, Dict, Optional
 from huggingface_hub import hf_hub_download
+
+# Import model manager for discovery
+from .model_manager import ModelRegistry, ModelInfo
 
 
 def download_gemma_model(
@@ -130,42 +140,85 @@ def download_gemma_model(
 
 def get_model_path(model_dir: str = "models", quantization: str = "Q4_0") -> str:
     """
-    Get the path to the Gemma 3 4B model file.
+    Get the path to a model file.
+    
+    First checks for any available GGUF model in the models directory.
+    Falls back to looking for specific Gemma model for backward compatibility.
     
     Args:
         model_dir: Directory where model is stored
-        quantization: Quantization level (Q4_0, Q4_K_M, Q8_0)
+        quantization: Quantization level (for backward compatibility)
     
     Returns:
         Full path to the model file
     
     Raises:
-        FileNotFoundError: If model file doesn't exist
+        FileNotFoundError: If no model file exists
     """
-    # Map quantization to filename
-    filename_map = {
-        "Q4_0": "gemma-3-4b-it-q4_0.gguf",
-        "Q4_K_M": "gemma-3-4b-it-q4_0.gguf",
-        "Q5_K_M": "gemma-3-4b-it-q5_0.gguf",
-        "Q8_0": "gemma-3-4b-it-q8_0.gguf",
-        "f16": "gemma-3-4b-it-f16.gguf"
-    }
+    registry = ModelRegistry(model_dir)
     
-    if quantization not in filename_map:
-        print(f"Warning: Unknown quantization '{quantization}', using Q4_0")
-        quantization = "Q4_0"
+    # If models exist, return the first available (or user's saved preference)
+    if registry.has_models():
+        from .model_manager import get_model_path as get_any_model_path
+        saved_path = get_any_model_path(model_dir, prefer_saved=True)
+        if saved_path:
+            return saved_path
+        # Fall back to default model
+        default_model = registry.get_default_model()
+        if default_model:
+            return default_model.path
     
-    filename = filename_map[quantization]
-    model_path = Path(model_dir) / filename
+    # No models found - raise helpful error
+    raise FileNotFoundError(
+        f"No GGUF model files found in: {model_dir}/\n"
+        f"\n"
+        f"To download a model, run one of:\n"
+        f"  python -m src.ai_chat.setup_model              # Download Gemma 3 4B (default)\n"
+        f"  python -m src.ai_chat.setup_model --model phi3 # Download Phi-3 Mini\n"
+        f"\n"
+        f"Or manually download any GGUF model and place it in the models/ folder.\n"
+        f"Popular options:\n"
+        f"  - https://huggingface.co/google/gemma-3-4b-it-qat-q4_0-gguf\n"
+        f"  - https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf\n"
+        f"  - https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF"
+    )
+
+
+def list_available_models(model_dir: str = "models") -> List[ModelInfo]:
+    """
+    List all available models in the models directory.
     
-    if not model_path.exists():
-        raise FileNotFoundError(
-            f"Model file not found: {model_path}\n"
-            f"Please run: python src/ai_chat/setup_model.py\n"
-            f"Or download from: https://huggingface.co/TheBloke/Phi-3-mini-4k-instruct-GGUF"
-        )
+    Args:
+        model_dir: Directory to scan for models
+        
+    Returns:
+        List of ModelInfo objects
+    """
+    registry = ModelRegistry(model_dir)
+    return registry.get_available_models()
+
+
+def scan_and_display_models(model_dir: str = "models") -> None:
+    """
+    Scan models directory and display available models.
     
-    return str(model_path)
+    Args:
+        model_dir: Directory to scan
+    """
+    models = list_available_models(model_dir)
+    
+    if not models:
+        print("No models found in models/ directory.")
+        print("\nTo download a model, run:")
+        print("  python -m src.ai_chat.setup_model")
+        return
+    
+    print(f"Found {len(models)} model(s) in models/ directory:\n")
+    for i, model in enumerate(models, 1):
+        print(f"  {i}. {model.name}")
+        print(f"     File: {model.filename}")
+        print(f"     Size: {model.size_gb:.2f} GB")
+        print()
 
 
 def check_system_requirements() -> dict:
@@ -231,12 +284,104 @@ def check_system_requirements() -> dict:
     return info
 
 
+# Predefined model configurations for easy download
+MODEL_CONFIGS = {
+    'gemma': {
+        'name': 'Gemma 3 4B',
+        'repo': 'google/gemma-3-4b-it-qat-q4_0-gguf',
+        'filename': 'gemma-3-4b-it-q4_0.gguf',
+        'size_gb': 2.5,
+        'description': 'Google\'s Gemma 3 4B model (Q4_0 quantization)'
+    },
+    'phi3': {
+        'name': 'Phi-3 Mini 4K',
+        'repo': 'microsoft/Phi-3-mini-4k-instruct-gguf',
+        'filename': 'Phi-3-mini-4k-instruct-q4.gguf',
+        'size_gb': 2.3,
+        'description': 'Microsoft\'s Phi-3 Mini 4K instruct model (Q4)'
+    },
+    'llama2': {
+        'name': 'Llama 2 7B Chat',
+        'repo': 'TheBloke/Llama-2-7B-Chat-GGUF',
+        'filename': 'llama-2-7b-chat.Q4_K_M.gguf',
+        'size_gb': 4.4,
+        'description': 'Meta\'s Llama 2 7B Chat model (Q4_K_M)'
+    },
+    'mistral': {
+        'name': 'Mistral 7B v0.1',
+        'repo': 'TheBloke/Mistral-7B-v0.1-GGUF',
+        'filename': 'mistral-7b-v0.1.Q4_K_M.gguf',
+        'size_gb': 4.4,
+        'description': 'Mistral 7B model (Q4_K_M)'
+    }
+}
+
+
+def download_predefined_model(
+    model_key: str,
+    model_dir: str = "models",
+    force_download: bool = False
+) -> str:
+    """
+    Download a predefined model by key.
+    
+    Args:
+        model_key: Key from MODEL_CONFIGS (gemma, phi3, llama2, mistral)
+        model_dir: Directory to store the model
+        force_download: Force re-download even if file exists
+        
+    Returns:
+        Path to downloaded model file
+    """
+    if model_key not in MODEL_CONFIGS:
+        print(f"Unknown model: {model_key}")
+        print(f"Available models: {', '.join(MODEL_CONFIGS.keys())}")
+        sys.exit(1)
+    
+    config = MODEL_CONFIGS[model_key]
+    model_path = Path(model_dir) / config['filename']
+    
+    # Check if already exists
+    if model_path.exists() and not force_download:
+        print(f"Model already exists: {model_path}")
+        print(f"  Size: {model_path.stat().st_size / (1024**3):.2f} GB")
+        return str(model_path)
+    
+    print(f"Downloading {config['name']}...")
+    print(f"  Repository: {config['repo']}")
+    print(f"  File: {config['filename']}")
+    print(f"  Expected size: ~{config['size_gb']} GB")
+    print()
+    
+    try:
+        downloaded_path = hf_hub_download(
+            repo_id=config['repo'],
+            filename=config['filename'],
+            local_dir=model_dir,
+        )
+        
+        print("Download complete!")
+        print(f"  Location: {downloaded_path}")
+        actual_size = Path(downloaded_path).stat().st_size / (1024**3)
+        print(f"  Size: {actual_size:.2f} GB")
+        
+        return str(downloaded_path)
+        
+    except Exception as e:
+        print(f"Download failed: {e}")
+        print("\nYou may need to:")
+        print("1. Accept the model license on Hugging Face")
+        print("2. Set HF_TOKEN environment variable for gated models")
+        print("3. Download manually from the Hugging Face website")
+        sys.exit(1)
+
+
 def main():
     """Main entry point for model setup."""
     import argparse
     
     parser = argparse.ArgumentParser(
-        description="Download and setup Gemma 3 4B model for local inference"
+        description="Download and setup GGUF models for local inference"
     )
     parser.add_argument(
         '--quantization', '-q',
@@ -259,68 +404,88 @@ def main():
         action='store_true',
         help='Only check system requirements, dont download'
     )
+    parser.add_argument(
+        '--list', '-l',
+        action='store_true',
+        help='List available models in models/ directory'
+    )
+    parser.add_argument(
+        '--model', '-m',
+        choices=list(MODEL_CONFIGS.keys()),
+        help='Download a specific predefined model (gemma, phi3, llama2, mistral)'
+    )
     
     args = parser.parse_args()
     
+    # Handle --list flag
+    if args.list:
+        scan_and_display_models(args.model_dir)
+        return
+    
     print("=" * 60)
-    print("Gemma 3 4B Model Setup")
+    print("GGUF Model Setup")
     print("=" * 60)
     print()
     
     # Check system requirements
-    print(" Checking system requirements...")
+    print("Checking system requirements...")
     info = check_system_requirements()
-    print(f"   Total RAM: {info['total_ram_gb']:.1f} GB")
+    print(f"  Total RAM: {info['total_ram_gb']:.1f} GB")
     if info['gpu_available']:
-        print(f"   GPU: {info.get('gpu_name', 'Available')}")
+        print(f"  GPU: {info.get('gpu_name', 'Available')}")
     else:
-        print("   GPU: Not detected (will use CPU)")
+        print("  GPU: Not detected (will use CPU)")
     print()
     
     if info['warnings']:
-        print("  Warnings:")
+        print("Warnings:")
         for warning in info['warnings']:
-            print(f"   - {warning}")
+            print(f"  - {warning}")
         print()
     
-    # Recommended settings
-    if not args.quantization:
-        args.quantization = info['recommended_quantization']
-    
+    # Handle --check-only flag
     if args.check_only:
-        print(" System check complete.")
-        print(f"   Recommended quantization: {args.quantization}")
-        print(f"   Recommended max context: {info['recommended_max_ctx']:,} tokens")
+        print("System check complete.")
+        print(f"  Recommended max context: {info['recommended_max_ctx']:,} tokens")
+        
+        # Show available models
+        scan_and_display_models(args.model_dir)
         return
     
     # Download model
     try:
-        model_path = download_gemma_model(
-            model_dir=args.model_dir,
-            quantization=args.quantization,
-            force_download=args.force
-        )
+        if args.model:
+            # Download specific predefined model
+            model_path = download_predefined_model(
+                model_key=args.model,
+                model_dir=args.model_dir,
+                force_download=args.force
+            )
+        else:
+            # Default: download Gemma 3 4B
+            model_path = download_gemma_model(
+                model_dir=args.model_dir,
+                quantization=args.quantization,
+                force_download=args.force
+            )
         
         print()
         print("=" * 60)
-        print(" Setup complete!")
+        print("Setup complete!")
         print("=" * 60)
         print()
         print("Next steps:")
         print(f"1. Model saved to: {model_path}")
-        print("2. Update your code to use this model path")
+        print("2. Launch the application to use AI Chat")
         print(f"3. Recommended max_ctx: {info['recommended_max_ctx']:,}")
         print()
-        print("Example usage:")
-        print("```python")
-        print("from llama_cpp import Llama")
-        print(f"llm = Llama(model_path='{model_path}', n_ctx={info['recommended_max_ctx']})")
-        print("```")
+        print("Available models:")
+        scan_and_display_models(args.model_dir)
         
     except Exception as e:
         print()
         print("=" * 60)
-        print(" Setup failed!")
+        print("Setup failed!")
         print("=" * 60)
         print(f"Error: {e}")
         sys.exit(1)

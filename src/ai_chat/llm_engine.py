@@ -1,5 +1,7 @@
 ﻿"""
-GemmaLLM class - Wrapper for Gemma 3 4B using llama-cpp-python.
+LocalLLM class - Wrapper for local GGUF models using llama-cpp-python.
+
+Supports any GGUF model (Gemma, Phi, Llama, Mistral, etc.)
 """
 
 import os
@@ -18,16 +20,32 @@ if TYPE_CHECKING:
     from llama_cpp import Llama
 
 
-class GemmaLLM:
-    """Local LLM engine using Gemma 3 4B via llama.cpp."""
+class LocalLLM:
+    """
+    Local LLM engine using llama.cpp.
+    
+    Supports any GGUF model file. Automatically detects and uses
+    available hardware acceleration (CUDA, Metal, etc.)
+    """
     
     def __init__(self, model_path: str, n_ctx: int = 4096,
                  n_threads: int = None, n_gpu_layers: int = -1, 
                  verbose: bool = False):
+        """
+        Initialize the LLM engine.
+        
+        Args:
+            model_path: Path to the GGUF model file
+            n_ctx: Context window size (default 4096)
+            n_threads: Number of CPU threads (auto-detected if None)
+            n_gpu_layers: Number of layers to offload to GPU (-1 for all)
+            verbose: Enable verbose logging
+        """
         if not LLAMA_AVAILABLE:
             raise ImportError("llama-cpp-python not installed")
         
         self.model_path = model_path
+        self.model_name = Path(model_path).name
         self.n_ctx = n_ctx
         self.n_threads = n_threads or self._detect_optimal_threads()
         self.n_gpu_layers = n_gpu_layers
@@ -35,7 +53,18 @@ class GemmaLLM:
         self._model: Optional[Llama] = None
         
         if verbose:
-            print(f" GemmaLLM initialized: {Path(model_path).name}")
+            print(f" LocalLLM initialized: {self.model_name}")
+    
+    @property
+    def model_info(self) -> Dict[str, Any]:
+        """Get model information."""
+        return {
+            'model_name': self.model_name,
+            'model_path': self.model_path,
+            'n_ctx': self.n_ctx,
+            'n_threads': self.n_threads,
+            'n_gpu_layers': self.n_gpu_layers
+        }
     
     @staticmethod
     def _detect_optimal_threads() -> int:
