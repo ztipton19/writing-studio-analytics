@@ -37,13 +37,13 @@ if (-not (Test-Path "${USB_DRIVE_LETTER}:")) {
     exit 1
 }
 
-# Check free space (full package is typically ~6.6GB, so require at least 8GB free)
+# Check free space (source+model package is typically ~3.2GB, keep headroom)
 $drive = Get-PSDrive -Name $USB_DRIVE_LETTER
 $freeGB = [math]::Round($drive.Free / 1GB, 2)
-if ($drive.Free -lt 8GB) {
+if ($drive.Free -lt 5GB) {
     Write-Host "[WARNING] Only $freeGB GB free on ${USB_DRIVE_LETTER}:" -ForegroundColor Yellow
-    Write-Host "Minimum recommended free space: 8GB (full package is usually ~6.6GB)." -ForegroundColor Yellow
-    Write-Host "Recommended USB capacity: 16GB+ for comfortable headroom." -ForegroundColor Yellow
+    Write-Host "Minimum recommended free space: 5GB for Python/source package." -ForegroundColor Yellow
+    Write-Host "Recommended USB capacity: 8GB+ (you have plenty with 32GB)." -ForegroundColor Yellow
     $continue = Read-Host "Continue anyway? (y/n)"
     if ($continue -ne "y") { exit 0 }
 }
@@ -71,11 +71,11 @@ if ($confirm -ne "y") {
 
 # Create destination directory
 Write-Host ""
-Write-Host "[1/8] Creating destination directory..." -ForegroundColor Green
+Write-Host "[1/7] Creating destination directory..." -ForegroundColor Green
 New-Item -ItemType Directory -Force -Path $DEST_DIR | Out-Null
 
 # Copy root batch files and readme
-Write-Host "[2/8] Copying launcher files..." -ForegroundColor Green
+Write-Host "[2/7] Copying launcher files..." -ForegroundColor Green
 Copy-Item -Force "$SOURCE_DIR\START_PROGRAM.bat" $DEST_DIR
 Copy-Item -Force "$SOURCE_DIR\README_FIRST.txt" $DEST_DIR
 Copy-Item -Force "$SOURCE_DIR\setup_portable_python.bat" $DEST_DIR
@@ -88,25 +88,8 @@ if (Test-Path "$SOURCE_DIR\courses.csv") {
     Copy-Item -Force "$SOURCE_DIR\courses.csv" $DEST_DIR
 }
 
-# Copy executable (large file - takes longest)
-Write-Host "[3/8] Copying executable (~3.45GB - this takes several minutes)..." -ForegroundColor Green
-$exeSrc = "$SOURCE_DIR\dist\WritingStudioAnalytics.exe"
-$exeDst = "$DEST_DIR\WritingStudioAnalytics.exe"
-
-if (Test-Path $exeSrc) {
-    # Use robocopy for large file with progress
-    $exeSize = (Get-Item $exeSrc).Length / 1GB
-    Write-Host "       File size: $([math]::Round($exeSize, 2)) GB" -ForegroundColor Gray
-    Copy-Item -Force $exeSrc $exeDst
-} else {
-    Write-Host "[ERROR] Executable not found: $exeSrc" -ForegroundColor Red
-    Write-Host "Please build the executable first: python build_executable.py" -ForegroundColor Yellow
-    Read-Host "Press Enter to exit"
-    exit 1
-}
-
 # Copy models folder
-Write-Host "[4/8] Copying AI models..." -ForegroundColor Green
+Write-Host "[3/7] Copying AI models..." -ForegroundColor Green
 $modelsDest = "$DEST_DIR\models"
 New-Item -ItemType Directory -Force -Path $modelsDest | Out-Null
 Get-ChildItem -Path "$SOURCE_DIR\models" -File | ForEach-Object {
@@ -117,7 +100,7 @@ Get-ChildItem -Path "$SOURCE_DIR\models" -File | ForEach-Object {
 }
 
 # Copy source code
-Write-Host "[5/8] Copying source code..." -ForegroundColor Green
+Write-Host "[4/7] Copying source code..." -ForegroundColor Green
 $srcDest = "$DEST_DIR\SOURCE_CODE"
 New-Item -ItemType Directory -Force -Path $srcDest | Out-Null
 
@@ -135,15 +118,15 @@ Copy-Item -Force "$SOURCE_DIR\requirements-release.txt" $srcDest
 Copy-Item -Force "$SOURCE_DIR\pytest.ini" $srcDest
 
 # Copy additional docs to root
-Write-Host "[6/8] Copying documentation..." -ForegroundColor Green
+Write-Host "[5/7] Copying documentation..." -ForegroundColor Green
 Copy-Item -Recurse -Force "$SOURCE_DIR\docs" $DEST_DIR
 
 # Verify critical files
-Write-Host "[7/8] Verifying copied files..." -ForegroundColor Green
+Write-Host "[6/7] Verifying copied files..." -ForegroundColor Green
 $errors = @()
 
 if (-not (Test-Path "$DEST_DIR\START_PROGRAM.bat")) { $errors += "START_PROGRAM.bat missing" }
-if (-not (Test-Path "$DEST_DIR\WritingStudioAnalytics.exe")) { $errors += "WritingStudioAnalytics.exe missing" }
+if (-not (Test-Path "$DEST_DIR\RUN_WITH_PYTHON.bat")) { $errors += "RUN_WITH_PYTHON.bat missing" }
 if (-not (Test-Path "$DEST_DIR\README_FIRST.txt")) { $errors += "README_FIRST.txt missing" }
 if (-not (Test-Path "$DEST_DIR\models\gemma-3-4b-it-q4_0.gguf")) { $errors += "AI model file missing" }
 if (-not (Test-Path "$DEST_DIR\SOURCE_CODE\src\dashboard\main.py")) { $errors += "Source code entry point missing" }
@@ -157,7 +140,7 @@ if ($errors.Count -gt 0) {
 }
 
 # Calculate total size
-Write-Host "[8/8] Calculating total size..." -ForegroundColor Green
+Write-Host "[7/7] Calculating total size..." -ForegroundColor Green
 $totalSize = (Get-ChildItem -Path $DEST_DIR -Recurse -File | Measure-Object -Property Length -Sum).Sum / 1GB
 Write-Host "       Total package size: $([math]::Round($totalSize, 2)) GB" -ForegroundColor Gray
 

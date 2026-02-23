@@ -2,7 +2,7 @@
 REM ============================================================
 REM Writing Studio Analytics - USB Launcher
 REM ============================================================
-REM Double-click this file to start the program.
+REM Double-click this file to start the program (Python mode).
 REM ============================================================
 
 title Writing Studio Analytics
@@ -11,39 +11,64 @@ REM Get the directory where this batch file is located
 set "APP_DIR=%~dp0"
 cd /d "%APP_DIR%"
 
-REM Check if executable exists
-if not exist "WritingStudioAnalytics.exe" (
+REM Ensure Python launcher exists
+if not exist "%APP_DIR%RUN_WITH_PYTHON.bat" (
     echo.
-    echo [ERROR] WritingStudioAnalytics.exe not found!
+    echo [ERROR] RUN_WITH_PYTHON.bat not found!
     echo.
-    echo Expected location: %APP_DIR%WritingStudioAnalytics.exe
+    echo Expected location: %APP_DIR%RUN_WITH_PYTHON.bat
     echo.
-    echo Please ensure the executable is in the same folder as this batch file.
+    echo Please ensure USB package files are intact.
     echo.
     pause
     exit /b 1
 )
 
-REM Create necessary directories for the application
-if not exist "%LOCALAPPDATA%\WritingStudioAnalytics" mkdir "%LOCALAPPDATA%\WritingStudioAnalytics"
+REM First-run setup if portable Python is missing
+if not exist "%APP_DIR%python\python.exe" (
+    echo.
+    echo ========================================================
+    echo   First-time setup required
+    echo ========================================================
+    echo Portable Python was not found in this folder.
+    echo.
+    echo This will run:
+    echo   1) setup_portable_python.bat
+    echo   2) INSTALL_DEPENDENCIES.bat
+    echo   3) RUN_WITH_PYTHON.bat
+    echo.
+    set /p CONTINUE_SETUP="Continue now? (y/n): "
+    if /i not "%CONTINUE_SETUP%"=="y" (
+        echo Setup cancelled.
+        pause
+        exit /b 1
+    )
+
+    call "%APP_DIR%setup_portable_python.bat"
+    if %ERRORLEVEL% neq 0 (
+        echo.
+        echo [ERROR] Python setup failed.
+        pause
+        exit /b %ERRORLEVEL%
+    )
+
+    call "%APP_DIR%INSTALL_DEPENDENCIES.bat"
+    if %ERRORLEVEL% neq 0 (
+        echo.
+        echo [ERROR] Dependency installation failed.
+        pause
+        exit /b %ERRORLEVEL%
+    )
+)
 
 echo.
 echo ========================================================
 echo   Writing Studio Analytics
-echo   Starting application...
+echo   Starting application (Python mode)...
 echo ========================================================
-echo.
-echo NOTE: First launch may take 10-30 seconds to unpack.
-echo       Subsequent launches will be faster.
 echo.
 echo IMPORTANT: Keep this window open while using the app.
 echo            Close it when you're done to exit cleanly.
 echo.
 
-REM Launch the application
-start "" "%APP_DIR%WritingStudioAnalytics.exe"
-
-REM Wait a moment then show success message
-timeout /t 3 /nobreak > nul
-echo [SUCCESS] Application launched! You can minimize this window.
-echo.
+call "%APP_DIR%RUN_WITH_PYTHON.bat"

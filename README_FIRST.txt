@@ -5,32 +5,15 @@
 QUICK START (Recommended)
 -------------------------
 1. Double-click START_PROGRAM.bat
-2. Wait 10-30 seconds for first launch
+2. If prompted, allow first-time setup:
+   - setup_portable_python.bat
+   - INSTALL_DEPENDENCIES.bat
 3. The application window will appear
-
-That's it! The executable includes everything needed.
-
-
-ALTERNATIVE: Run with Python (For Developers)
-----------------------------------------------
-If you need to modify the code or the executable doesn't work:
-
-1. Double-click setup_portable_python.bat
-   - Downloads Python (~15MB)
-   - Takes 2-5 minutes
-
-2. Double-click INSTALL_DEPENDENCIES.bat
-   - Installs required packages (~500MB)
-   - Takes 5-15 minutes
-
-3. Double-click RUN_WITH_PYTHON.bat
-   - Runs from source code
 
 
 WHAT'S IN THIS FOLDER
 ---------------------
 START_PROGRAM.bat          - Main launcher (use this!)
-WritingStudioAnalytics.exe - The compiled application (~3.5GB)
 
 setup_portable_python.bat  - Downloads portable Python
 INSTALL_DEPENDENCIES.bat   - Installs Python packages
@@ -54,16 +37,12 @@ FEATURES
 TROUBLESHOOTING
 ---------------
 Q: Nothing happens when I run START_PROGRAM.bat
-A: Wait 30 seconds. First launch unpacks files. Check that 
-   WritingStudioAnalytics.exe exists in this folder.
+A: First launch can take several minutes while Python and dependencies
+   install. Keep the window open and follow prompts.
 
 Q: "Application not found" error
-A: Ensure WritingStudioAnalytics.exe is in the same folder as 
-   START_PROGRAM.bat
-
-Q: Antivirus warning
-A: This is a false positive. The executable is safe. Add an exception 
-   or use the Python method instead.
+A: Ensure these files are present in the same folder:
+   START_PROGRAM.bat, RUN_WITH_PYTHON.bat, setup_portable_python.bat
 
 Q: AI Chat tab shows "Model not found"
 A: Ensure the models/ folder contains gemma-3-4b-it-q4_0.gguf
@@ -73,8 +52,8 @@ SYSTEM REQUIREMENTS
 -------------------
 - Windows 10 or later
 - 8GB RAM minimum (16GB recommended)
-- No installation required
-- No internet connection required (after initial setup)
+- Internet required for first-time Python/dependency setup
+- No internet required after setup is complete
 
 
 DATA PRIVACY
@@ -88,7 +67,7 @@ DATA PRIVACY
 
 FOR MORE HELP
 -------------
-See docs/SUPERVISOR_HANDOFF_V2.md for detailed instructions.
+See docs/USB_TRANSFER_INSTRUCTIONS.md for transfer instructions.
 See docs/FINAL_HANDOFF_CHECKLIST.md for feature overview.
 
 
