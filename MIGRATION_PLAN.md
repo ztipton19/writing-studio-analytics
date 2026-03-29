@@ -144,6 +144,41 @@ Web Crypto with same params as Python: 100,000 iterations, SHA-256, fixed salt `
 | 7 | Column Mapping tab, error handling, polish | Supervisor can fix column names when Penji changes format |
 | 8 | `vite build` with `vite-plugin-singlefile` | Single `.html` file, tested by double-click in Chrome + Edge |
 
+## Getting Started: Week 1 Kickoff Plan
+
+1. **Create the JS repo scaffold**
+   - Initialize `writing-studio-analytics-js` with Vite (vanilla JS template).
+   - Add dependencies from the Tech Stack table.
+   - Copy `column_mapping.json` into the new repo root.
+
+2. **Build Phase 1 vertical slice first**
+   - Implement `fileLoader.js` for CSV and Excel parsing.
+   - Implement `columnMapping.js` validation against required fields.
+   - Wire a minimal `main.js` + `ui.js` flow that can:
+     - upload file
+     - detect session type (scheduled vs walk-in)
+     - display column validation pass/fail results
+
+3. **Establish parity fixtures before heavy coding**
+   - Export 2-3 representative datasets from the Python app (scheduled, walk-in, mixed edge-case).
+   - Save Python reference outputs for cleaning + key metrics as JSON snapshots.
+   - Store snapshots under `tests/fixtures/` in the JS repo.
+
+4. **Set up automated checks early**
+   - Add Vitest + CI command for local parity checks.
+   - Add initial tests for `statistics.js` quantile/IQR/Gini and SHA-256 ID generation.
+
+5. **Demo checkpoint at end of week**
+   - Deliver a runnable prototype showing file upload + validation + one sample chart.
+   - Confirm the supervisor can open the prototype with no Python installed.
+
+### Week 1 Definition of Done
+
+- New JS repo builds successfully (`npm run build`).
+- A test file can be uploaded and validated end-to-end in the browser.
+- At least one fixture-based unit test suite is passing.
+- Scope and acceptance criteria for Phase 2 are agreed before porting all cleaning logic.
+
 ### Phase Exit Criteria
 
 - Phase 2 exit: cleaning output for the golden dataset matches Python on row count, dropped-row IDs, and duration outlier bounds.
