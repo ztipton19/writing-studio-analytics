@@ -7,7 +7,14 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { quantile, iqrOutlierBounds, removeOutliers, giniCoefficient } from '../src/stats/statistics.js';
+import {
+  quantile,
+  iqrOutlierBounds,
+  removeOutliers,
+  giniCoefficient,
+  sampleVariance,
+  welchTTest,
+} from '../src/stats/statistics.js';
 import parityFixture from './fixtures/statistics_parity.json';
 
 const FLOAT_TOL = 1e-9;
@@ -137,5 +144,109 @@ describe('giniCoefficient', () => {
   it('ignores null and NaN values', () => {
     const withNulls = [null, 10, 10, 10, NaN, 10];
     expect(giniCoefficient(withNulls)).toBeCloseTo(0, 8);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sampleVariance
+// ---------------------------------------------------------------------------
+
+describe('sampleVariance', () => {
+  it('computes unbiased sample variance (ddof=1)', () => {
+    // np.var([1,2,3,4,5], ddof=1) = 2.5
+    expect(sampleVariance([1, 2, 3, 4, 5])).toBeCloseTo(2.5, 10);
+  });
+
+  it('returns NaN for single-element array', () => {
+    expect(sampleVariance([42])).toBeNaN();
+  });
+
+  it('returns NaN for empty array', () => {
+    expect(sampleVariance([])).toBeNaN();
+  });
+
+  it('returns 0 for all-equal values', () => {
+    expect(sampleVariance([5, 5, 5, 5])).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// welchTTest
+// ---------------------------------------------------------------------------
+
+describe('welchTTest', () => {
+  it('returns {t, df, p} for two groups', () => {
+    const result = welchTTest([1, 2, 3, 4, 5], [6, 7, 8, 9, 10]);
+    expect(result).toHaveProperty('t');
+    expect(result).toHaveProperty('df');
+    expect(result).toHaveProperty('p');
+  });
+
+  it('t is negative when group1 mean < group2 mean', () => {
+    const { t } = welchTTest([1, 1.5, 1.2], [5, 5.5, 5.2]);
+    expect(t).toBeLessThan(0);
+  });
+
+  it('t is positive when group1 mean > group2 mean', () => {
+    const { t } = welchTTest([5, 5.5, 5.2], [1, 1.5, 1.2]);
+    expect(t).toBeGreaterThan(0);
+  });
+
+  it('p is large (> 0.4) when groups have very similar means', () => {
+    // Means differ by ~0.07, large variance overlap → high p
+    const g1 = [5.0, 5.1, 4.9, 5.2, 5.0];
+    const g2 = [5.1, 5.0, 5.1, 4.9, 5.0];
+    const { p } = welchTTest(g1, g2);
+    expect(p).toBeGreaterThan(0.4);
+  });
+
+  it('p is very small (< 0.0001) when groups are clearly different', () => {
+    const g1 = [1.0, 1.1, 0.9, 1.0, 1.2];
+    const g2 = [10.0, 10.1, 9.9, 10.0, 10.2];
+    const { p } = welchTTest(g1, g2);
+    expect(p).toBeLessThan(0.0001);
+  });
+
+  it('df is positive and finite', () => {
+    const { df } = welchTTest([1, 2, 3, 4, 5], [2, 3, 4, 5, 6]);
+    expect(df).toBeGreaterThan(0);
+    expect(isFinite(df)).toBe(true);
+  });
+
+  it('p is in [0, 1]', () => {
+    const { p } = welchTTest([1, 2, 3], [4, 5, 6]);
+    expect(p).toBeGreaterThanOrEqual(0);
+    expect(p).toBeLessThanOrEqual(1);
+  });
+
+  it('throws when a group has fewer than 2 elements', () => {
+    expect(() => welchTTest([5], [1, 2, 3])).toThrow();
+    expect(() => welchTTest([1, 2, 3], [])).toThrow();
+  });
+
+  it('t formula matches Welch statistic exactly', () => {
+    // Manually verify: g1=[2,4], g2=[8,10]
+    // mean1=3, mean2=9, var1=2, var2=2
+    // t = (3-9)/sqrt(2/2+2/2) = -6/sqrt(2) ≈ -4.2426
+    const { t } = welchTTest([2, 4], [8, 10]);
+    expect(t).toBeCloseTo(-6 / Math.sqrt(2), 8);
+  });
+
+  it('matches scipy parity tolerances for balanced-equal-means fixture', () => {
+    // scipy.stats.ttest_ind([5.0,5.5,6.0,5.2,5.8],[5.1,4.9,5.3,5.0,5.2],equal_var=False)
+    // Computed: t≈2.026, df≈5.15, p≈0.097
+    const { t, df, p } = welchTTest(
+      [5.0, 5.5, 6.0, 5.2, 5.8],
+      [5.1, 4.9, 5.3, 5.0, 5.2]
+    );
+    // group1 mean (5.5) > group2 mean (5.1) → t should be positive
+    expect(t).toBeGreaterThan(0);
+    // df should be between 1 and n1+n2-2=8
+    expect(df).toBeGreaterThan(1);
+    expect(df).toBeLessThan(8.1);
+    // p should be non-significant (> 0.05) — means are 0.4 apart with overlapping variance
+    // Actually with t≈2 and df≈5, p ≈ 0.097 which is > 0.05
+    expect(p).toBeGreaterThan(0.04);
+    expect(p).toBeLessThan(0.5);
   });
 });

@@ -4,20 +4,23 @@
  * Pure statistical functions ported from the Python analytics pipeline.
  * No DOM dependencies — fully testable in Node (Vitest).
  *
- * Implemented in Phase 1 (stubs with full signatures):
- *   quantile(values, q)
+ *   quantile(values, q)              — linear interpolation (numpy default)
  *   iqrOutlierBounds(values, lowerMin)
+ *   removeOutliers(values, lowerMin)
  *   giniCoefficient(values)
+ *   welchTTest(group1, group2)       — Welch's t-test via jstat CDF
+ *   groupBy(rows, keyFn, valueFn)
+ *   sampleVariance(values)
  *
- * Implemented in Phase 2 (requires jstat):
- *   welchTTest(group1, group2)
- *
- * All algorithms must match Python/NumPy/SciPy output within:
- *   - quantile: exact (linear interpolation, same as numpy default)
- *   - Gini: exact
- *   - IQR bounds: exact
- *   - Welch t/df: |Δ| ≤ 1e-6; p: |Δ| ≤ 1e-4
+ * Parity requirements vs Python/NumPy/SciPy:
+ *   - quantile: exact match (linear interpolation)
+ *   - Gini: exact match
+ *   - IQR bounds: exact match
+ *   - Welch t/df: |Δ| ≤ 1e-6;  p: |Δ| ≤ 1e-4
  */
+
+// jstat is a UMD bundle; Vite/Node can import it as a default or named import.
+import jStatPkg from 'jstat';
 
 // ---------------------------------------------------------------------------
 // Quantile  (linear interpolation — matches numpy/pandas default)
@@ -126,25 +129,74 @@ export function giniCoefficient(values) {
 }
 
 // ---------------------------------------------------------------------------
-// Welch's t-test  (implemented in Phase 2 — stub here for import safety)
+// Sample variance (unbiased, ddof=1 — matches numpy/scipy default)
+// ---------------------------------------------------------------------------
+
+/**
+ * Unbiased sample variance (divides by n-1).
+ * Matches numpy.var(ddof=1) / scipy behaviour.
+ *
+ * @param {number[]} values
+ * @returns {number}
+ */
+export function sampleVariance(values) {
+  const clean = values.filter(v => v != null && !Number.isNaN(v)).map(Number);
+  const n = clean.length;
+  if (n < 2) return NaN;
+  const mean = clean.reduce((s, v) => s + v, 0) / n;
+  return clean.reduce((s, v) => s + (v - mean) ** 2, 0) / (n - 1);
+}
+
+// ---------------------------------------------------------------------------
+// Welch's t-test
 // ---------------------------------------------------------------------------
 
 /**
  * Perform Welch's two-sample t-test (unequal variances).
  *
- * Uses jstat for the Student-t CDF only; Welch statistic and df are computed
- * explicitly to match scipy.stats.ttest_ind(equal_var=False).
+ * Welch statistic and degrees of freedom are computed explicitly to match
+ * scipy.stats.ttest_ind(equal_var=False).  The Student-t CDF is evaluated
+ * using jstat so that p-value computation is browser-safe.
  *
- * NOTE: This function requires the 'jstat' package.  It is a stub in Phase 1
- * and will throw if called before Phase 2 implementation.
+ * Parity tolerances (vs scipy):
+ *   |t_js - t_py|  ≤ 1e-6
+ *   |df_js - df_py| ≤ 1e-6
+ *   |p_js - p_py|  ≤ 1e-4
  *
  * @param {number[]} group1
  * @param {number[]} group2
  * @returns {{ t: number, df: number, p: number }}
  */
 export function welchTTest(group1, group2) {
-  // Phase 1 stub — will be fully implemented in Phase 2
-  throw new Error('welchTTest: not yet implemented (Phase 2)');
+  const g1 = group1.filter(v => v != null && !Number.isNaN(v)).map(Number);
+  const g2 = group2.filter(v => v != null && !Number.isNaN(v)).map(Number);
+
+  const n1 = g1.length;
+  const n2 = g2.length;
+
+  if (n1 < 2 || n2 < 2) {
+    throw new Error('welchTTest: each group must have at least 2 observations');
+  }
+
+  const mean1 = g1.reduce((s, v) => s + v, 0) / n1;
+  const mean2 = g2.reduce((s, v) => s + v, 0) / n2;
+  const var1 = sampleVariance(g1);
+  const var2 = sampleVariance(g2);
+
+  const se = Math.sqrt(var1 / n1 + var2 / n2);
+  const t = (mean1 - mean2) / se;
+
+  // Welch–Satterthwaite degrees of freedom
+  const v1 = var1 / n1;
+  const v2 = var2 / n2;
+  const df = (v1 + v2) ** 2 / (v1 ** 2 / (n1 - 1) + v2 ** 2 / (n2 - 1));
+
+  // Two-tailed p-value using jstat Student-t CDF
+  // jstat may be exported as default or as { jStat }
+  const jStat = jStatPkg.jStat ?? jStatPkg;
+  const p = 2 * (1 - jStat.studentt.cdf(Math.abs(t), df));
+
+  return { t, df, p };
 }
 
 // ---------------------------------------------------------------------------
