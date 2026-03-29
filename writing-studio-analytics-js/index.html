@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Writing Studio Analytics</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      background: #f5f6fa;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 0 24px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 { font-size: 18px; font-weight: 600; }
+    header span { font-size: 12px; opacity: .6; }
+
+    /* ── Tab bar ── */
+    #tab-bar {
+      display: flex;
+      background: #fff;
+      border-bottom: 2px solid #e8eaf0;
+      padding: 0 24px;
+    }
+    .tab-btn {
+      padding: 14px 20px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      color: #666;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: color .15s, border-color .15s;
+    }
+    .tab-btn:hover { color: #1a1a2e; }
+    .tab-btn.active { color: #4f46e5; border-bottom-color: #4f46e5; }
+    .tab-btn:disabled { opacity: .4; cursor: default; }
+
+    /* ── Tab panels ── */
+    .tab-panel { display: none; padding: 24px; }
+    .tab-panel.active { display: block; }
+
+    /* ── Upload zone ── */
+    #upload-zone {
+      border: 2px dashed #c7cad6;
+      border-radius: 12px;
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      background: #fff;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+    #upload-zone:hover, #upload-zone.drag-over {
+      border-color: #4f46e5;
+      background: #f5f3ff;
+    }
+    #upload-zone .icon { font-size: 40px; margin-bottom: 12px; }
+    #upload-zone h2 { font-size: 16px; margin-bottom: 6px; }
+    #upload-zone p { color: #888; font-size: 13px; }
+    #file-input { display: none; }
+
+    /* ── Progress bar ── */
+    #progress-container {
+      display: none;
+      max-width: 640px;
+      margin: 16px auto 0;
+    }
+    #progress-label { font-size: 13px; color: #555; margin-bottom: 6px; }
+    #progress-bar-track {
+      height: 8px;
+      background: #e8eaf0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    #progress-bar-fill {
+      height: 100%;
+      background: #4f46e5;
+      border-radius: 4px;
+      width: 0%;
+      transition: width .3s ease;
+    }
+
+    /* ── Alert / error banner ── */
+    #alert-area { max-width: 640px; margin: 16px auto 0; }
+    .alert {
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 8px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .alert-error   { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; }
+    .alert-warning { background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; }
+    .alert-success { background: #f0fdf4; border: 1px solid #86efac; color: #166534; }
+    .alert-info    { background: #eff6ff; border: 1px solid #93c5fd; color: #1e40af; }
+
+    /* ── Validation results card ── */
+    #validation-card {
+      display: none;
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid #e8eaf0;
+      max-width: 800px;
+      margin: 24px auto 0;
+      overflow: hidden;
+    }
+    #validation-card h3 {
+      padding: 16px 20px;
+      border-bottom: 1px solid #e8eaf0;
+      font-size: 14px;
+      background: #f9fafb;
+    }
+    .val-section { padding: 16px 20px; }
+    .val-section + .val-section { border-top: 1px solid #f1f3f8; }
+    .val-section h4 { font-size: 13px; margin-bottom: 10px; color: #555; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-green  { background: #dcfce7; color: #166534; }
+    .badge-red    { background: #fee2e2; color: #991b1b; }
+    .badge-yellow { background: #fef9c3; color: #92400e; }
+    .badge-blue   { background: #dbeafe; color: #1e40af; }
+
+    .col-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .col-pill {
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      border: 1px solid;
+    }
+    .col-pill-ok      { background: #f0fdf4; border-color: #86efac; color: #166534; }
+    .col-pill-missing { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+    .col-pill-extra   { background: #eff6ff; border-color: #93c5fd; color: #1e40af; }
+
+    /* ── Summary table ── */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+    .summary-kpi {
+      background: #f9fafb;
+      border: 1px solid #e8eaf0;
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+    .summary-kpi .kpi-val { font-size: 22px; font-weight: 700; color: #4f46e5; }
+    .summary-kpi .kpi-lbl { font-size: 11px; color: #888; margin-top: 2px; }
+
+    /* ── Proceed button ── */
+    #proceed-btn {
+      display: none;
+      margin: 20px auto 0;
+      padding: 10px 28px;
+      background: #4f46e5;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    #proceed-btn:hover { background: #4338ca; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Writing Studio Analytics</h1>
+    <span>University of Arkansas</span>
+  </header>
+
+  <div id="tab-bar">
+    <button class="tab-btn active" data-tab="upload">Upload</button>
+    <button class="tab-btn" data-tab="report" disabled>Report</button>
+    <button class="tab-btn" data-tab="codebook" disabled>Codebook</button>
+    <button class="tab-btn" data-tab="mapping" disabled>Column Mapping</button>
+  </div>
+
+  <!-- ── Upload tab ── -->
+  <div id="tab-upload" class="tab-panel active">
+    <div id="upload-zone" role="button" tabindex="0" aria-label="Upload CSV or Excel file">
+      <div class="icon">📂</div>
+      <h2>Drop your Penji export here</h2>
+      <p>Supports CSV and Excel (.xlsx / .xls) · Scheduled sessions &amp; Walk-ins</p>
+      <p style="margin-top:8px; font-size:12px; color:#aaa;">Click to browse or drag a file</p>
+    </div>
+    <input type="file" id="file-input" accept=".csv,.xlsx,.xls" />
+
+    <div id="progress-container">
+      <div id="progress-label">Loading…</div>
+      <div id="progress-bar-track"><div id="progress-bar-fill"></div></div>
+    </div>
+
+    <div id="alert-area"></div>
+
+    <div id="validation-card">
+      <h3 id="validation-title">Validation Results</h3>
+      <div class="val-section">
+        <div class="summary-grid" id="summary-grid"></div>
+      </div>
+      <div class="val-section" id="required-section">
+        <h4>Required columns</h4>
+        <div class="col-list" id="required-list"></div>
+      </div>
+      <div class="val-section" id="optional-section">
+        <h4>Optional columns detected</h4>
+        <div class="col-list" id="optional-list"></div>
+      </div>
+      <div class="val-section" id="missing-optional-section" style="display:none">
+        <h4>Optional columns not found (features may be limited)</h4>
+        <div class="col-list" id="missing-optional-list"></div>
+      </div>
+    </div>
+
+    <button id="proceed-btn">Continue to Report →</button>
+  </div>
+
+  <!-- ── Report tab ── -->
+  <div id="tab-report" class="tab-panel">
+    <p style="color:#888; text-align:center; padding:48px 0">Upload a file to generate the report.</p>
+  </div>
+
+  <!-- ── Codebook tab ── -->
+  <div id="tab-codebook" class="tab-panel">
+    <p style="color:#888; text-align:center; padding:48px 0">Codebook features coming in Phase 3.</p>
+  </div>
+
+  <!-- ── Column Mapping tab ── -->
+  <div id="tab-mapping" class="tab-panel">
+    <p style="color:#888; text-align:center; padding:48px 0">Column mapping editor coming in Phase 7.</p>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

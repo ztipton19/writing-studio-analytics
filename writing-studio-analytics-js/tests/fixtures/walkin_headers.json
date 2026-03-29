@@ -1,0 +1,19 @@
+{
+  "_comment": "Representative column headers from a Penji walk-in (drop-in) export. Used to verify session-type detection and column validation.",
+  "headers": [
+    "Student Email",
+    "Tutor Email",
+    "Unique ID",
+    "Status",
+    "Course",
+    "Duration Minutes",
+    "Check In At Date",
+    "Check In At Time",
+    "Started At Date",
+    "Started At Time",
+    "Ended At Date",
+    "Ended At Time",
+    "Cancelled At Date",
+    "Cancelled At Time"
+  ]
+}

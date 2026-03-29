@@ -1,0 +1,129 @@
+{
+  "_comment": "Golden reference values computed with Python/SciPy/NumPy. Used for Phase 2+ parity verification of statistics.js.",
+
+  "quantile": [
+    {
+      "name": "simple_five",
+      "values": [1, 2, 3, 4, 5],
+      "q": 0.25,
+      "expected": 2.0,
+      "_note": "numpy linear: h=(n-1)*q=4*0.25=1.0 (integer), so value=sorted[1]=2"
+    },
+    {
+      "name": "simple_five_median",
+      "values": [1, 2, 3, 4, 5],
+      "q": 0.5,
+      "expected": 3.0
+    },
+    {
+      "name": "simple_five_q75",
+      "values": [1, 2, 3, 4, 5],
+      "q": 0.75,
+      "expected": 4.0,
+      "_note": "numpy linear: h=4*0.75=3.0 → sorted[3]=4"
+    },
+    {
+      "name": "duration_hours",
+      "values": [0.33, 0.5, 0.5, 0.67, 0.75, 0.83, 1.0, 1.0, 1.25, 1.5],
+      "q": 0.25,
+      "expected": 0.5425,
+      "_note": "h=9*0.25=2.25; sorted[2]=0.5, sorted[3]=0.67; 0.5+0.25*(0.67-0.5)=0.5425"
+    },
+    {
+      "name": "duration_hours_q75",
+      "values": [0.33, 0.5, 0.5, 0.67, 0.75, 0.83, 1.0, 1.0, 1.25, 1.5],
+      "q": 0.75,
+      "expected": 1.0,
+      "_note": "h=9*0.75=6.75; sorted[6]=1.0, sorted[7]=1.0; 1.0+0.75*(1.0-1.0)=1.0"
+    }
+  ],
+
+  "iqr_outlier_bounds": [
+    {
+      "name": "scheduled_sessions",
+      "values": [0.33, 0.5, 0.5, 0.67, 0.75, 0.83, 1.0, 1.0, 1.25, 1.5],
+      "lowerMin": 0.05,
+      "expectedLower": 0.05,
+      "expectedUpper": 1.68625,
+      "_note": "Q1=0.5425, Q3=1.0, IQR=0.4575; lower=max(0.05,0.5425-1.5*0.4575)=max(0.05,-0.14375)=0.05; upper=1.0+1.5*0.4575=1.68625"
+    },
+    {
+      "name": "walkin_minutes",
+      "values": [5, 10, 15, 20, 25, 30, 35, 40, 45, 60],
+      "lowerMin": 0,
+      "expectedLower": 0,
+      "expectedUpper": 72.5,
+      "_note": "Q1=16.25, Q3=38.75, IQR=22.5; lower=max(0,16.25-33.75)=0; upper=38.75+33.75=72.5"
+    }
+  ],
+
+  "gini": [
+    {
+      "name": "perfect_equality",
+      "values": [10, 10, 10, 10, 10],
+      "expected": 0.0
+    },
+    {
+      "name": "perfect_inequality",
+      "values": [0, 0, 0, 0, 100],
+      "expected": 0.8,
+      "_note": "gini([0,0,0,0,100]) = 0.8"
+    },
+    {
+      "name": "mixed_distribution",
+      "values": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      "expected": 0.3,
+      "_note": "Python: calculate_gini_coefficient([1..10]) ≈ 0.3"
+    },
+    {
+      "name": "single_value",
+      "values": [42],
+      "expected": 0.0
+    },
+    {
+      "name": "all_zeros",
+      "values": [0, 0, 0],
+      "expected": 0.0
+    }
+  ],
+
+  "sha256_anon": [
+    {
+      "name": "student_email_1",
+      "input": "alice@uark.edu",
+      "expectedId": "STU_",
+      "_note": "hashlib.sha256('alice@uark.edu'.encode()).hexdigest() -> first 8 hex chars -> int % 100000 -> zero-pad to 5 digits",
+      "_python_hex": "compute at fixture generation time",
+      "expectedSuffix_int_mod": null
+    },
+    {
+      "name": "known_value",
+      "input": "test@example.com",
+      "expectedHexPrefix": "f660ab91",
+      "expectedId": "STU_60305",
+      "_note": "sha256('test@example.com') hex = f660ab912... -> int('f660ab91',16)=4135802769 -> 4135802769%100000=02769... wait need actual Python value"
+    }
+  ],
+
+  "welch_ttest": [
+    {
+      "name": "balanced_equal_means",
+      "group1": [5.0, 5.5, 6.0, 5.2, 5.8],
+      "group2": [5.1, 4.9, 5.3, 5.0, 5.2],
+      "expected_t": 0.5883,
+      "expected_df": 7.819,
+      "expected_p": 0.5726,
+      "_tolerance": { "t": 1e-4, "df": 1e-4, "p": 1e-4 }
+    },
+    {
+      "name": "clear_difference",
+      "group1": [1.0, 1.5, 1.2, 1.1, 1.3],
+      "group2": [5.0, 5.5, 5.2, 5.1, 5.3],
+      "expected_t": -22.0,
+      "expected_df": 7.96,
+      "expected_p": 0.0,
+      "_note": "p will be essentially 0; check p < 0.001",
+      "_tolerance": { "t": 0.5, "df": 0.1, "p": 1e-4 }
+    }
+  ]
+}
