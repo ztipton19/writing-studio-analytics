@@ -192,6 +192,56 @@
       transition: background .15s;
     }
     #proceed-btn:hover { background: #4338ca; }
+
+    /* ── Codebook UI ── */
+    .cb-section {
+      background: #fff;
+      border: 1px solid #e8eaf0;
+      border-radius: 12px;
+      max-width: 600px;
+      margin: 0 auto 24px;
+      overflow: hidden;
+    }
+    .cb-section h3 {
+      padding: 14px 20px;
+      background: #f9fafb;
+      border-bottom: 1px solid #e8eaf0;
+      font-size: 14px;
+    }
+    .cb-section form { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+    .cb-field { display: flex; flex-direction: column; gap: 4px; }
+    .cb-field label { font-size: 12px; font-weight: 600; color: #555; }
+    .cb-field input[type="text"],
+    .cb-field input[type="password"],
+    .cb-field input[type="file"] {
+      padding: 8px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 13px;
+      width: 100%;
+    }
+    .cb-field input:focus { outline: none; border-color: #4f46e5; }
+    .cb-submit {
+      align-self: flex-start;
+      padding: 8px 22px;
+      background: #4f46e5;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .cb-submit:hover { background: #4338ca; }
+    .cb-result {
+      display: none;
+      margin: 0 20px 20px;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    .cb-result-success { background: #f0fdf4; border: 1px solid #86efac; color: #166534; }
+    .cb-result-error   { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; white-space: pre-wrap; }
   </style>
 </head>
 <body>
@@ -253,7 +303,49 @@
 
   <!-- ── Codebook tab ── -->
   <div id="tab-codebook" class="tab-panel">
-    <p style="color:#888; text-align:center; padding:48px 0">Codebook features coming in Phase 3.</p>
+    <p style="color:#888; font-size:13px; max-width:600px; margin: 0 auto 24px">
+      Use these tools to work with an encrypted codebook file (.json) created when
+      anonymising a dataset. The codebook maps anonymous IDs (STU_/TUT_) back to
+      the original email addresses. Your password never leaves the browser.
+    </p>
+
+    <!-- Lookup section -->
+    <div class="cb-section">
+      <h3>Reverse Lookup — find original email from anonymous ID</h3>
+      <form id="cb-lookup-form" autocomplete="off">
+        <div class="cb-field">
+          <label for="cb-lookup-file">Codebook file (.json)</label>
+          <input type="file" id="cb-lookup-file" accept=".json" />
+        </div>
+        <div class="cb-field">
+          <label for="cb-lookup-id">Anonymous ID (e.g. STU_02769 or TUT_0842)</label>
+          <input type="text" id="cb-lookup-id" placeholder="STU_00000" />
+        </div>
+        <div class="cb-field">
+          <label for="cb-lookup-pwd">Password</label>
+          <input type="password" id="cb-lookup-pwd" placeholder="Codebook password" />
+        </div>
+        <button type="submit" class="cb-submit">Look up</button>
+      </form>
+      <div id="cb-lookup-result" class="cb-result"></div>
+    </div>
+
+    <!-- Info section -->
+    <div class="cb-section">
+      <h3>Codebook Info — view metadata without revealing identities</h3>
+      <form id="cb-info-form" autocomplete="off">
+        <div class="cb-field">
+          <label for="cb-info-file">Codebook file (.json)</label>
+          <input type="file" id="cb-info-file" accept=".json" />
+        </div>
+        <div class="cb-field">
+          <label for="cb-info-pwd">Password</label>
+          <input type="password" id="cb-info-pwd" placeholder="Codebook password" />
+        </div>
+        <button type="submit" class="cb-submit">Show info</button>
+      </form>
+      <div id="cb-info-result" class="cb-result"></div>
+    </div>
   </div>
 
   <!-- ── Column Mapping tab ── -->

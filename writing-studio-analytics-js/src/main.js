@@ -23,6 +23,7 @@ import {
   showProceedButton,
   hideProceedButton,
 } from './ui.js';
+import { initCodebookUI } from './codebook/codebookUI.js';
 
 // ---------------------------------------------------------------------------
 // App state
@@ -38,6 +39,7 @@ let _processedData = null;
 document.addEventListener('DOMContentLoaded', () => {
   initTabs();
   bindUploadZone();
+  initCodebookUI();
 });
 
 // ---------------------------------------------------------------------------
